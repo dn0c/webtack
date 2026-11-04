@@ -130,13 +130,14 @@ Once connected, your AI assistant can invoke:
 
 ## Knowledge Exports & Data Portability
 
-WideWeb guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 11 open standards via the **Export Hub** (`/export.html`) or the CLI:
+WideWeb guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 12 open standards via the **Export Hub** (`/export.html`) or the CLI:
 
 | Target | Command | Primary Ecosystem | Output File |
 | :--- | :--- | :--- | :--- |
 | **NotebookLM Digest** | `curate.py export --target digest` | NotebookLM, Claude Projects | `vault_digest.md` |
 | **Obsidian Vault** | `curate.py export --target obsidian` | Obsidian, Logseq, Foam | `vault_obsidian.zip` |
 | **HTML Bookmarks** | `curate.py export --target bookmarks-html` | Chrome, Safari, Firefox, Arc | `bookmarks.html` |
+| **Raindrop.io CSV** | `curate.py export --target raindrop-csv` | Raindrop.io Collections | `raindrop_export.csv` |
 | **Readwise Highlights**| `curate.py export --target readwise` | Readwise, Reader | `readwise.csv` |
 | **`llms.txt` Index** | `curate.py export --target llms-txt` | LLM Agents, Context Optimization | `llms.txt` |
 | **Are.na CSV** | `curate.py export --target arena-csv` | Are.na Channels | `arena_export.csv` |
