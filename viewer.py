@@ -23,7 +23,7 @@ def get_atoms_data(vault_dir: Path):
     rows = conn.execute("SELECT * FROM atoms ORDER BY created_at DESC").fetchall()
 
     atoms_data = []
-    kind_counts = {"all": len(rows), "link": 0, "quote": 0, "note": 0, "image": 0, "video": 0, "file": 0}
+    kind_counts = {"all": len(rows), "article": 0, "bookmark": 0, "video": 0, "quote": 0, "note": 0, "image": 0, "file": 0, "link": 0}
 
     for r in rows:
         raw = json.loads(r["raw_json"])
@@ -295,11 +295,13 @@ def generate_viewer(vault_dir: Path) -> Path:
       background: var(--tag-bg);
       color: var(--tag-text);
     }}
-    .kind-link {{ color: #2B6CB0; background: rgba(43,108,176,0.1); }}
+    .kind-article {{ color: #2B6CB0; background: rgba(43,108,176,0.1); }}
+    .kind-bookmark {{ color: #0D9488; background: rgba(13,148,136,0.1); }}
+    .kind-link {{ color: #0D9488; background: rgba(13,148,136,0.1); }}
+    .kind-video {{ color: #6B46C1; background: rgba(107,70,193,0.1); }}
     .kind-quote {{ color: #9B2C2C; background: rgba(155,44,44,0.1); }}
     .kind-note {{ color: #7B341E; background: rgba(123,52,30,0.1); }}
     .kind-image {{ color: #2C7A7B; background: rgba(44,122,123,0.1); }}
-    .kind-video {{ color: #6B46C1; background: rgba(107,70,193,0.1); }}
     
     .card-cover {{
       width: 100%;
@@ -348,6 +350,44 @@ def generate_viewer(vault_dir: Path) -> Path:
       -webkit-line-clamp: 4;
       -webkit-box-orient: vertical;
       overflow: hidden;
+    }}
+    .card-notes.markdown-body p, .card-notes.markdown-body ul, .card-notes.markdown-body ol {{
+      margin: 0 0 6px 0;
+    }}
+    .card-notes.markdown-body p:last-child {{
+      margin-bottom: 0;
+    }}
+    .card-notes.markdown-body a {{
+      color: var(--accent);
+      text-decoration: underline;
+    }}
+    .card-notes.markdown-body code {{
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: var(--tag-bg);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }}
+    .meta-notes-banner .markdown-body p {{
+      margin: 0 0 8px 0;
+    }}
+    .meta-notes-banner .markdown-body p:last-child {{
+      margin-bottom: 0;
+    }}
+    .meta-notes-banner .markdown-body ul, .meta-notes-banner .markdown-body ol {{
+      margin: 4px 0 8px 18px;
+      padding: 0;
+    }}
+    .meta-notes-banner .markdown-body a {{
+      color: var(--accent);
+      text-decoration: underline;
+    }}
+    .meta-notes-banner .markdown-body code {{
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.06);
+      padding: 1px 5px;
+      border-radius: 3px;
     }}
     .card-footer {{
       padding: 10px 16px 14px;
@@ -869,11 +909,12 @@ def generate_viewer(vault_dir: Path) -> Path:
       <div class="controls">
         <div class="filter-tabs">
           <button class="tab-btn active" data-filter="all">All <span class="tab-badge" id="badge-all"></span></button>
-          <button class="tab-btn" data-filter="link">Links <span class="tab-badge" id="badge-link"></span></button>
+          <button class="tab-btn" data-filter="article">Articles <span class="tab-badge" id="badge-article"></span></button>
+          <button class="tab-btn" data-filter="bookmark">Bookmarks <span class="tab-badge" id="badge-bookmark"></span></button>
+          <button class="tab-btn" data-filter="video">Videos <span class="tab-badge" id="badge-video"></span></button>
           <button class="tab-btn" data-filter="quote">Quotes <span class="tab-badge" id="badge-quote"></span></button>
           <button class="tab-btn" data-filter="note">Notes <span class="tab-badge" id="badge-note"></span></button>
           <button class="tab-btn" data-filter="image">Images <span class="tab-badge" id="badge-image"></span></button>
-          <button class="tab-btn" data-filter="video">Videos <span class="tab-badge" id="badge-video"></span></button>
         </div>
         <div class="search-box">
           <span class="search-icon">🔍</span>
@@ -893,13 +934,14 @@ def generate_viewer(vault_dir: Path) -> Path:
     </div>
     <div class="capture-form">
       <div class="capture-tabs">
-        <button class="cap-tab-btn active" data-tab="link" onclick="switchCaptureTab('link')">🔗 Link</button>
+        <button class="cap-tab-btn active" data-tab="article" onclick="switchCaptureTab('article')">📖 Article</button>
+        <button class="cap-tab-btn" data-tab="bookmark" onclick="switchCaptureTab('bookmark')">🔖 Bookmark</button>
         <button class="cap-tab-btn" data-tab="quote" onclick="switchCaptureTab('quote')">✍️ Quote</button>
         <button class="cap-tab-btn" data-tab="note" onclick="switchCaptureTab('note')">📝 Note</button>
       </div>
 
-      <!-- Link Form -->
-      <form id="linkForm" onsubmit="handleCaptureSubmit(event, 'link')">
+      <!-- Link / URL Form -->
+      <form id="linkForm" onsubmit="handleCaptureSubmit(event, activeUrlKind)">
         <div class="form-group">
           <label>URL</label>
           <input type="url" id="capUrl" placeholder="https://example.com/essay" required autofocus>
@@ -1049,26 +1091,26 @@ def generate_viewer(vault_dir: Path) -> Path:
         if (atom.kind === 'quote') {{
           bodyHtml = `
             <div class="card-body">
-              <div class="quote-content">“${{atom.excerpt || atom.title}}”</div>
-              ${{atom.author ? `<div class="author-byline">— ${{atom.author}}</div>` : ''}}
-              ${{atom.notes ? `<div class="card-notes">${{atom.notes}}</div>` : ''}}
+              <div class="quote-content">“${{escapeHtml(atom.excerpt || atom.title)}}”</div>
+              ${{atom.author ? `<div class="author-byline">— ${{escapeHtml(atom.author)}}</div>` : ''}}
+              ${{atom.notes ? `<div class="card-notes markdown-body">${{renderMarkdown(atom.notes)}}</div>` : ''}}
             </div>
           `;
         }} else if (atom.kind === 'note') {{
           bodyHtml = `
             <div class="card-body">
-              <div class="card-title">${{atom.title}}</div>
-              <div class="card-notes" style="-webkit-line-clamp: 8;">${{atom.excerpt || ''}}</div>
+              <div class="card-title">${{escapeHtml(atom.title)}}</div>
+              <div class="card-notes markdown-body" style="-webkit-line-clamp: 8;">${{renderMarkdown(atom.excerpt || '')}}</div>
             </div>
           `;
         }} else {{
           bodyHtml = `
             <div class="card-body">
               <div class="card-title">
-                ${{atom.destination_url ? `<a href="${{atom.destination_url}}" target="_blank" rel="noopener">${{atom.title}}</a>` : atom.title}}
+                ${{atom.destination_url ? `<a href="${{atom.destination_url}}" target="_blank" rel="noopener">${{escapeHtml(atom.title)}}</a>` : escapeHtml(atom.title)}}
               </div>
-              ${{atom.author ? `<div class="author-byline">${{atom.author}}</div>` : ''}}
-              ${{atom.notes ? `<div class="card-notes">${{atom.notes}}</div>` : ''}}
+              ${{atom.author ? `<div class="author-byline">${{escapeHtml(atom.author)}}</div>` : ''}}
+              ${{atom.notes ? `<div class="card-notes markdown-body">${{renderMarkdown(atom.notes)}}</div>` : ''}}
             </div>
           `;
         }}
@@ -1077,8 +1119,12 @@ def generate_viewer(vault_dir: Path) -> Path:
         let extrasHtml = '';
         if (atom.kind === 'video' || (atom.raw && atom.raw.payload && atom.raw.payload.video && atom.raw.payload.video.embed_url)) {{
           extrasHtml = `<button class="read-btn" style="background:#6B46C1;" onclick="openVideoPlayer('${{atom.id}}')">▶ Play</button>`;
-        }} else if (atom.article_markdown) {{
+        }} else if (atom.kind === 'article' || atom.article_markdown) {{
           extrasHtml = `<button class="read-btn" onclick="openReader('${{atom.id}}')">📖 Read</button>`;
+        }} else if (atom.kind === 'note') {{
+          extrasHtml = `<button class="read-btn" style="background:#4A5568;" onclick="openReader('${{atom.id}}')">📝 Open</button>`;
+        }} else if (atom.kind === 'bookmark' && atom.destination_url) {{
+          extrasHtml = `<a class="read-btn" style="background:transparent; border:1px solid var(--border); color:var(--text); text-decoration:none;" href="${{atom.destination_url}}" target="_blank" rel="noopener">↗ Visit</a>`;
         }} else if (atom.metadata && atom.metadata.color_palette && atom.metadata.color_palette.length) {{
           extrasHtml = `<div class="palette-dots">` + atom.metadata.color_palette.map(c => `<div class="palette-dot" style="background:${{c}}" title="${{c}}"></div>`).join('') + `</div>`;
         }} else if (atom.metadata && atom.metadata.word_count) {{
@@ -1120,13 +1166,21 @@ def generate_viewer(vault_dir: Path) -> Path:
       document.getElementById('captureModal').showModal();
     }}
 
+    let activeUrlKind = 'article';
     function switchCaptureTab(tab) {{
       document.querySelectorAll('.cap-tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelector(`.cap-tab-btn[data-tab="${{tab}}"]`).classList.add('active');
 
-      document.getElementById('linkForm').style.display = tab === 'link' ? 'block' : 'none';
+      const isUrl = (tab === 'article' || tab === 'bookmark');
+      document.getElementById('linkForm').style.display = isUrl ? 'block' : 'none';
       document.getElementById('quoteForm').style.display = tab === 'quote' ? 'block' : 'none';
       document.getElementById('noteForm').style.display = tab === 'note' ? 'block' : 'none';
+
+      if (isUrl) {{
+        activeUrlKind = tab;
+        document.getElementById('capLinkSubmit').textContent = tab === 'article' ? 'Save Article' : 'Save Bookmark';
+        document.getElementById('capUrl').placeholder = tab === 'article' ? 'https://example.com/essay' : 'https://linear.app';
+      }}
     }}
 
     function cleanTags(str) {{
@@ -1144,7 +1198,7 @@ def generate_viewer(vault_dir: Path) -> Path:
       let payload = {{ kind }};
       let submitBtn = null;
 
-      if (kind === 'link') {{
+      if (kind === 'article' || kind === 'bookmark' || kind === 'link') {{
         submitBtn = document.getElementById('capLinkSubmit');
         payload.url = document.getElementById('capUrl').value.trim();
         payload.title = document.getElementById('capLinkTitle').value.trim() || null;
@@ -1307,9 +1361,18 @@ def generate_viewer(vault_dir: Path) -> Path:
       }}
     }}
 
+    function renderMarkdown(md) {{
+      if (!md) return '';
+      if (window.marked && typeof window.marked.parse === 'function') {{
+        return window.marked.parse(md);
+      }}
+      return `<pre style="white-space:pre-wrap;">${{escapeHtml(md)}}</pre>`;
+    }}
+
     function openReader(atomId) {{
       const atom = ATOMS.find(a => a.id === atomId);
-      if (!atom || !atom.article_markdown) return;
+      const content = atom ? (atom.article_markdown || (atom.kind === 'note' ? atom.excerpt : null)) : null;
+      if (!atom || !content) return;
 
       window.currentReaderAtomId = atomId;
 
@@ -1321,21 +1384,15 @@ def generate_viewer(vault_dir: Path) -> Path:
       const readTime = atom.metadata && atom.metadata.word_count ? `~${{Math.ceil(atom.metadata.word_count / 225)}} min read` : '';
 
       meta.innerHTML = `
-        <span><strong>${{atom.author || 'Author'}}</strong></span>
+        <span><strong>${{atom.author || (atom.kind === 'note' ? 'Personal Note' : 'Author')}}</strong></span>
         <span>•</span>
         <span>${{atom.date}}</span>
         ${{wordCount ? `<span>•</span><span>${{wordCount}}</span>` : ''}}
         ${{readTime ? `<span>•</span><span>${{readTime}}</span>` : ''}}
       `;
 
-      let parsedHtml = '';
-      if (window.marked && typeof window.marked.parse === 'function') {{
-        parsedHtml = window.marked.parse(atom.article_markdown);
-      }} else {{
-        parsedHtml = `<pre style="white-space:pre-wrap;">${{atom.article_markdown}}</pre>`;
-      }}
-
-      body.innerHTML = `<h1>${{atom.title}}</h1>` + parsedHtml;
+      let parsedHtml = renderMarkdown(content);
+      body.innerHTML = `<h1>${{escapeHtml(atom.title)}}</h1>` + parsedHtml;
       modal.showModal();
     }}
 
@@ -1480,7 +1537,7 @@ def generate_viewer(vault_dir: Path) -> Path:
       const notesBlock = atom.notes ? `
         <div class="meta-notes-banner" style="margin-top: 12px; margin-bottom: 0;">
           <div class="meta-notes-title">Curator Notes</div>
-          <div>${{escapeHtml(atom.notes)}}</div>
+          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{renderMarkdown(atom.notes)}}</div>
         </div>
       ` : '';
       const tagsBlock = (atom.tags && atom.tags.length) ? `
@@ -1518,9 +1575,19 @@ def generate_viewer(vault_dir: Path) -> Path:
           </div>
         `;
       }} else if (atom.kind === 'note' && atom.excerpt) {{
+        const noteFile = payload.text && payload.text.file ? payload.text.file : 'note.md';
         payloadContentHtml += `
-          <div class="meta-quote-banner" style="font-style:normal; font-family:'Inter', sans-serif; font-size:14px; border-left-color:var(--text); margin-bottom: 14px;">
-            ${{escapeHtml(atom.excerpt)}}
+          <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Markdown Note Body</div>
+              <div style="font-size:12px; color:var(--muted);">
+                Stored in <code class="spec-mono">${{noteFile}}</code>${{wordCount ? ` • ${{wordCount}} words` : ''}}
+              </div>
+            </div>
+            <button class="meta-btn primary" onclick="openReaderFromMeta('${{atom.id}}')">📝 Open Note</button>
+          </div>
+          <div class="markdown-body" style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:14px; font-size:13px; line-height:1.6;">
+            ${{renderMarkdown(atom.excerpt)}}
           </div>
         `;
       }}
@@ -1549,7 +1616,7 @@ def generate_viewer(vault_dir: Path) -> Path:
 
         let transcriptBlockHtml = '';
         if (hasTranscript && atom.excerpt) {{
-          const lines = atom.excerpt.split('\n').filter(Boolean);
+          const lines = atom.excerpt.split('\\n').filter(Boolean);
           const formattedLines = lines.map(line => {{
             if (line.startsWith('[') && line.indexOf(']') > 1) {{
               const closeIdx = line.indexOf(']');
@@ -1753,7 +1820,7 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                 import curate
                 kind = data.get("kind", "link")
                 
-                if kind == "link":
+                if kind in ("article", "bookmark", "link"):
                     args = types.SimpleNamespace(
                         url=data["url"],
                         title=data.get("title"),
@@ -1763,7 +1830,8 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                         image_url=None,
                         quote=None,
                         favorite=False,
-                        vault=str(self.vault_dir)
+                        vault=str(self.vault_dir),
+                        target_kind="article" if kind == "article" else ("bookmark" if kind == "bookmark" else None)
                     )
                     atom_doc = curate.cmd_save_link(args)
                 elif kind == "quote":

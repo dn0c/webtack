@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "OpenCurateAtom",
-  "description": "Canonical schema for an OpenCurate atom (quote, note, link, image, video, file)",
+  "description": "Canonical schema for an OpenCurate atom (article, bookmark, video, quote, note, image, file)",
   "type": "object",
   "required": ["id", "kind", "version", "created_at", "curation", "provenance", "payload"],
   "properties": {
@@ -11,7 +11,7 @@
     },
     "kind": {
       "type": "string",
-      "enum": ["quote", "note", "link", "image", "video", "file"],
+      "enum": ["article", "bookmark", "video", "quote", "note", "image", "file", "link"],
       "description": "Primary semantic role and schema discriminator"
     },
     "version": {

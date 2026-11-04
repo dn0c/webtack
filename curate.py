@@ -161,8 +161,8 @@ def extract_article_content(html_text: str, url: str) -> dict:
         return {"markdown": None, "word_count": 0, "author": None, "published_at": None, "title": None}
 
 
-def scrape_url_metadata(url: str) -> dict:
-    """Scrape Open Graph, favicon, article text, and semantic metadata from a URL."""
+def scrape_url_metadata(url: str, extract_article: bool = True) -> dict:
+    """Scrape Open Graph, favicon, and optionally article text from a URL."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
@@ -218,11 +218,14 @@ def scrape_url_metadata(url: str) -> dict:
         image_url = urljoin(url, image_url)
 
     # Clean Readability Article Body (Trafilatura)
-    article_data = extract_article_content(html_text, url)
-    if not author and article_data["author"]:
-        author = article_data["author"]
-    if not published_at and article_data["published_at"]:
-        published_at = article_data["published_at"]
+    if extract_article:
+        article_data = extract_article_content(html_text, url)
+        if not author and article_data["author"]:
+            author = article_data["author"]
+        if not published_at and article_data["published_at"]:
+            published_at = article_data["published_at"]
+    else:
+        article_data = {"markdown": None, "word_count": 0, "author": None, "published_at": None, "title": None}
 
     return {
         "source_title": source_title,
@@ -618,16 +621,36 @@ def cmd_video(args):
     return atom_doc
 
 
+def cmd_bookmark(args):
+    """Save a web bookmark (lightweight pointer with OG metadata and cover image, no article text)."""
+    setattr(args, "target_kind", "bookmark")
+    return cmd_save_link(args)
+
+
+def cmd_article(args):
+    """Save an article (full offline readability body, word count, reader view)."""
+    setattr(args, "target_kind", "article")
+    return cmd_save_link(args)
+
+
 def cmd_save_link(args):
-    """Save a URL/link into the vault, scraping metadata, cover image, and full article text."""
+    """Save a URL into the vault, automatically detecting or respecting article vs bookmark."""
     # Auto-detect if this is a video URL (YouTube, Vimeo)
     if extract_video_info(args.url) and not getattr(args, "quote", None):
         return cmd_video(args)
 
+    target_kind = getattr(args, "target_kind", None)
+    if not target_kind:
+        if getattr(args, "bookmark", False):
+            target_kind = "bookmark"
+        elif getattr(args, "article", False):
+            target_kind = "article"
+
+    want_article = (target_kind != "bookmark")
     vault_dir = Path(args.vault).resolve()
-    print(f"🌐 Scraping {args.url}...")
+    print(f"🌐 Scraping {args.url} (extract_article={want_article})...")
     try:
-        scraped = scrape_url_metadata(args.url)
+        scraped = scrape_url_metadata(args.url, extract_article=want_article)
     except Exception as e:
         print(f"⚠️ Scraping failed ({e}), continuing with URL fallback.")
         scraped = {
@@ -645,6 +668,14 @@ def cmd_save_link(args):
 
     if args.image_url:
         scraped["image_url"] = args.image_url
+
+    # Determine kind
+    if target_kind:
+        kind = target_kind
+    elif scraped.get("article_markdown") and scraped.get("article_word_count", 0) >= 100:
+        kind = "article"
+    else:
+        kind = "bookmark"
 
     atom_id = generate_atom_id()
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -688,9 +719,9 @@ def cmd_save_link(args):
         except Exception as e:
             print(f"⚠️ Failed to download cover image: {e}")
 
-    # 2. Save Offline Article Body (Instapaper pattern)
+    # 2. Save Offline Article Body (only for article kind)
     article_meta = None
-    if scraped.get("article_markdown") and scraped["article_word_count"] > 40:
+    if kind == "article" and scraped.get("article_markdown") and scraped["article_word_count"] > 40:
         article_filename = "article.md"
         abs_article_path = abs_folder / article_filename
         with open(abs_article_path, "w", encoding="utf-8") as f:
@@ -731,7 +762,7 @@ def cmd_save_link(args):
     atom_doc = {
         "$schema": SCHEMA_URL,
         "id": atom_id,
-        "kind": "link",
+        "kind": kind,
         "version": 2,
         "created_at": now_iso,
         "updated_at": now_iso,
@@ -778,15 +809,17 @@ def cmd_save_link(args):
                 author, metadata, raw_json
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            atom_id, "link", now_iso, now_iso, atom_title, notes, json.dumps(tags),
+            atom_id, kind, now_iso, now_iso, atom_title, notes, json.dumps(tags),
             json.dumps(collections), 1 if args.favorite else 0, args.url, cover_rel_path,
             args.quote.strip() if args.quote else None, args.url, scraped["author"],
             json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
-    print(f"\n✨ Link atom saved successfully!")
+    emoji = "📖" if kind == "article" else "🔖"
+    label = "Article" if kind == "article" else "Bookmark"
+    print(f"\n{emoji} {label} atom saved successfully!")
     print(f"   ID:     {atom_id}")
-    print(f"   Kind:   link")
+    print(f"   Kind:   {kind}")
     print(f"   Title:  {atom_title}")
     print(f"   Folder: {abs_folder}")
     if tags:
@@ -912,8 +945,8 @@ def cmd_note(args):
     abs_folder = vault_dir / rel_folder
     abs_folder.mkdir(parents=True, exist_ok=True)
 
-    # Write note.txt
-    note_filename = "note.txt"
+    # Write note.md
+    note_filename = "note.md"
     abs_note_path = abs_folder / note_filename
     with open(abs_note_path, "w", encoding="utf-8") as f:
         f.write(args.text.strip())
@@ -1254,14 +1287,15 @@ def cmd_reindex(args):
                 
                 # Backwards compatibility: Read kind from root envelope (v2+), curation (v2-beta), or display_hint (v1)
                 kind = doc.get("kind") or cur.get("kind")
-                if not kind:
-                    display_hint = cur.get("display_hint", "auto")
-                    if display_hint == "text":
+                if not kind or kind == "link":
+                    if (Path(root) / "article.md").exists() or (payload.get("article") and payload["article"].get("file")):
+                        kind = "article"
+                    elif cur.get("display_hint") == "text":
                         kind = "quote"
-                    elif display_hint == "image":
+                    elif cur.get("display_hint") == "image":
                         kind = "image"
                     else:
-                        kind = "link"
+                        kind = "bookmark"
 
                 # Cover image mapping (handles both v1 asset and v2 cover_image)
                 cover = payload.get("cover_image") or payload.get("asset") or {}
@@ -1275,6 +1309,18 @@ def cmd_reindex(args):
                         try:
                             with open(atom_dir / "transcript.txt", "r", encoding="utf-8") as tf:
                                 text_content = tf.read()
+                        except Exception:
+                            pass
+                    elif (atom_dir / "note.md").exists():
+                        try:
+                            with open(atom_dir / "note.md", "r", encoding="utf-8") as nf:
+                                text_content = nf.read()
+                        except Exception:
+                            pass
+                    elif (atom_dir / "note.txt").exists():
+                        try:
+                            with open(atom_dir / "note.txt", "r", encoding="utf-8") as nf:
+                                text_content = nf.read()
                         except Exception:
                             pass
 
@@ -1334,8 +1380,32 @@ def main():
     parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to OpenCurate vault directory")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # 1. Link command (and alias 'save')
-    p_link = subparsers.add_parser("link", help="Save a link/webpage into the vault")
+    # 1. Article command
+    p_art = subparsers.add_parser("article", help="Save a longform article/essay with full offline text and reader view")
+    p_art.add_argument("url", help="Webpage URL of the article")
+    p_art.add_argument("--title", help="Custom atom title")
+    p_art.add_argument("--notes", help="Personal curation notes")
+    p_art.add_argument("--tags", help="Comma-separated tags")
+    p_art.add_argument("--collection", help="Collection name")
+    p_art.add_argument("--image-url", help="Override primary image URL")
+    p_art.add_argument("--quote", help="Accompanying text quote or excerpt")
+    p_art.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    p_art.set_defaults(func=cmd_article)
+
+    # 2. Bookmark command
+    p_bm = subparsers.add_parser("bookmark", help="Save a lightweight web pointer (OG metadata only, no article body)")
+    p_bm.add_argument("url", help="Webpage URL to bookmark")
+    p_bm.add_argument("--title", help="Custom atom title")
+    p_bm.add_argument("--notes", help="Personal curation notes")
+    p_bm.add_argument("--tags", help="Comma-separated tags")
+    p_bm.add_argument("--collection", help="Collection name")
+    p_bm.add_argument("--image-url", help="Override primary image URL")
+    p_bm.add_argument("--quote", help="Accompanying text quote or excerpt")
+    p_bm.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    p_bm.set_defaults(func=cmd_bookmark)
+
+    # 3. Save / Link command (smart auto-detect)
+    p_link = subparsers.add_parser("link", help="Save a link into the vault (auto-detects article vs bookmark)")
     p_link.add_argument("url", help="The webpage URL to capture")
     p_link.add_argument("--title", help="Custom atom title (defaults to page title)")
     p_link.add_argument("--notes", help="Personal curation notes")
@@ -1346,7 +1416,7 @@ def main():
     p_link.add_argument("--favorite", action="store_true", help="Mark as favorite")
     p_link.set_defaults(func=cmd_save_link)
 
-    p_save = subparsers.add_parser("save", help="Alias for 'link'")
+    p_save = subparsers.add_parser("save", help="Alias for 'link' (smart auto-detect)")
     p_save.add_argument("url", help="The webpage URL to capture")
     p_save.add_argument("--title", help="Custom atom title (defaults to page title)")
     p_save.add_argument("--notes", help="Personal curation notes")
@@ -1404,7 +1474,7 @@ def main():
 
     # 6. List command
     p_list = subparsers.add_parser("list", help="List atoms in the vault")
-    p_list.add_argument("--kind", choices=["quote", "note", "link", "image", "video", "file"], help="Filter by kind")
+    p_list.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file", "link"], help="Filter by kind")
     p_list.add_argument("--tag", help="Filter by tag")
     p_list.add_argument("--collection", help="Filter by collection")
     p_list.add_argument("--limit", type=int, default=20, help="Number of items to show")
@@ -1413,7 +1483,7 @@ def main():
     # 6. Export command
     p_export = subparsers.add_parser("export", help="Export atoms to platform formats")
     p_export.add_argument("--target", choices=["arena-csv", "json"], default="arena-csv", help="Export target")
-    p_export.add_argument("--kind", choices=["quote", "note", "link", "image", "video", "file"], help="Filter by kind")
+    p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file", "link"], help="Filter by kind")
     p_export.add_argument("--tag", help="Filter by tag")
     p_export.add_argument("--out", help="Output file path (default: stdout)")
     p_export.set_defaults(func=cmd_export)
