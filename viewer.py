@@ -46,9 +46,12 @@ def get_atoms_data(vault_dir: Path):
         if kind in kind_counts:
             kind_counts[kind] += 1
 
+        visibility = r["visibility"] if "visibility" in r.keys() and r["visibility"] else raw.get("curation", {}).get("visibility", "public")
+
         atoms_data.append({
             "id": r["id"],
             "kind": kind,
+            "visibility": visibility,
             "title": r["atom_title"],
             "notes": r["notes"],
             "tags": tags,
@@ -390,6 +393,52 @@ def generate_viewer(vault_dir: Path) -> Path:
     .kind-quote {{ color: #9B2C2C; background: rgba(155,44,44,0.1); }}
     .kind-note {{ color: #7B341E; background: rgba(123,52,30,0.1); }}
     .kind-image {{ color: #2C7A7B; background: rgba(44,122,123,0.1); }}
+
+    .vis-badge {{
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }}
+    .vis-badge.vis-private {{
+      background: rgba(229, 62, 62, 0.12);
+      color: #E53E3E;
+      border: 1px solid rgba(229, 62, 62, 0.25);
+    }}
+    .vis-badge.vis-shared {{
+      background: rgba(214, 158, 46, 0.12);
+      color: #D69E2E;
+      border: 1px solid rgba(214, 158, 46, 0.25);
+    }}
+    .vis-badge.vis-public {{
+      background: rgba(56, 161, 105, 0.12);
+      color: #38A169;
+      border: 1px solid rgba(56, 161, 105, 0.25);
+    }}
+    .vis-tab-btn {{
+      background: transparent;
+      border: none;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }}
+    .vis-tab-btn:hover {{
+      color: var(--text);
+    }}
+    .vis-tab-btn.active {{
+      background: var(--bg);
+      color: var(--text);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }}
     
     .card-cover {{
       width: 100%;
@@ -1037,10 +1086,17 @@ def generate_viewer(vault_dir: Path) -> Path:
                   <div class="export-item-desc">Format for Pinterest bulk pin & video upload</div>
                 </div>
               </a>
+              <a href="/api/export?target=raindrop-csv" download="raindrop_export.csv" class="export-item" onclick="handleExportClick(event, 'raindrop-csv')">
+                <span class="export-item-icon">💧</span>
+                <div>
+                  <div class="export-item-title">Raindrop.io CSV (.csv)</div>
+                  <div class="export-item-desc">Format for Raindrop collections, tags & notes</div>
+                </div>
+              </a>
               <a href="export.html" class="export-item" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;">
                 <span class="export-item-icon">✨</span>
                 <div>
-                  <div class="export-item-title" style="color: var(--accent);">View All 11 Formats in Hub →</div>
+                  <div class="export-item-title" style="color: var(--accent);">View All 12 Formats in Hub →</div>
                   <div class="export-item-desc">BibTeX, RSS Feed, JSONL, llms.txt & more</div>
                 </div>
               </a>
@@ -1059,9 +1115,17 @@ def generate_viewer(vault_dir: Path) -> Path:
           <button class="tab-btn" data-filter="note">Notes <span class="tab-badge" id="badge-note"></span></button>
           <button class="tab-btn" data-filter="image">Images <span class="tab-badge" id="badge-image"></span></button>
         </div>
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="searchInput" placeholder="Search title, author, tag, text... (Press /)">
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <div class="visibility-tabs" style="display: flex; gap: 2px; background: var(--tag-bg); padding: 3px; border-radius: 8px; border: 1px solid var(--border);">
+            <button class="vis-tab-btn active" data-vis="all">All</button>
+            <button class="vis-tab-btn" data-vis="public" title="Public (Open web projection)">🌐 Public</button>
+            <button class="vis-tab-btn" data-vis="shared" title="Shared (Trusted circle / Family)">👥 Shared</button>
+            <button class="vis-tab-btn" data-vis="private" title="Private (Local vault only)">🔒 Private</button>
+          </div>
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search title, author, tag, text... (Press /)">
+          </div>
         </div>
       </div>
     </header>
@@ -1239,6 +1303,7 @@ def generate_viewer(vault_dir: Path) -> Path:
     const COUNTS = {counts_json_str};
 
     let activeFilter = 'all';
+    let activeVisibility = 'all';
     let searchQuery = '';
 
     // Set badge counts
@@ -1257,6 +1322,7 @@ def generate_viewer(vault_dir: Path) -> Path:
 
       const filtered = ATOMS.filter(a => {{
         if (activeFilter !== 'all' && a.kind !== activeFilter) return false;
+        if (activeVisibility !== 'all' && (a.visibility || 'public') !== activeVisibility) return false;
         if (searchQuery) {{
           const q = searchQuery.toLowerCase();
           const matchTitle = (a.title || '').toLowerCase().includes(q);
@@ -1328,9 +1394,19 @@ def generate_viewer(vault_dir: Path) -> Path:
           extrasHtml = `<span style="color:var(--muted);">${{atom.metadata.word_count}}w</span>`;
         }}
 
+        let visBadgeHtml = '';
+        if (atom.visibility === 'private') {{
+          visBadgeHtml = `<span class="vis-badge vis-private" title="Private (Local vault only)">🔒 private</span>`;
+        }} else if (atom.visibility === 'shared') {{
+          visBadgeHtml = `<span class="vis-badge vis-shared" title="Shared (Trusted circle / Family)">👥 shared</span>`;
+        }}
+
         card.innerHTML = `
           <div class="card-header">
-            <span class="kind-pill kind-${{atom.kind}}">${{atom.kind}}</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="kind-pill kind-${{atom.kind}}">${{atom.kind}}</span>
+              ${{visBadgeHtml}}
+            </div>
             <span>${{atom.date}}</span>
           </div>
           ${{coverHtml}}
@@ -1804,6 +1880,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           </div>
           <div class="tier-content-grid">
             <div class="tier-prop"><span class="tier-k">Curated Title</span><span class="tier-v" style="font-weight:600;">${{escapeHtml(atom.title || 'Untitled Atom')}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Visibility</span><span class="tier-v"><span class="vis-badge vis-${{atom.visibility || 'public'}}">${{atom.visibility === 'private' ? '🔒 ' : (atom.visibility === 'shared' ? '👥 ' : '🌐 ')}}${{atom.visibility || 'public'}}</span></span></div>
             <div class="tier-prop"><span class="tier-k">Favorite</span><span class="tier-v">${{favoriteStr}}</span></div>
             <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Collections</span><span class="tier-v">${{escapeHtml(collectionsStr)}}</span></div>
           </div>
@@ -2015,6 +2092,16 @@ def generate_viewer(vault_dir: Path) -> Path:
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         activeFilter = btn.dataset.filter;
+        renderCards();
+      }});
+    }});
+
+    // Visibility filter clicks
+    document.querySelectorAll('.vis-tab-btn').forEach(btn => {{
+      btn.addEventListener('click', () => {{
+        document.querySelectorAll('.vis-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeVisibility = btn.dataset.vis;
         renderCards();
       }});
     }});
@@ -2477,7 +2564,7 @@ def generate_export_page(vault_dir: Path) -> Path:
         </p>
         <div class="hero-stats-row">
           <div class="hero-stat">
-            <span class="hero-stat-val">11 Formats</span>
+            <span class="hero-stat-val">12 Formats</span>
             <span class="hero-stat-lbl">Active Export Targets</span>
           </div>
           <div class="hero-stat">
@@ -2501,11 +2588,11 @@ def generate_export_page(vault_dir: Path) -> Path:
 
       <div class="controls">
         <div class="filter-tabs">
-          <button class="tab-btn active" data-cat="all">All Formats (11)</button>
+          <button class="tab-btn active" data-cat="all">All Formats (12)</button>
           <button class="tab-btn" data-cat="ai">🤖 AI & LLM (3)</button>
           <button class="tab-btn" data-cat="pkm">🧠 PKM & Obsidian (1)</button>
           <button class="tab-btn" data-cat="browser">🌐 Browsers (1)</button>
-          <button class="tab-btn" data-cat="reading">⚡ Active Recall & Curation (3)</button>
+          <button class="tab-btn" data-cat="reading">⚡ Active Recall & Curation (4)</button>
           <button class="tab-btn" data-cat="syndication">📚 Citations & Feeds (3)</button>
         </div>
         <div class="search-box">
@@ -2614,6 +2701,19 @@ def generate_export_page(vault_dir: Path) -> Path:
         included: "Title (max 100), Media URL, Board / Section routing, Video thumbnail, Description (max 500), Outbound Link, Keywords",
         tools: ["Pinterest Business", "Visual Boards", "Pin Scheduling", "Outbound Traffic"],
         cli: "python3 curate.py export --target pinterest-csv"
+      }},
+      {{
+        id: "raindrop-csv",
+        category: "reading",
+        category_name: "Visual Curation",
+        title: "Raindrop.io Custom CSV Import",
+        filename: "raindrop_export.csv",
+        ext: ".csv",
+        icon: "💧",
+        summary: "Official Raindrop.io custom CSV import format mapping collections to nested folders, with tags, notes/excerpts, and ISO creation timestamps.",
+        included: "folder (nested collections), url (required), title, note (annotations/quotes), tags (comma-separated), created (ISO 8601)",
+        tools: ["Raindrop.io", "Visual Bookmarks", "Collection Hierarchy", "Web Archives"],
+        cli: "python3 curate.py export --target raindrop-csv"
       }},
       {{
         id: "rss",
@@ -2863,6 +2963,12 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                     curate.cmd_export(args)
                     mime = "text/csv; charset=utf-8"
                     filename = "pinterest_pins.csv"
+                elif target in ("raindrop-csv", "raindrop"):
+                    out_path = export_dir / "raindrop_export.csv"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="raindrop-csv", out=str(out_path), folder="WideWeb")
+                    curate.cmd_export(args)
+                    mime = "text/csv; charset=utf-8"
+                    filename = "raindrop_export.csv"
                 elif target in ("rss", "feed"):
                     out_path = export_dir / "feed.xml"
                     args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="rss", out=str(out_path))
