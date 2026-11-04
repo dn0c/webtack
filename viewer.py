@@ -42,7 +42,7 @@ def get_atoms_data(vault_dir: Path):
 
         meta = json.loads(r["metadata"]) if r["metadata"] else {}
         tags = json.loads(r["tags"]) if r["tags"] else []
-        kind = r["kind"]
+        kind = raw.get("kind") or r["kind"] or raw.get("curation", {}).get("kind")
         if kind in kind_counts:
             kind_counts[kind] += 1
 
@@ -1370,9 +1370,9 @@ def generate_viewer(vault_dir: Path) -> Path:
           </div>
           <div class="tier-content-grid">
             <div class="tier-prop"><span class="tier-k">Atom ID</span><span class="tier-v spec-mono">${{escapeHtml(atom.id)}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Kind</span><span class="tier-v"><span class="kind-pill kind-${{atom.kind}}">${{atom.kind}}</span></span></div>
             <div class="tier-prop"><span class="tier-k">Schema</span><span class="tier-v">v${{raw.version || 2}} (OpenCurate Spec)</span></div>
             <div class="tier-prop"><span class="tier-k">Storage Path</span><span class="tier-v spec-mono">${{escapeHtml(atom.folder_path || `atoms/.../${{atom.id}}`)}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Schema URL</span><span class="tier-v spec-mono" title="${{raw.$schema || 'https://opencurate.org/v1/atom.schema.json'}}">${{truncateUrl(raw.$schema || 'https://opencurate.org/v1/atom.schema.json', 32)}}</span></div>
             <div class="tier-prop"><span class="tier-k">Captured At</span><span class="tier-v">${{createdDateStr}}</span></div>
             <div class="tier-prop"><span class="tier-k">Updated At</span><span class="tier-v">${{updatedDateStr}}</span></div>
           </div>
@@ -1425,10 +1425,9 @@ def generate_viewer(vault_dir: Path) -> Path:
             <span class="tier-tagline">Editorial perspective, taxonomy & annotations</span>
           </div>
           <div class="tier-content-grid">
-            <div class="tier-prop"><span class="tier-k">Semantic Kind</span><span class="tier-v"><span class="kind-pill kind-${{atom.kind}}">${{atom.kind}}</span></span></div>
             <div class="tier-prop"><span class="tier-k">Curated Title</span><span class="tier-v" style="font-weight:600;">${{escapeHtml(atom.title || 'Untitled Atom')}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Collections</span><span class="tier-v">${{escapeHtml(collectionsStr)}}</span></div>
             <div class="tier-prop"><span class="tier-k">Favorite</span><span class="tier-v">${{favoriteStr}}</span></div>
+            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Collections</span><span class="tier-v">${{escapeHtml(collectionsStr)}}</span></div>
           </div>
           ${{notesBlock}}
           ${{tagsBlock}}
@@ -1688,7 +1687,7 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
 
                 card_data = {
                     "id": atom_doc["id"],
-                    "kind": atom_doc["curation"]["kind"],
+                    "kind": atom_doc.get("kind") or atom_doc.get("curation", {}).get("kind"),
                     "title": atom_doc["curation"]["atom_title"],
                     "notes": atom_doc["curation"]["notes"],
                     "tags": atom_doc["curation"]["tags"],

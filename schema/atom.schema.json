@@ -3,11 +3,16 @@
   "title": "OpenCurateAtom",
   "description": "Canonical schema for an OpenCurate atom (quote, note, link, image, video, file)",
   "type": "object",
-  "required": ["id", "version", "created_at", "curation", "provenance", "payload"],
+  "required": ["id", "kind", "version", "created_at", "curation", "provenance", "payload"],
   "properties": {
     "id": {
       "type": "string",
       "description": "Unique identifier (timestamp-prefixed random ID)"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["quote", "note", "link", "image", "video", "file"],
+      "description": "Primary semantic role and schema discriminator"
     },
     "version": {
       "type": "integer",
@@ -36,13 +41,8 @@
     },
     "curation": {
       "type": "object",
-      "required": ["kind", "atom_title"],
+      "required": ["atom_title"],
       "properties": {
-        "kind": {
-          "type": "string",
-          "enum": ["quote", "note", "link", "image", "video", "file"],
-          "description": "The primary semantic role of this atom"
-        },
         "atom_title": { "type": "string" },
         "notes": { "type": ["string", "null"] },
         "tags": {

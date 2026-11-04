@@ -353,6 +353,7 @@ def cmd_save_link(args):
     atom_doc = {
         "$schema": "https://opencurate.org/v1/atom.schema.json",
         "id": atom_id,
+        "kind": "link",
         "version": 2,
         "created_at": now_iso,
         "updated_at": now_iso,
@@ -367,7 +368,6 @@ def cmd_save_link(args):
             "favicon": scraped.get("favicon")
         },
         "curation": {
-            "kind": "link",
             "atom_title": atom_title,
             "notes": notes,
             "tags": tags,
@@ -450,6 +450,7 @@ def cmd_quote(args):
     atom_doc = {
         "$schema": "https://opencurate.org/v1/atom.schema.json",
         "id": atom_id,
+        "kind": "quote",
         "version": 2,
         "created_at": now_iso,
         "updated_at": now_iso,
@@ -464,7 +465,6 @@ def cmd_quote(args):
             "favicon": None
         },
         "curation": {
-            "kind": "quote",
             "atom_title": atom_title,
             "notes": args.notes,
             "tags": tags,
@@ -546,6 +546,7 @@ def cmd_note(args):
     atom_doc = {
         "$schema": "https://opencurate.org/v1/atom.schema.json",
         "id": atom_id,
+        "kind": "note",
         "version": 2,
         "created_at": now_iso,
         "updated_at": now_iso,
@@ -560,7 +561,6 @@ def cmd_note(args):
             "favicon": None
         },
         "curation": {
-            "kind": "note",
             "atom_title": atom_title,
             "notes": None,
             "tags": tags,
@@ -667,6 +667,7 @@ def cmd_image(args):
     atom_doc = {
         "$schema": "https://opencurate.org/v1/atom.schema.json",
         "id": atom_id,
+        "kind": "image",
         "version": 2,
         "created_at": now_iso,
         "updated_at": now_iso,
@@ -681,7 +682,6 @@ def cmd_image(args):
             "favicon": None
         },
         "curation": {
-            "kind": "image",
             "atom_title": atom_title,
             "notes": args.notes,
             "tags": tags,
@@ -874,8 +874,8 @@ def cmd_reindex(args):
                 cur = doc.get("curation", {})
                 payload = doc.get("payload", {})
                 
-                # Backwards compatibility: Map display_hint to kind if kind is missing
-                kind = cur.get("kind")
+                # Backwards compatibility: Read kind from root envelope (v2+), curation (v2-beta), or display_hint (v1)
+                kind = doc.get("kind") or cur.get("kind")
                 if not kind:
                     display_hint = cur.get("display_hint", "auto")
                     if display_hint == "text":
