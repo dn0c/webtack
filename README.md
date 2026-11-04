@@ -6,17 +6,18 @@ Decouples capture and long-term storage from proprietary platforms. The filesyst
 
 ---
 
-## The 6 Kinds of Atoms
+## The 7 Kinds of Atoms
 
 WideWeb categorizes every curated piece of content into an explicit semantic `kind`:
 
 | Kind | Role | Primary Payload | Key Metadata |
 | :--- | :--- | :--- | :--- |
-| **`link`** | Webpage, essay, or bookmark | `cover.png` + `article.md` | `published_at`, `favicon`, `word_count`, `aspect_ratio`, `blurhash` |
+| **`article`** | Longform essay, newsletter, or post | `cover.jpg` + `article.md` | `published_at`, `favicon`, `word_count`, `read_time`, `blurhash` |
+| **`bookmark`** | Lightweight web pointer (tool, repo, site) | `cover.jpg` (OG card) | `destination_url`, `favicon`, `blurhash`, `palette` |
+| **`video`** | YouTube, Vimeo, or video stream | `cover.jpg` + `transcript.txt` | `provider`, `embed_url`, `captions_count`, `language` |
 | **`quote`** | Attributed verbatim excerpt | `quote.txt` | `author`, `source_url`, `word_count` |
-| **`note`** | Personal thought, memo, or reflection | `note.txt` | `word_count` (zero external URL required) |
-| **`image`** | Photo, artwork, diagram, or scan | `cover.png` | `dimensions`, `aspect_ratio`, `blurhash`, `color_palette`, `alt_text` |
-| **`video`** | Video clip or stream embed | `cover.jpg` (poster) | `provider` (YouTube, Vimeo), `duration_seconds` |
+| **`note`** | Personal thought, memo, or reflection | `note.md` | `word_count` (zero external URL required) |
+| **`image`** | Photo, artwork, diagram, or scan | `cover.jpg` | `dimensions`, `aspect_ratio`, `blurhash`, `color_palette`, `alt_text` |
 | **`file`** | Document, PDF, or attachment | `document.pdf` + `cover.png` | `file_size_bytes`, `file_extension`, `page_count` |
 
 ---
@@ -74,15 +75,70 @@ python3 curate.py list --kind link
 python3 curate.py list --tag systems
 ```
 
-### 6. Export for `are.na/import/csv`
-Outputs a clean CSV formatted specifically for Are.na's bulk import:
+### 6. Visual Masonry Cards & Local Web Capture (`curate.py view`)
+Generate and open the self-contained HTML gallery with 4-tier schema inspector, responsive video player, and distraction-free reader mode:
 
 ```bash
-python3 curate.py export --target arena-csv --out my_arena_import.csv
+# Static file mode
+python3 curate.py view
+
+# Or run live local server with 1-click in-browser capture & bookmarklet:
+python3 curate.py view --server
 ```
 
-### 7. Disaster Recovery (`reindex`)
-Deletes `vault.db`, walks your local `atoms/` directory, and reconstructs the entire SQLite database from the `atom.json` files in seconds:
+---
+
+## AI Integration: Model Context Protocol (MCP)
+
+WideWeb includes an embedded [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server so AI assistants (**Claude Desktop**, **Antigravity**, **Cursor**) can search and read from your vault.
+
+### 1. Claude Desktop Setup
+Add this to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "wideweb": {
+      "command": "python3",
+      "args": [
+        "/ABSOLUTE/PATH/TO/wideweb/wideweb_mcp.py"
+      ]
+    }
+  }
+}
+```
+
+### 2. Available AI Tools
+Once connected, your AI assistant can invoke:
+- `search_vault(query, kind, tag)`: Fast search across titles, notes, article text, and transcripts.
+- `get_atom(atom_id)`: Retrieve full structured metadata and offline content body.
+- `get_transcript(atom_id)`: Read timestamped dialogue for any video.
+- `get_article(atom_id)`: Read the full offline Markdown body for any article.
+- `save_note(text, title, tags)`: Save a new thought directly into your vault.
+- `save_bookmark(url, title, tags)`: Bookmark a web link into your vault.
+
+---
+
+## Knowledge Exports (NotebookLM & Claude Projects)
+
+Export your entire curated library into unified formats optimized for synthesis:
+
+```bash
+# Export single consolidated Markdown digest for NotebookLM or Claude Projects:
+python3 curate.py export --target digest
+
+# Export standard /llms.txt index:
+python3 curate.py export --target llms-txt
+
+# Export Are.na bulk CSV:
+python3 curate.py export --target arena-csv --out arena.csv
+```
+
+---
+
+## Disaster Recovery (`reindex`)
+
+Deletes `vault.db`, walks your local `atoms/` directory, and reconstructs the entire SQLite search database from the `atom.json` sidecars in seconds:
 
 ```bash
 python3 curate.py reindex
@@ -94,19 +150,25 @@ python3 curate.py reindex
 
 ```text
 wideweb/
-├── curate.py                 # Core CLI executable
-├── requirements.txt          # Dependencies
+├── curate.py                 # Core CLI ingestion & pipeline engine
+├── viewer.py                 # Visual presentation & local capture server
+├── wideweb_mcp.py            # Model Context Protocol (MCP) server for AI tools
+├── requirements.txt          # Python dependencies
 ├── schema/
 │   └── atom.schema.json      # Formal JSON Schema specification (v2)
-└── vault/                    # The User's Vault (syncs with Drive / iCloud)
-    ├── vault.db              # Disposable SQLite search catalog (Clean Hybrid)
+└── vault/                    # Canonical user vault (gitignored / syncable)
+    ├── vault.db              # Disposable SQLite search catalog
+    ├── index.html            # Zero-dependency single-page visual gallery
+    ├── export/               # Generated LLM digests & export files
     └── atoms/
-        └── 2026/
-            └── 11/
-                └── atm_20261104.../
-                    ├── atom.json      # Structured metadata envelope
-                    ├── cover.png      # Universal visual preview (photo, OG card, or poster)
-                    ├── article.md     # Offline readable article text (for links)
-                    ├── quote.txt      # Text excerpt (for quotes)
-                    └── note.txt       # Text body (for notes)
+        └── YYYY/
+            └── MM/
+                └── atm_YYYYMMDD.../
+                    ├── atom.json      # 4-tier structured metadata envelope
+                    ├── cover.jpg      # Universal visual preview (480px, blurhash, palette)
+                    ├── article.md     # Offline readable article text (for articles)
+                    ├── transcript.txt # Timestamped spoken dialogue (for videos)
+                    ├── transcript.json# Machine-readable dialogue offsets
+                    ├── note.md        # Formatted markdown thoughts (for notes)
+                    └── quote.txt      # Text excerpt (for quotes)
 ```
