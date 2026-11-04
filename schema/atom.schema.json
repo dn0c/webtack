@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenCurateAtom",
+  "description": "Canonical schema for an OpenCurate atom (quote, note, link, image, video, file)",
+  "type": "object",
+  "required": ["id", "version", "created_at", "curation", "provenance", "payload"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier (timestamp-prefixed random ID)"
+    },
+    "version": {
+      "type": "integer",
+      "default": 2
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "source_url": { "type": ["string", "null"] },
+        "source_title": { "type": ["string", "null"] },
+        "canonical_url": { "type": ["string", "null"] },
+        "site_name": { "type": ["string", "null"] },
+        "author": { "type": ["string", "null"] },
+        "author_url": { "type": ["string", "null"] },
+        "published_at": { "type": ["string", "null"], "format": "date-time" },
+        "favicon": { "type": ["string", "null"] }
+      }
+    },
+    "curation": {
+      "type": "object",
+      "required": ["kind", "atom_title"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["quote", "note", "link", "image", "video", "file"],
+          "description": "The primary semantic role of this atom"
+        },
+        "atom_title": { "type": "string" },
+        "notes": { "type": ["string", "null"] },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "collections": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "favorite": { "type": "boolean", "default": false }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "destination_url": { "type": ["string", "null"] },
+        "cover_image": {
+          "type": "object",
+          "description": "Universal visual anchor: photo, article OG card, video poster, or PDF preview",
+          "properties": {
+            "file": { "type": ["string", "null"] },
+            "mime_type": { "type": ["string", "null"] },
+            "hash": { "type": ["string", "null"] },
+            "dimensions": {
+              "type": "object",
+              "properties": {
+                "width": { "type": "integer" },
+                "height": { "type": "integer" }
+              }
+            },
+            "aspect_ratio": { "type": ["number", "null"] },
+            "blurhash": { "type": ["string", "null"] },
+            "color_palette": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "alt_text": { "type": ["string", "null"] },
+            "original_src_url": { "type": ["string", "null"] },
+            "public_url": { "type": ["string", "null"] }
+          }
+        },
+        "text": {
+          "type": "object",
+          "properties": {
+            "file": { "type": ["string", "null"] },
+            "excerpt": { "type": ["string", "null"] },
+            "word_count": { "type": ["integer", "null"] }
+          }
+        },
+        "article": {
+          "type": "object",
+          "description": "Offline readable article body extracted via Readability/Trafilatura",
+          "properties": {
+            "file": { "type": ["string", "null"] },
+            "word_count": { "type": ["integer", "null"] },
+            "byline": { "type": ["string", "null"] }
+          }
+        },
+        "video": {
+          "type": "object",
+          "properties": {
+            "provider": { "type": ["string", "null"] },
+            "embed_url": { "type": ["string", "null"] },
+            "duration_seconds": { "type": ["integer", "null"] }
+          }
+        },
+        "file": {
+          "type": "object",
+          "properties": {
+            "filename": { "type": ["string", "null"] },
+            "file_size_bytes": { "type": ["integer", "null"] },
+            "file_extension": { "type": ["string", "null"] },
+            "page_count": { "type": ["integer", "null"] }
+          }
+        }
+      }
+    },
+    "metadata_json": {
+      "type": "object",
+      "description": "Flexible overflow storage for future or niche metadata",
+      "default": {}
+    }
+  }
+}
