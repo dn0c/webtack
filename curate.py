@@ -918,6 +918,37 @@ def cmd_reindex(args):
     print(f"🎉 Disaster Recovery complete! Successfully indexed {count} atoms into vault.db.")
 
 
+def cmd_view(args):
+    """Generate and open the local HTML masonry viewer."""
+    import webbrowser
+    from http.server import HTTPServer, SimpleHTTPRequestHandler
+    from viewer import generate_viewer
+    
+    vault_dir = Path(args.vault).resolve()
+    index_html = generate_viewer(vault_dir)
+    print(f"\n✨ WideWeb HTML viewer generated at: {index_html}")
+
+    if args.server:
+        port = args.port or 8080
+        os.chdir(vault_dir)
+        server = HTTPServer(("127.0.0.1", port), SimpleHTTPRequestHandler)
+        url = f"http://127.0.0.1:{port}/index.html"
+        print(f"🚀 Serving WideWeb locally on {url} (Press Ctrl+C to stop)")
+        if not args.no_open:
+            webbrowser.open(url)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            print("\nServer stopped.")
+    else:
+        file_url = f"file://{index_html.resolve()}"
+        if not args.no_open:
+            print(f"🌐 Opening in default browser: {file_url}")
+            webbrowser.open(file_url)
+        else:
+            print(f"💡 Open in your browser: open '{index_html}'")
+
+
 def main():
     parser = argparse.ArgumentParser(description="OpenCurate CLI - Local-first web curation framework")
     parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to OpenCurate vault directory")
@@ -1000,6 +1031,13 @@ def main():
     # 7. Reindex command
     p_reindex = subparsers.add_parser("reindex", help="Rebuild SQLite database from folder sidecars")
     p_reindex.set_defaults(func=cmd_reindex)
+
+    # 8. View command
+    p_view = subparsers.add_parser("view", help="Generate and open local HTML masonry viewer")
+    p_view.add_argument("--server", action="store_true", help="Run local HTTP server instead of file://")
+    p_view.add_argument("--port", type=int, default=8080, help="Port for local HTTP server (default: 8080)")
+    p_view.add_argument("--no-open", action="store_true", help="Do not automatically open browser")
+    p_view.set_defaults(func=cmd_view)
 
     args = parser.parse_args()
     args.func(args)
