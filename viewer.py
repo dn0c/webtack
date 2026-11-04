@@ -1242,18 +1242,39 @@ def generate_viewer(vault_dir: Path) -> Path:
       openReader(atomId);
     }}
 
+    function formatSeconds(seconds) {{
+      const s = Math.floor(seconds);
+      const m = Math.floor(s / 60);
+      const sRem = s % 60;
+      const h = Math.floor(m / 60);
+      const mRem = m % 60;
+      if (h > 0) return `${{h}}:${{String(mRem).padStart(2, '0')}}:${{String(sRem).padStart(2, '0')}}`;
+      return `${{m}}:${{String(sRem).padStart(2, '0')}}`;
+    }}
+
     function openVideoFromMeta(atomId) {{
       document.getElementById('metadataModal').close();
       openVideoPlayer(atomId);
     }}
 
-    function openVideoPlayer(atomId) {{
+    function playVideoAtTime(atomId, seconds) {{
+      document.getElementById('metadataModal').close();
+      openVideoPlayer(atomId, seconds);
+    }}
+
+    function openVideoPlayer(atomId, startTime = 0) {{
       const atom = ATOMS.find(a => a.id === atomId);
       if (!atom) return;
 
       const video = (atom.raw && atom.raw.payload && atom.raw.payload.video) || {{}};
-      const embedUrl = video.embed_url || (atom.destination_url ? atom.destination_url.replace("watch?v=", "embed/") : null);
+      let embedUrl = video.embed_url || (atom.destination_url ? atom.destination_url.replace("watch?v=", "embed/") : null);
       if (!embedUrl) return;
+
+      if (startTime > 0) {{
+        embedUrl += (embedUrl.includes('?') ? '&' : '?') + 'start=' + Math.floor(startTime) + '&autoplay=1';
+      }} else {{
+        embedUrl += (embedUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+      }}
 
       window.currentReaderAtomId = atomId;
 
@@ -1266,13 +1287,13 @@ def generate_viewer(vault_dir: Path) -> Path:
         <span>•</span>
         <span>${{atom.date}}</span>
         <span>•</span>
-        <span>Video (${{video.provider || 'Stream'}})</span>
+        <span>Video (${{video.provider || 'Stream'}})${{startTime > 0 ? ` • From ${{formatSeconds(startTime)}}` : ''}}</span>
       `;
 
       body.innerHTML = `
         <h1 style="font-size:22px; margin-bottom:16px; font-family:'Inter', sans-serif; font-weight:600; line-height:1.3;">${{escapeHtml(atom.title)}}</h1>
         <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px; margin-bottom:20px; background:#000; box-shadow:0 4px 16px rgba(0,0,0,0.2);">
-          <iframe src="${{embedUrl}}?autoplay=1" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          <iframe src="${{embedUrl}}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
         </div>
         ${{atom.notes ? `<div class="meta-notes-banner" style="margin-top:16px;">${{escapeHtml(atom.notes)}}</div>` : ''}}
       `;
@@ -1523,6 +1544,40 @@ def generate_viewer(vault_dir: Path) -> Path:
       if (payload.video || atom.kind === 'video') {{
         const vidProvider = (payload.video && payload.video.provider) || 'Video';
         const vidEmbed = payload.video && payload.video.embed_url;
+        const transLang = (payload.video && payload.video.transcript_language) || (atom.metadata && atom.metadata.transcript_language) || 'en';
+        const hasTranscript = (payload.video && payload.video.has_transcript) || (atom.metadata && atom.metadata.has_transcript) || Boolean(atom.excerpt);
+
+        let transcriptBlockHtml = '';
+        if (hasTranscript && atom.excerpt) {{
+          const lines = atom.excerpt.split('\n').filter(Boolean);
+          const formattedLines = lines.map(line => {{
+            const m = line.match(/^\\\[([0-9]+:[0-9]+(?::[0-9]+)?)\\\]\\s*(.*)$/);
+            if (m) {{
+              const timeStr = m[1];
+              const textStr = escapeHtml(m[2]);
+              const parts = timeStr.split(':').map(Number);
+              const sec = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+              return `<div style="display:flex; gap:10px; margin-bottom:6px; align-items:baseline;">
+                <button class="ts-pill" onclick="playVideoAtTime('${{atom.id}}', ${{sec}})" style="background:rgba(107,70,193,0.12); color:#6B46C1; border:none; padding:2px 7px; border-radius:4px; font-family:var(--font-mono); font-size:11px; cursor:pointer; font-weight:600; white-space:nowrap;" title="Jump video to ${{timeStr}}">▶ ${{timeStr}}</button>
+                <span style="color:var(--text); font-size:12px; line-height:1.5;">${{textStr}}</span>
+              </div>`;
+            }}
+            return `<div style="margin-bottom:4px; color:var(--text); font-size:12px;">${{escapeHtml(line)}}</div>`;
+          }}).join('');
+
+          transcriptBlockHtml = `
+            <details style="margin-bottom:14px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
+              <summary style="cursor:pointer; font-weight:600; font-size:12px; color:var(--text); display:flex; justify-content:space-between; align-items:center; user-select:none;">
+                <span style="display:flex; align-items:center; gap:6px;">📜 Video Captions & Transcript</span>
+                <span style="font-size:10px; text-transform:uppercase; background:rgba(107,70,193,0.15); color:#6B46C1; padding:2px 7px; border-radius:4px; font-weight:700;">${{escapeHtml(transLang)}} (${{lines.length}} lines)</span>
+              </summary>
+              <div style="margin-top:12px; max-height:260px; overflow-y:auto; padding-right:6px;">
+                ${{formattedLines}}
+              </div>
+            </details>
+          `;
+        }}
+
         payloadContentHtml += `
           <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div>
@@ -1533,6 +1588,7 @@ def generate_viewer(vault_dir: Path) -> Path:
             </div>
             ${{vidEmbed ? `<button class="meta-btn primary" style="background:#6B46C1; border-color:#6B46C1;" onclick="openVideoFromMeta('${{atom.id}}')">▶ Watch Video</button>` : ''}}
           </div>
+          ${{transcriptBlockHtml}}
         `;
       }}
 

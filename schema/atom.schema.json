@@ -113,7 +113,12 @@
           "properties": {
             "provider": { "type": ["string", "null"] },
             "embed_url": { "type": ["string", "null"] },
-            "duration_seconds": { "type": ["integer", "null"] }
+            "duration_seconds": { "type": ["integer", "null"] },
+            "transcript_file": { "type": ["string", "null"] },
+            "transcript_json": { "type": ["string", "null"] },
+            "transcript_language": { "type": ["string", "null"] },
+            "transcript_is_generated": { "type": ["boolean", "null"] },
+            "has_transcript": { "type": "boolean", "default": false }
           }
         },
         "file": {

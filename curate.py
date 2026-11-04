@@ -360,6 +360,103 @@ def extract_video_info(url: str) -> dict | None:
     return None
 
 
+def fetch_youtube_transcript(video_id: str) -> dict | None:
+    """Fetch subtitles/captions using youtube-transcript-api if available."""
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        ytt = YouTubeTranscriptApi()
+        transcript_list = ytt.list(video_id)
+
+        # Priority: manual English -> any manual -> auto English -> any auto
+        transcript = None
+        try:
+            transcript = transcript_list.find_manually_created_transcript(["en"])
+        except Exception:
+            pass
+
+        if not transcript:
+            try:
+                transcript = transcript_list.find_transcript(["en"])
+            except Exception:
+                pass
+
+        if not transcript:
+            for t in transcript_list:
+                transcript = t
+                break
+
+        if not transcript:
+            return None
+
+        fetched = transcript.fetch()
+        snippets = []
+        plain_lines = []
+        for s in fetched:
+            sec = int(s.start)
+            m, s_rem = divmod(sec, 60)
+            h, m = divmod(m, 60)
+            timestamp_str = f"{h}:{m:02d}:{s_rem:02d}" if h > 0 else f"{m}:{s_rem:02d}"
+            clean_text = s.text.replace("\n", " ").strip()
+            snippets.append({
+                "start": round(s.start, 2),
+                "duration": round(s.duration, 2),
+                "timestamp": timestamp_str,
+                "text": clean_text
+            })
+            plain_lines.append(f"[{timestamp_str}] {clean_text}")
+
+        plain_text = "\n".join(plain_lines)
+        speech_text = " ".join([s["text"] for s in snippets])
+
+        return {
+            "plain_text": plain_text,
+            "speech_text": speech_text,
+            "snippets": snippets,
+            "language": transcript.language_code,
+            "is_generated": transcript.is_generated
+        }
+    except Exception as e:
+        return None
+
+
+def transcribe_audio_whisper(audio_path: Path) -> dict | None:
+    """Transcribe audio using faster-whisper if installed locally."""
+    try:
+        from faster_whisper import WhisperModel
+        print("🧠 Running local speech-to-text with faster-whisper...")
+        model = WhisperModel("base", device="cpu", compute_type="int8")
+        segments, info = model.transcribe(str(audio_path), beam_size=5)
+
+        snippets = []
+        plain_lines = []
+        for segment in segments:
+            sec = int(segment.start)
+            m, s_rem = divmod(sec, 60)
+            h, m = divmod(m, 60)
+            timestamp_str = f"{h}:{m:02d}:{s_rem:02d}" if h > 0 else f"{m}:{s_rem:02d}"
+            clean_text = segment.text.strip()
+            snippets.append({
+                "start": round(segment.start, 2),
+                "duration": round(segment.end - segment.start, 2),
+                "timestamp": timestamp_str,
+                "text": clean_text
+            })
+            plain_lines.append(f"[{timestamp_str}] {clean_text}")
+
+        return {
+            "plain_text": "\n".join(plain_lines),
+            "speech_text": " ".join([s["text"] for s in snippets]),
+            "snippets": snippets,
+            "language": info.language,
+            "is_generated": True
+        }
+    except ImportError:
+        return None
+    except Exception as e:
+        print(f"⚠️ Whisper transcription error: {e}")
+        return None
+
+
 def cmd_video(args):
     """Save a video stream (YouTube, Vimeo, etc.) with oEmbed metadata, embed link, and poster thumbnail."""
     vault_dir = Path(args.vault).resolve()
@@ -408,13 +505,39 @@ def cmd_video(args):
         except Exception as e:
             print(f"⚠️ Failed to download poster thumbnail ({e})")
 
+    # 2. Extract Transcript / Captions
+    transcript_data = None
+    if video_info.get("provider") == "YouTube" and video_info.get("video_id"):
+        print(f"🎙️ Fetching captions/transcript for YouTube video {video_info['video_id']}...")
+        transcript_data = fetch_youtube_transcript(video_info["video_id"])
+        if transcript_data:
+            print(f"✅ Found transcript: {len(transcript_data['snippets'])} snippets ({transcript_data['language']}, generated={transcript_data['is_generated']})")
+        else:
+            print("ℹ️ No captions or transcript available for this video.")
+
+    transcript_txt_rel = None
+    transcript_json_rel = None
+    if transcript_data:
+        txt_path = abs_folder / "transcript.txt"
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(transcript_data["plain_text"])
+        transcript_txt_rel = str(rel_folder / "transcript.txt")
+
+        json_path = abs_folder / "transcript.json"
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(transcript_data["snippets"], f, indent=2)
+        transcript_json_rel = str(rel_folder / "transcript.json")
+
     meta_bag = {
         "provider": video_info["provider"],
         "embed_url": video_info["embed_url"],
         "aspect_ratio": cover_meta["aspect_ratio"] if cover_meta else None,
         "blurhash": cover_meta["blurhash"] if cover_meta else None,
         "color_palette": cover_meta["color_palette"] if cover_meta else None,
-        "favicon": video_info["favicon"]
+        "favicon": video_info["favicon"],
+        "has_transcript": bool(transcript_data),
+        "transcript_snippets": len(transcript_data["snippets"]) if transcript_data else 0,
+        "transcript_language": transcript_data["language"] if transcript_data else None
     }
 
     atom_doc = {
@@ -449,7 +572,12 @@ def cmd_video(args):
             "video": {
                 "provider": video_info["provider"],
                 "embed_url": video_info["embed_url"],
-                "duration_seconds": None
+                "duration_seconds": None,
+                "transcript_file": transcript_txt_rel,
+                "transcript_json": transcript_json_rel,
+                "transcript_language": transcript_data["language"] if transcript_data else None,
+                "transcript_is_generated": transcript_data["is_generated"] if transcript_data else None,
+                "has_transcript": bool(transcript_data)
             },
             "file": None
         },
@@ -477,7 +605,7 @@ def cmd_video(args):
             atom_title, notes, json.dumps(tags), json.dumps(collections),
             1 if getattr(args, "favorite", False) else 0,
             video_info["canonical_url"], cover_rel_path,
-            None, args.url, video_info["author"],
+            transcript_data["plain_text"] if transcript_data else None, args.url, video_info["author"],
             json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
@@ -1140,6 +1268,15 @@ def cmd_reindex(args):
                 cover_rel_path = cover.get("relative_path")
                 text = payload.get("text") or {}
                 article = payload.get("article") or {}
+                text_content = text.get("excerpt")
+                if not text_content:
+                    atom_dir = Path(root)
+                    if (atom_dir / "transcript.txt").exists():
+                        try:
+                            with open(atom_dir / "transcript.txt", "r", encoding="utf-8") as tf:
+                                text_content = tf.read()
+                        except Exception:
+                            pass
 
                 meta_bag = doc.get("metadata_json") or {}
                 if "word_count" not in meta_bag:
@@ -1161,7 +1298,7 @@ def cmd_reindex(args):
                         cur.get("atom_title", "Untitled"), cur.get("notes"),
                         json.dumps(normalize_tags(cur.get("tags", []))), json.dumps(cur.get("collections", [])),
                         1 if cur.get("favorite") else 0, payload.get("destination_url"),
-                        cover_rel_path, text.get("excerpt"), prov.get("source_url"),
+                        cover_rel_path, text_content, prov.get("source_url"),
                         prov.get("author"), json.dumps(meta_bag), json.dumps(doc)
                     ))
                 count += 1
