@@ -413,6 +413,7 @@ def cmd_save_link(args):
     print(f"   Folder: {abs_folder}")
     if tags:
         print(f"   Tags:   #{', #'.join(tags)}")
+    return atom_doc
 
 
 def cmd_quote(args):
@@ -511,6 +512,7 @@ def cmd_quote(args):
     print(f"   Author: {args.author or 'Unknown'}")
     print(f"   Title:  {atom_title}")
     print(f"   Folder: {abs_folder}")
+    return atom_doc
 
 
 def cmd_note(args):
@@ -604,6 +606,7 @@ def cmd_note(args):
     print(f"   Kind:   note ({word_count} words)")
     print(f"   Title:  {atom_title}")
     print(f"   Folder: {abs_folder}")
+    return atom_doc
 
 
 def cmd_image(args):
@@ -919,34 +922,24 @@ def cmd_reindex(args):
 
 
 def cmd_view(args):
-    """Generate and open the local HTML masonry viewer."""
+    """Generate and open the local HTML masonry viewer with in-browser capture."""
     import webbrowser
-    from http.server import HTTPServer, SimpleHTTPRequestHandler
-    from viewer import generate_viewer
+    from viewer import generate_viewer, run_viewer_server
     
     vault_dir = Path(args.vault).resolve()
-    index_html = generate_viewer(vault_dir)
-    print(f"\n✨ WideWeb HTML viewer generated at: {index_html}")
-
     if args.server:
         port = args.port or 8080
-        os.chdir(vault_dir)
-        server = HTTPServer(("127.0.0.1", port), SimpleHTTPRequestHandler)
-        url = f"http://127.0.0.1:{port}/index.html"
-        print(f"🚀 Serving WideWeb locally on {url} (Press Ctrl+C to stop)")
-        if not args.no_open:
-            webbrowser.open(url)
-        try:
-            server.serve_forever()
-        except KeyboardInterrupt:
-            print("\nServer stopped.")
+        run_viewer_server(vault_dir, port=port, open_browser=not args.no_open)
     else:
+        index_html = generate_viewer(vault_dir)
+        print(f"\n✨ WideWeb HTML viewer generated at: {index_html}")
         file_url = f"file://{index_html.resolve()}"
         if not args.no_open:
             print(f"🌐 Opening in default browser: {file_url}")
             webbrowser.open(file_url)
         else:
             print(f"💡 Open in your browser: open '{index_html}'")
+        print("\n💡 Tip: Run `python3 curate.py view --server` to enable live 1-click capture and bookmarklet integration directly from the browser!")
 
 
 def main():
