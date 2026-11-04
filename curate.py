@@ -11,10 +11,12 @@ import hashlib
 import html
 import json
 import os
+import random
 import re
 import sqlite3
 import sys
 import time
+import types
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +24,8 @@ from urllib.parse import urljoin, urlparse, parse_qs, quote
 
 try:
     import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
     from bs4 import BeautifulSoup
     from PIL import Image
     import trafilatura
@@ -33,12 +37,49 @@ except ImportError as e:
 DEFAULT_VAULT = Path(os.environ.get("WIDEWEB_VAULT", os.environ.get("OPENCURATE_VAULT", Path(__file__).resolve().parent / "vault")))
 SCHEMA_URL = "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json"
 
+_HTTP_SESSION = None
+
+def get_http_session() -> requests.Session:
+    """Get or initialize a resilient HTTP session with connection pooling and exponential backoff retries."""
+    global _HTTP_SESSION
+    if _HTTP_SESSION is None:
+        _HTTP_SESSION = requests.Session()
+        _HTTP_SESSION.headers.update({
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 WideWeb/1.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+        })
+        retries = Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            raise_on_status=False
+        )
+        adapter = HTTPAdapter(max_retries=retries, pool_connections=15, pool_maxsize=30)
+        _HTTP_SESSION.mount("https://", adapter)
+        _HTTP_SESSION.mount("http://", adapter)
+    return _HTTP_SESSION
+
+
+def sanitize_text(val) -> str | None:
+    """Safely coerce any dict, list, or non-primitive object to clean string text."""
+    if val is None:
+        return None
+    if isinstance(val, dict):
+        return val.get("plain") or val.get("markdown") or val.get("html") or str(val)
+    if isinstance(val, (list, tuple)):
+        return ", ".join(str(x) for x in val)
+    s = str(val).strip()
+    return s if s else None
+
 
 def get_db(vault_dir: Path) -> sqlite3.Connection:
-    """Initialize or connect to the SQLite index database using the Clean Hybrid pattern."""
+    """Initialize or connect to the SQLite index database using the Clean Hybrid pattern with WAL mode."""
     db_path = vault_dir / "vault.db"
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), timeout=10.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    conn.execute("PRAGMA busy_timeout = 5000;")
     with conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS atoms (
@@ -53,6 +94,7 @@ def get_db(vault_dir: Path) -> sqlite3.Connection:
                 notes TEXT,
                 tags TEXT,                    -- Stored as JSON array string: ["design", "systems"]
                 collections TEXT,             -- Stored as JSON array string: ["reading-list"]
+                visibility TEXT DEFAULT 'public', -- public, shared, private
                 favorite INTEGER DEFAULT 0,
                 
                 -- Operational Anchors (Fast search, dedup, and existence checks)
@@ -71,9 +113,16 @@ def get_db(vault_dir: Path) -> sqlite3.Connection:
                 raw_json TEXT NOT NULL
             );
         """)
+        # Ensure visibility column exists on older schemas
+        cols = [c[1] for c in conn.execute("PRAGMA table_info(atoms);").fetchall()]
+        if "visibility" not in cols:
+            conn.execute("ALTER TABLE atoms ADD COLUMN visibility TEXT DEFAULT 'public';")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_kind ON atoms(kind);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_created ON atoms(created_at);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_dest_url ON atoms(destination_url) WHERE destination_url IS NOT NULL;")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_source_url ON atoms(source_url) WHERE source_url IS NOT NULL;")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_visibility ON atoms(visibility);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_fav ON atoms(favorite) WHERE favorite = 1;")
     return conn
 
 
@@ -114,10 +163,15 @@ def normalize_tags(tags_input) -> list[str]:
 
 
 def extract_dominant_colors(image_path: Path, num_colors: int = 3) -> list[str]:
-    """Extract top dominant hex colors from an image using Pillow."""
+    """Extract top dominant hex colors from an image using Pillow with safe mode normalization."""
     try:
         with Image.open(image_path) as img:
-            img = img.convert("RGB")
+            if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                img = img.convert("RGBA")
+                background = Image.new("RGBA", img.size, (255, 255, 255))
+                img = Image.alpha_composite(background, img).convert("RGB")
+            else:
+                img = img.convert("RGB")
             img.thumbnail((150, 150))
             quantized = img.quantize(colors=num_colors, method=Image.Quantize.MEDIANCUT)
             palette = quantized.getpalette()[:num_colors * 3]
@@ -131,10 +185,15 @@ def extract_dominant_colors(image_path: Path, num_colors: int = 3) -> list[str]:
 
 
 def compute_blurhash(image_path: Path) -> str | None:
-    """Extract an ultra-compact blurhash string from an image."""
+    """Extract an ultra-compact blurhash string from an image with safe mode normalization."""
     try:
         with Image.open(image_path) as img:
-            img = img.convert("RGB")
+            if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                img = img.convert("RGBA")
+                background = Image.new("RGBA", img.size, (255, 255, 255))
+                img = Image.alpha_composite(background, img).convert("RGB")
+            else:
+                img = img.convert("RGB")
             img.thumbnail((100, 100))
             return blurhash.encode(img, x_components=4, y_components=3)
     except Exception:
@@ -165,12 +224,12 @@ def extract_article_content(html_text: str, url: str) -> dict:
 
 
 def scrape_url_metadata(url: str, extract_article: bool = True) -> dict:
-    """Scrape Open Graph, favicon, and optionally article text from a URL."""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
-    }
-    resp = requests.get(url, headers=headers, timeout=12)
+    """Scrape Open Graph, favicon, and optionally article text from a URL with connection pooling and SSL fallback."""
+    session = get_http_session()
+    try:
+        resp = session.get(url, timeout=(3.0, 12.0))
+    except requests.exceptions.SSLError:
+        resp = session.get(url, timeout=(3.0, 12.0), verify=False)
     resp.raise_for_status()
 
     html_text = resp.text
@@ -246,8 +305,11 @@ def scrape_url_metadata(url: str, extract_article: bool = True) -> dict:
 
 def download_image(image_url: str, dest_path: Path) -> dict:
     """Download an image asset and compute its metadata (dimensions, aspect ratio, blurhash, palette)."""
-    headers = {"User-Agent": "Mozilla/5.0"}
-    resp = requests.get(image_url, headers=headers, timeout=15)
+    session = get_http_session()
+    try:
+        resp = session.get(image_url, timeout=(3.0, 15.0))
+    except requests.exceptions.SSLError:
+        resp = session.get(image_url, timeout=(3.0, 15.0), verify=False)
     resp.raise_for_status()
 
     content = resp.content
@@ -318,7 +380,8 @@ def extract_video_info(url: str) -> dict | None:
         }
 
         try:
-            resp = requests.get(oembed_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=6)
+            session = get_http_session()
+            resp = session.get(oembed_url, timeout=(3.0, 6.0))
             if resp.status_code == 200:
                 d = resp.json()
                 meta["title"] = d.get("title", meta["title"])
@@ -351,7 +414,8 @@ def extract_video_info(url: str) -> dict | None:
         }
 
         try:
-            resp = requests.get(oembed_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=6)
+            session = get_http_session()
+            resp = session.get(oembed_url, timeout=(3.0, 6.0))
             if resp.status_code == 200:
                 d = resp.json()
                 meta["title"] = d.get("title", meta["title"])
@@ -366,11 +430,24 @@ def extract_video_info(url: str) -> dict | None:
     return None
 
 
-def fetch_youtube_transcript(video_id: str) -> dict | None:
+def fetch_youtube_transcript(video_id: str, cookies: str | None = None) -> dict | None:
     """Fetch subtitles/captions using youtube-transcript-api if available."""
+    session = None
+    if cookies and Path(cookies).exists():
+        import http.cookiejar
+        import requests
+        session = requests.Session()
+        cj = http.cookiejar.MozillaCookieJar(cookies)
+        try:
+            cj.load(ignore_discard=True, ignore_expires=True)
+            session.cookies = cj
+        except Exception as ce:
+            print(f"⚠️ Cookie loading warning: {ce}")
+
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-        ytt = YouTubeTranscriptApi()
+        from youtube_transcript_api._errors import IpBlocked
+        ytt = YouTubeTranscriptApi(http_client=session) if session else YouTubeTranscriptApi()
         transcript_list = ytt.list(video_id)
 
         # Priority: manual English -> any manual -> auto English -> any auto
@@ -421,6 +498,8 @@ def fetch_youtube_transcript(video_id: str) -> dict | None:
             "language": transcript.language_code,
             "is_generated": transcript.is_generated
         }
+    except IpBlocked:
+        raise
     except Exception as e:
         return None
 
@@ -477,6 +556,8 @@ def cmd_video(args):
     now_iso = datetime.now(timezone.utc).isoformat()
     atom_title = args.title or video_info["title"]
     notes = getattr(args, "notes", None)
+    if isinstance(notes, dict):
+        notes = notes.get("plain") or notes.get("markdown") or str(notes)
     tags = normalize_tags(getattr(args, "tags", None))
     collections = [c.strip() for c in args.collection.split(",") if c.strip()] if getattr(args, "collection", None) else []
 
@@ -546,6 +627,10 @@ def cmd_video(args):
         "transcript_language": transcript_data["language"] if transcript_data else None
     }
 
+    visibility = getattr(args, "visibility", None) or "public"
+    if visibility not in ("public", "shared", "private"):
+        visibility = "public"
+
     atom_doc = {
         "$schema": SCHEMA_URL,
         "id": atom_id,
@@ -568,6 +653,7 @@ def cmd_video(args):
             "notes": notes,
             "tags": tags,
             "collections": collections,
+            "visibility": visibility,
             "favorite": getattr(args, "favorite", False)
         },
         "payload": {
@@ -601,15 +687,15 @@ def cmd_video(args):
         conn.execute("""
             INSERT OR REPLACE INTO atoms (
                 id, kind, created_at, updated_at,
-                atom_title, notes, tags, collections, favorite,
+                atom_title, notes, tags, collections, visibility, favorite,
                 destination_url, cover_file_path,
                 text_content, source_url, author,
                 metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, "video", now_iso, now_iso,
             atom_title, notes, json.dumps(tags), json.dumps(collections),
-            1 if getattr(args, "favorite", False) else 0,
+            visibility, 1 if getattr(args, "favorite", False) else 0,
             video_info["canonical_url"], cover_rel_path,
             transcript_data["plain_text"] if transcript_data else None, args.url, video_info["author"],
             json.dumps(meta_bag), json.dumps(atom_doc)
@@ -662,14 +748,14 @@ def cmd_save_link(args):
             "author": None,
             "site_name": urlparse(args.url).netloc,
             "canonical_url": args.url,
-            "image_url": args.image_url,
+            "image_url": getattr(args, "image_url", None),
             "favicon": None,
             "published_at": None,
             "article_markdown": None,
             "article_word_count": 0
         }
 
-    if args.image_url:
+    if getattr(args, "image_url", None):
         scraped["image_url"] = args.image_url
 
     # Determine kind
@@ -684,8 +770,13 @@ def cmd_save_link(args):
     now_iso = datetime.now(timezone.utc).isoformat()
     atom_title = args.title or scraped["source_title"]
     notes = args.notes or scraped["description"]
+    if isinstance(notes, dict):
+        notes = notes.get("plain") or notes.get("markdown") or str(notes)
     tags = normalize_tags(args.tags)
     collections = [c.strip() for c in args.collection.split(",") if c.strip()] if args.collection else []
+    visibility = getattr(args, "visibility", None) or "public"
+    if visibility not in ("public", "shared", "private"):
+        visibility = "public"
 
     # Prepare sidecar folder: vault/atoms/YYYY/MM/<atom_id>/
     now = datetime.now(timezone.utc)
@@ -740,7 +831,7 @@ def cmd_save_link(args):
     # 3. Text / Excerpt if provided
     text_meta = None
     quote_rel_path = None
-    if args.quote:
+    if getattr(args, "quote", None):
         quote_filename = "quote.txt"
         abs_quote_path = abs_folder / quote_filename
         with open(abs_quote_path, "w", encoding="utf-8") as f:
@@ -784,6 +875,7 @@ def cmd_save_link(args):
             "notes": notes,
             "tags": tags,
             "collections": collections,
+            "visibility": visibility,
             "favorite": args.favorite
         },
         "payload": {
@@ -808,12 +900,12 @@ def cmd_save_link(args):
         conn.execute("""
             INSERT INTO atoms (
                 id, kind, created_at, updated_at, atom_title, notes, tags, collections,
-                favorite, destination_url, cover_file_path, text_content, source_url,
+                visibility, favorite, destination_url, cover_file_path, text_content, source_url,
                 author, metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, kind, now_iso, now_iso, atom_title, notes, json.dumps(tags),
-            json.dumps(collections), 1 if args.favorite else 0, args.url, cover_rel_path,
+            json.dumps(collections), visibility, 1 if args.favorite else 0, args.url, cover_rel_path,
             args.quote.strip() if args.quote else None, args.url, scraped["author"],
             json.dumps(meta_bag), json.dumps(atom_doc)
         ))
@@ -844,6 +936,9 @@ def cmd_quote(args):
 
     tags = normalize_tags(args.tags)
     collections = [c.strip() for c in args.collection.split(",") if c.strip()] if args.collection else []
+    visibility = getattr(args, "visibility", None) or "public"
+    if visibility not in ("public", "shared", "private"):
+        visibility = "public"
 
     rel_folder = Path("atoms") / f"{now.year}" / f"{now.month:02d}" / atom_id
     abs_folder = vault_dir / rel_folder
@@ -883,6 +978,7 @@ def cmd_quote(args):
             "notes": args.notes,
             "tags": tags,
             "collections": collections,
+            "visibility": visibility,
             "favorite": args.favorite
         },
         "payload": {
@@ -910,12 +1006,12 @@ def cmd_quote(args):
         conn.execute("""
             INSERT INTO atoms (
                 id, kind, created_at, updated_at, atom_title, notes, tags, collections,
-                favorite, destination_url, cover_file_path, text_content, source_url,
+                visibility, favorite, destination_url, cover_file_path, text_content, source_url,
                 author, metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, "quote", now_iso, now_iso, atom_title, args.notes, json.dumps(tags),
-            json.dumps(collections), 1 if args.favorite else 0, args.source, None,
+            json.dumps(collections), visibility, 1 if args.favorite else 0, args.source, None,
             args.quote.strip(), args.source, args.author, json.dumps(meta_bag),
             json.dumps(atom_doc)
         ))
@@ -943,6 +1039,9 @@ def cmd_note(args):
 
     tags = normalize_tags(args.tags)
     collections = [c.strip() for c in args.collection.split(",") if c.strip()] if args.collection else []
+    visibility = getattr(args, "visibility", None) or "public"
+    if visibility not in ("public", "shared", "private"):
+        visibility = "public"
 
     rel_folder = Path("atoms") / f"{now.year}" / f"{now.month:02d}" / atom_id
     abs_folder = vault_dir / rel_folder
@@ -979,6 +1078,7 @@ def cmd_note(args):
             "notes": None,
             "tags": tags,
             "collections": collections,
+            "visibility": visibility,
             "favorite": args.favorite
         },
         "payload": {
@@ -1006,12 +1106,12 @@ def cmd_note(args):
         conn.execute("""
             INSERT INTO atoms (
                 id, kind, created_at, updated_at, atom_title, notes, tags, collections,
-                favorite, destination_url, cover_file_path, text_content, source_url,
+                visibility, favorite, destination_url, cover_file_path, text_content, source_url,
                 author, metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, "note", now_iso, now_iso, atom_title, None, json.dumps(tags),
-            json.dumps(collections), 1 if args.favorite else 0, None, None,
+            json.dumps(collections), visibility, 1 if args.favorite else 0, None, None,
             args.text.strip(), None, None, json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
@@ -1069,8 +1169,14 @@ def cmd_image(args):
 
     cover_rel_path = str(rel_folder / cover_filename)
     atom_title = args.title or (Path(src).stem if not is_url else "Image")
+    notes = getattr(args, "notes", None)
+    if isinstance(notes, dict):
+        notes = notes.get("plain") or notes.get("markdown") or str(notes)
     tags = normalize_tags(args.tags)
     collections = [c.strip() for c in args.collection.split(",") if c.strip()] if args.collection else []
+    visibility = getattr(args, "visibility", None) or "public"
+    if visibility not in ("public", "shared", "private"):
+        visibility = "public"
 
     meta_bag = {
         "aspect_ratio": downloaded["aspect_ratio"],
@@ -1100,6 +1206,7 @@ def cmd_image(args):
             "notes": args.notes,
             "tags": tags,
             "collections": collections,
+            "visibility": visibility,
             "favorite": args.favorite
         },
         "payload": {
@@ -1113,7 +1220,7 @@ def cmd_image(args):
                 "aspect_ratio": downloaded["aspect_ratio"],
                 "blurhash": downloaded["blurhash"],
                 "color_palette": downloaded["color_palette"],
-                "alt_text": args.alt or atom_title,
+                "alt_text": getattr(args, "alt", None) or atom_title,
                 "original_src_url": src if is_url else None
             },
             "text": None,
@@ -1133,12 +1240,12 @@ def cmd_image(args):
         conn.execute("""
             INSERT INTO atoms (
                 id, kind, created_at, updated_at, atom_title, notes, tags, collections,
-                favorite, destination_url, cover_file_path, text_content, source_url,
+                visibility, favorite, destination_url, cover_file_path, text_content, source_url,
                 author, metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, "image", now_iso, now_iso, atom_title, args.notes, json.dumps(tags),
-            json.dumps(collections), 1 if args.favorite else 0, args.source, cover_rel_path,
+            json.dumps(collections), visibility, 1 if args.favorite else 0, args.source, cover_rel_path,
             None, args.source, args.author, json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
@@ -1163,9 +1270,15 @@ def cmd_list(args):
     if args.tag:
         query += " AND tags LIKE ?"
         params.append(f"%{args.tag}%")
+    if getattr(args, "visibility", None):
+        query += " AND visibility = ?"
+        params.append(args.visibility)
     if args.collection:
         query += " AND collections LIKE ?"
         params.append(f"%{args.collection}%")
+    if getattr(args, "visibility", None):
+        query += " AND visibility = ?"
+        params.append(args.visibility)
         
     query += " ORDER BY created_at DESC LIMIT ?"
     params.append(args.limit)
@@ -1247,7 +1360,7 @@ def get_atom_content_body(vault_dir: Path, r: sqlite3.Row) -> str:
 
 
 def cmd_export(args):
-    """Export atoms to third-party formats (NotebookLM, Obsidian, Bookmarks, Readwise, Are.na, RSS, BibTeX, JSONL, JSON)."""
+    """Export atoms to third-party formats (NotebookLM, Obsidian, Bookmarks, Readwise, Are.na, Raindrop.io, Pinterest, RSS, BibTeX, JSONL, JSON)."""
     vault_dir = Path(args.vault).resolve()
     conn = get_db(vault_dir)
     query = "SELECT * FROM atoms WHERE 1=1"
@@ -1258,6 +1371,9 @@ def cmd_export(args):
     if args.tag:
         query += " AND tags LIKE ?"
         params.append(f"%{args.tag}%")
+    if getattr(args, "visibility", None):
+        query += " AND visibility = ?"
+        params.append(args.visibility)
     query += " ORDER BY created_at ASC"
 
     rows = conn.execute(query, params).fetchall()
@@ -1336,6 +1452,45 @@ def cmd_export(args):
                 writer.writerow([title, media_url, board, thumbnail, desc, link, publish_date, keywords])
 
         print(f"✅ Exported {len(rows)} items for Pinterest bulk upload to: {out_path}")
+
+    elif args.target in ("raindrop-csv", "raindrop"):
+        out_path = Path(args.out) if args.out else export_dir / "raindrop_export.csv"
+        default_folder = getattr(args, "folder", None) or "WideWeb"
+
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["folder", "url", "title", "note", "tags", "created"])
+
+            for r in rows:
+                url = r["destination_url"] or r["source_url"] or ""
+                if not url:
+                    continue
+
+                title = r["atom_title"] or "Untitled"
+
+                cols = json.loads(r["collections"]) if r["collections"] else []
+                if getattr(args, "folder", None):
+                    folder = args.folder
+                elif cols:
+                    folder = f"{default_folder}/{cols[0].replace('-', ' ').title()}"
+                else:
+                    folder = f"{default_folder}/{r['kind'].capitalize()}s"
+
+                parts = []
+                if r["notes"]:
+                    parts.append(r["notes"])
+                if r["text_content"] and r["kind"] == "quote":
+                    parts.append(f'"{r["text_content"]}"')
+                note = "\n\n".join(parts) if parts else (r["notes"] or "")
+
+                tags_list = json.loads(r["tags"]) if r["tags"] else []
+                tags_str = ", ".join(tags_list)
+
+                created = r["created_at"] or ""
+
+                writer.writerow([folder, url, title, note, tags_str, created])
+
+        print(f"✅ Exported {len(rows)} items for Raindrop.io CSV import to: {out_path}")
 
     elif args.target in ("digest", "llms", "notebooklm"):
         out_path = Path(args.out) if args.out else export_dir / "vault_digest.md"
@@ -1632,6 +1787,334 @@ def cmd_export(args):
         print(f"✅ Exported {len(rows)} atoms to JSON: {out_path}")
 
 
+def extract_author_and_source_title(raw_title):
+    """Extract clean title, author, and source publication from an Are.na block title."""
+    if not raw_title:
+        return None, None
+    clean = raw_title.replace("**", "").strip()
+    clean = re.sub(r'\(via\s+[^\)]+\)', '', clean, flags=re.IGNORECASE).strip()
+    author = None
+    # Check for " - Author"
+    m = re.search(r'[\-–—]\s*([A-Z][a-zA-Z\s\.\'\-]+)$', clean)
+    if m:
+        author = m.group(1).strip()
+        clean = clean[:m.start()].strip().strip('\'\"')
+    else:
+        # Check for " by Author"
+        m2 = re.search(r'\bby\s+([A-Z][a-zA-Z\s\.\'\-]+)$', clean)
+        if m2:
+            author = m2.group(1).strip()
+            clean = clean[:m2.start()].strip().strip('\'\"')
+    return author, clean or raw_title
+
+
+def cmd_import_arena(args):
+    """Import blocks from an Are.na channel (remote slug/ID or JSON dump) into WideWeb atoms."""
+    vault_dir = Path(args.vault).resolve()
+    channel_input = args.channel.strip()
+
+    blocks = []
+    channel_title = "Are.na Import"
+
+    # 1. Load from file if local path exists
+    if Path(channel_input).exists():
+        with open(channel_input, "r", encoding="utf-8") as f:
+            raw_data = json.load(f)
+            if isinstance(raw_data, dict) and "result" in raw_data and isinstance(raw_data["result"], dict) and "data" in raw_data["result"]:
+                blocks = raw_data["result"]["data"]
+                channel_title = Path(channel_input).stem.replace("arena_", "").replace("_", " ").replace("-", " ").title()
+            elif isinstance(raw_data, dict) and "data" in raw_data:
+                blocks = raw_data["data"]
+                channel_title = Path(channel_input).stem.replace("arena_", "").replace("_", " ").replace("-", " ").title()
+            elif isinstance(raw_data, dict) and "contents" in raw_data:
+                blocks = raw_data["contents"]
+                channel_title = raw_data.get("title", Path(channel_input).stem)
+            elif isinstance(raw_data, list):
+                blocks = raw_data
+                channel_title = Path(channel_input).stem.replace("arena_", "").replace("_", " ").replace("-", " ").title()
+    else:
+        # 2. Fetch from Are.na API or local cached dump
+        headers = {"User-Agent": "WideWeb/1.0"}
+        token = os.environ.get("ARENA_TOKEN") or os.environ.get("ARENA_API_TOKEN")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        api_url = f"https://api.are.na/v2/channels/{channel_input}?per={args.limit}"
+        print(f"📡 Fetching Are.na channel '{channel_input}' from API...")
+        try:
+            session = get_http_session()
+            resp = session.get(api_url, headers=headers, timeout=(3.0, 15.0))
+            if resp.status_code == 200:
+                ch_data = resp.json()
+                channel_title = ch_data.get("title", channel_input)
+                blocks = ch_data.get("contents", [])
+            elif resp.status_code in (401, 403):
+                print(f"ℹ️ Channel '{channel_input}' is private (HTTP {resp.status_code}).")
+                # Look for cached dump in vault/import/
+                slug_variants = [
+                    channel_input,
+                    channel_input.replace("-", "_"),
+                    channel_input.split("-")[0]
+                ]
+                dump_file = None
+                for sv in slug_variants:
+                    cand = vault_dir / "import" / f"arena_{sv}.json"
+                    if cand.exists():
+                        dump_file = cand
+                        break
+                if dump_file:
+                    print(f"📂 Found local authenticated dump: {dump_file}")
+                    with open(dump_file, "r", encoding="utf-8") as df:
+                        raw_d = json.load(df)
+                        blocks = raw_d.get("result", {}).get("data", []) or raw_d.get("contents", [])
+                        channel_title = channel_input.replace("-", " ").title()
+                else:
+                    print("❌ Please provide ARENA_TOKEN or a JSON dump file.")
+                    return
+            else:
+                print(f"❌ Error fetching Are.na channel: HTTP {resp.status_code}")
+                return
+        except Exception as e:
+            print(f"❌ Network error: {e}")
+            return
+
+    if not blocks:
+        print(f"ℹ️ No blocks found for channel '{channel_input}'.")
+        return
+
+    print(f"\n🧱 Ingesting {len(blocks)} blocks from Are.na channel '{channel_title}'...")
+    conn = get_db(vault_dir)
+    imported = 0
+    skipped = 0
+
+    clean_tag = re.sub(r'[^a-zA-Z0-9]+', '-', channel_title.lower()).strip('-') or "arena"
+    base_tags = [clean_tag]
+    if args.tag:
+        base_tags.extend(normalize_tags(args.tag))
+
+    # Determine default visibility for channel
+    channel_vis = getattr(args, "visibility", None)
+    if not channel_vis:
+        ch_low = (args.collection or channel_title).lower()
+        if "work (private)" in ch_low or "private" in ch_low:
+            channel_vis = "private"
+        elif any(k in ch_low for k in ("wishlist", "sarah", "mom & dad", "mom-dad")):
+            channel_vis = "shared"
+        else:
+            channel_vis = "public"
+
+    for b in blocks:
+        b_class = b.get("class") or b.get("type") or "Block"
+        b_title = b.get("title") or b.get("name")
+        b_desc = sanitize_text(b.get("description") or b.get("description_html"))
+
+        # Determine block visibility (inherit channel visibility or override if block is private)
+        block_vis = channel_vis
+        if b.get("visibility") == "private" and channel_vis == "public":
+            block_vis = "shared"
+
+        source_url = None
+        if b.get("source") and isinstance(b["source"], dict):
+            source_url = b["source"].get("url")
+
+        # Extract content if Text block
+        content = None
+        if b_class == "Text":
+            content_raw = b.get("content") or b.get("content_html") or ""
+            if isinstance(content_raw, dict):
+                content = content_raw.get("plain") or content_raw.get("markdown") or content_raw.get("html") or str(content_raw)
+            else:
+                content = content_raw
+            if content:
+                content = content.strip()
+
+        # Deduplication check
+        if b_class == "Text" and content:
+            # Deduplicate by matching text_content so multiple distinct quotes from the same source article are preserved
+            existing = conn.execute("SELECT id, atom_title FROM atoms WHERE text_content = ?", (content,)).fetchone()
+            if existing:
+                print(f"   ℹ️ Already exists in vault: {existing['atom_title']} ({existing['id']})")
+                skipped += 1
+                continue
+        elif source_url:
+            existing = conn.execute("SELECT id, atom_title FROM atoms WHERE destination_url = ? OR source_url = ?", (source_url, source_url)).fetchone()
+            if existing:
+                print(f"   ℹ️ Already exists in vault: {existing['atom_title']} ({existing['id']})")
+                skipped += 1
+                continue
+
+        # 1. Video / Embed
+        if b_class in ("Media", "Embed") or (source_url and extract_video_info(source_url)):
+            v_url = source_url or b.get("embed", {}).get("url")
+            if v_url:
+                v_args = types.SimpleNamespace(
+                    url=v_url,
+                    title=b_title,
+                    notes=b_desc,
+                    tags=",".join(base_tags),
+                    collection=args.collection or channel_title,
+                    visibility=block_vis,
+                    favorite=False,
+                    vault=str(vault_dir),
+                    image_url=None,
+                    quote=None,
+                    target_kind=None
+                )
+                try:
+                    cmd_video(v_args)
+                    imported += 1
+                except Exception as e:
+                    print(f"   ⚠️ Video import failed for {v_url}: {e}")
+
+        # 2. Image
+        elif b_class == "Image":
+            img_url = None
+            if b.get("image"):
+                img_url = (b["image"].get("src") or 
+                           b["image"].get("original", {}).get("url") or 
+                           b["image"].get("display", {}).get("url"))
+            if not img_url and source_url and any(source_url.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif")):
+                img_url = source_url
+
+            if img_url:
+                img_title = b_title or (b.get("image", {}).get("filename") if b.get("image") else f"{channel_title} Image")
+                img_args = types.SimpleNamespace(
+                    src=img_url,
+                    title=img_title,
+                    source=source_url,
+                    author=b.get("user", {}).get("name") if b.get("user") else None,
+                    notes=b_desc,
+                    alt=b.get("image", {}).get("alt_text") if b.get("image") else None,
+                    tags=",".join(base_tags),
+                    collection=args.collection or channel_title,
+                    visibility=block_vis,
+                    favorite=False,
+                    vault=str(vault_dir)
+                )
+                try:
+                    cmd_image(img_args)
+                    imported += 1
+                except Exception as e:
+                    print(f"   ⚠️ Image import failed for {img_url}: {e}")
+
+        # 3. Link (Article or Bookmark)
+        elif b_class in ("Link", "Block"):
+            if source_url:
+                l_args = types.SimpleNamespace(
+                    url=source_url,
+                    title=b_title,
+                    notes=b_desc,
+                    tags=",".join(base_tags),
+                    collection=args.collection or channel_title,
+                    visibility=block_vis,
+                    image_url=b.get("image", {}).get("original", {}).get("url") if b.get("image") else None,
+                    quote=None,
+                    favorite=False,
+                    vault=str(vault_dir),
+                    target_kind=None
+                )
+                try:
+                    cmd_save_link(l_args)
+                    imported += 1
+                except Exception as e:
+                    print(f"   ⚠️ Link import failed for {source_url}: {e}")
+
+        # 4. Text (Quote or Note)
+        elif b_class == "Text":
+            if content:
+                extracted_author, clean_title = extract_author_and_source_title(b_title)
+                # If channel or collection is a quote/highlight collection, or source_url exists, or quotes detected, treat as Quote
+                is_quote = (
+                    source_url is not None
+                    or any(k in (args.collection or channel_title).lower() for k in ("quote", "highlight", "reading"))
+                    or ('"' in content or '“' in content)
+                    or extracted_author is not None
+                    or "(via " in (b_title or "").lower()
+                )
+                final_title = clean_title or b_title
+                if is_quote:
+                    q_args = types.SimpleNamespace(
+                        quote=content,
+                        title=final_title,
+                        source=source_url,
+                        source_title=final_title,
+                        author=extracted_author,
+                        notes=b_desc,
+                        tags=",".join(base_tags),
+                        collection=args.collection or channel_title,
+                        visibility=block_vis,
+                        favorite=False,
+                        vault=str(vault_dir)
+                    )
+                    cmd_quote(q_args)
+                else:
+                    n_args = types.SimpleNamespace(
+                        text=content,
+                        title=final_title,
+                        tags=",".join(base_tags),
+                        collection=args.collection or channel_title,
+                        visibility=block_vis,
+                        favorite=False,
+                        vault=str(vault_dir)
+                    )
+                    cmd_note(n_args)
+                imported += 1
+
+        # 5. Connected Channel
+        elif b_class == "Channel":
+            ch_url = f"https://www.are.na/channel/{b.get('slug') or b.get('id')}"
+            l_args = types.SimpleNamespace(
+                url=ch_url,
+                title=f"Channel: {b_title}",
+                notes=b_desc or f"Connected Are.na channel ({b.get('length', 0)} blocks)",
+                tags=",".join(base_tags + ["arena-channel"]),
+                collection=args.collection or channel_title,
+                visibility=block_vis,
+                image_url=None,
+                quote=None,
+                favorite=False,
+                vault=str(vault_dir),
+                target_kind="bookmark"
+            )
+            try:
+                cmd_save_link(l_args)
+                imported += 1
+            except Exception as e:
+                print(f"   ⚠️ Channel block import failed: {e}")
+
+        # 6. Attachment (PDFs, documents, media files)
+        elif b_class == "Attachment" or b.get("attachment"):
+            att_url = (b.get("attachment", {}) or {}).get("url") or source_url
+            if att_url:
+                att_title = b_title or (b.get("attachment", {}) or {}).get("filename") or "Attachment"
+                img_thumb = b.get("image", {}).get("src") if b.get("image") else None
+                l_args = types.SimpleNamespace(
+                    url=att_url,
+                    title=att_title,
+                    notes=b_desc,
+                    tags=",".join(base_tags + ["attachment"]),
+                    collection=args.collection or channel_title,
+                    visibility=block_vis,
+                    image_url=img_thumb,
+                    quote=None,
+                    favorite=False,
+                    vault=str(vault_dir),
+                    target_kind="bookmark"
+                )
+                try:
+                    cmd_save_link(l_args)
+                    imported += 1
+                except Exception as e:
+                    print(f"   ⚠️ Attachment block import failed: {e}")
+
+    # Regenerate viewer
+    import viewer
+    viewer.generate_viewer(vault_dir)
+    print(f"\n✨ Completed Are.na import for '{channel_title}'!")
+    print(f"   📥 Imported: {imported} new atoms")
+    print(f"   ℹ️ Skipped:  {skipped} duplicates\n")
+
+
 def cmd_reindex(args):
     """Rebuild SQLite vault.db from all atom.json files on disk (Disaster Recovery)."""
     vault_dir = Path(args.vault).resolve()
@@ -1713,13 +2196,14 @@ def cmd_reindex(args):
                     conn.execute("""
                         INSERT INTO atoms (
                             id, kind, created_at, updated_at, atom_title, notes, tags,
-                            collections, favorite, destination_url, cover_file_path,
+                            collections, visibility, favorite, destination_url, cover_file_path,
                             text_content, source_url, author, metadata, raw_json
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         atom_id, kind, now_iso, doc.get("updated_at", now_iso),
                         cur.get("atom_title", "Untitled"), cur.get("notes"),
                         json.dumps(normalize_tags(cur.get("tags", []))), json.dumps(cur.get("collections", [])),
+                        cur.get("visibility", "public"),
                         1 if cur.get("favorite") else 0, payload.get("destination_url"),
                         cover_rel_path, text_content, prov.get("source_url"),
                         prov.get("author"), json.dumps(meta_bag), json.dumps(doc)
@@ -1729,6 +2213,154 @@ def cmd_reindex(args):
                 print(f"⚠️ Error parsing {atom_file}: {e}")
 
     print(f"🎉 Disaster Recovery complete! Successfully indexed {count} atoms into vault.db.")
+
+
+def cmd_backfill_transcripts(args):
+    """Enrich video atoms by fetching YouTube captions/transcripts with polite throttling."""
+    vault_dir = Path(args.vault).resolve()
+    conn = get_db(vault_dir)
+
+    limit = args.limit
+    delay = args.delay
+    cookies_path = getattr(args, "cookies", None)
+
+    rows = conn.execute("""
+        SELECT id, atom_title, destination_url, source_url, cover_file_path, metadata, raw_json
+        FROM atoms
+        WHERE kind = 'video'
+          AND (text_content IS NULL OR text_content = '')
+        ORDER BY created_at ASC
+    """).fetchall()
+
+    candidates = []
+    for r in rows:
+        meta = json.loads(r["metadata"]) if r["metadata"] else {}
+        if not meta.get("transcript_checked"):
+            candidates.append(r)
+
+    print(f"🔍 Found {len(candidates)} video atoms pending transcript extraction (processing up to {limit}).")
+    if not candidates:
+        print("✅ No video atoms require transcript backfill!")
+        return
+
+    to_process = candidates[:limit]
+    success_count = 0
+    unavailable_count = 0
+    blocked = False
+
+    for idx, r in enumerate(to_process, 1):
+        atom_id = r["id"]
+        title = r["atom_title"] or "Untitled Video"
+        url = r["destination_url"] or r["source_url"] or ""
+
+        # Extract YouTube video id
+        video_id = None
+        if "v=" in url:
+            video_id = url.split("v=")[1].split("&")[0].split("#")[0]
+        elif "youtu.be/" in url:
+            video_id = url.split("youtu.be/")[1].split("?")[0].split("#")[0]
+        elif "/shorts/" in url:
+            video_id = url.split("/shorts/")[1].split("?")[0].split("#")[0]
+
+        if not video_id:
+            print(f"[{idx}/{len(to_process)}] ⚠️ Could not parse video ID from {url} ({atom_id})")
+            continue
+
+        print(f"[{idx}/{len(to_process)}] 🎙️ Querying captions for '{title[:45]}' ({video_id})...")
+
+        transcript_data = None
+        try:
+            transcript_data = fetch_youtube_transcript(video_id, cookies=cookies_path)
+        except Exception as e:
+            err_name = type(e).__name__
+            if "IpBlocked" in err_name or "Blocked" in str(e):
+                print(f"\n🛑 YouTube is currently rate-limiting this IP address (IpBlocked).")
+                print("   Stopping run to let cooldown clear. Run again later or supply --cookies.")
+                blocked = True
+                break
+            else:
+                print(f"   ℹ️ Captions unavailable: {e}")
+
+        # Locate atom directory
+        rel_cover = r["cover_file_path"]
+        atom_dir = None
+        if rel_cover:
+            candidate_dir = (vault_dir / rel_cover).parent
+            if candidate_dir.exists():
+                atom_dir = candidate_dir
+        if not atom_dir:
+            for p in (vault_dir / "atoms").glob(f"**/{atom_id}"):
+                if p.is_dir():
+                    atom_dir = p
+                    break
+
+        meta = json.loads(r["metadata"]) if r["metadata"] else {}
+        raw = json.loads(r["raw_json"]) if r["raw_json"] else {}
+
+        if transcript_data and atom_dir:
+            txt_path = atom_dir / "transcript.txt"
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write(transcript_data["plain_text"])
+
+            json_path = atom_dir / "transcript.json"
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(transcript_data["snippets"], f, indent=2)
+
+            rel_txt = str(txt_path.relative_to(vault_dir))
+            rel_json = str(json_path.relative_to(vault_dir))
+
+            meta["has_transcript"] = True
+            meta["transcript_snippets"] = len(transcript_data["snippets"])
+            meta["transcript_language"] = transcript_data["language"]
+            meta["transcript_checked"] = True
+
+            if "payload" not in raw:
+                raw["payload"] = {}
+            if "video" not in raw["payload"]:
+                raw["payload"]["video"] = {}
+            raw["payload"]["video"]["has_transcript"] = True
+            raw["payload"]["video"]["transcript_file"] = rel_txt
+            raw["payload"]["video"]["transcript_json"] = rel_json
+            raw["payload"]["video"]["transcript_language"] = transcript_data["language"]
+            raw["payload"]["video"]["transcript_is_generated"] = transcript_data["is_generated"]
+
+            with open(atom_dir / "atom.json", "w", encoding="utf-8") as f:
+                json.dump(raw, f, indent=2, ensure_ascii=False)
+
+            conn.execute("""
+                UPDATE atoms
+                SET text_content = ?, metadata = ?, raw_json = ?, updated_at = ?
+                WHERE id = ?
+            """, (
+                transcript_data["speech_text"],
+                json.dumps(meta),
+                json.dumps(raw),
+                datetime.now(timezone.utc).isoformat(),
+                atom_id
+            ))
+            conn.commit()
+            print(f"   ✅ Saved {len(transcript_data['snippets'])} captions ({transcript_data['language']})")
+            success_count += 1
+        elif not blocked:
+            meta["transcript_checked"] = True
+            meta["has_transcript"] = False
+            conn.execute("UPDATE atoms SET metadata = ? WHERE id = ?", (json.dumps(meta), atom_id))
+            conn.commit()
+            if atom_dir and (atom_dir / "atom.json").exists():
+                with open(atom_dir / "atom.json", "w", encoding="utf-8") as f:
+                    json.dump(raw, f, indent=2, ensure_ascii=False)
+            unavailable_count += 1
+            print(f"   ℹ️ No captions found on YouTube for this video.")
+
+        if idx < len(to_process) and not blocked:
+            sleep_time = delay + random.uniform(0.5, 1.5)
+            time.sleep(sleep_time)
+
+    print(f"\n📊 Summary:")
+    print(f"   ✅ Transcripts added: {success_count}")
+    print(f"   ℹ️ No captions available: {unavailable_count}")
+    if blocked:
+        print(f"   ⏸️ Run paused early due to IP rate-limiting.")
 
 
 def cmd_view(args):
@@ -1770,6 +2402,7 @@ def main():
     p_art.add_argument("--notes", help="Personal curation notes")
     p_art.add_argument("--tags", help="Comma-separated tags")
     p_art.add_argument("--collection", help="Collection name")
+    p_art.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_art.add_argument("--image-url", help="Override primary image URL")
     p_art.add_argument("--quote", help="Accompanying text quote or excerpt")
     p_art.add_argument("--favorite", action="store_true", help="Mark as favorite")
@@ -1782,6 +2415,7 @@ def main():
     p_bm.add_argument("--notes", help="Personal curation notes")
     p_bm.add_argument("--tags", help="Comma-separated tags")
     p_bm.add_argument("--collection", help="Collection name")
+    p_bm.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_bm.add_argument("--image-url", help="Override primary image URL")
     p_bm.add_argument("--quote", help="Accompanying text quote or excerpt")
     p_bm.add_argument("--favorite", action="store_true", help="Mark as favorite")
@@ -1794,6 +2428,7 @@ def main():
     p_link.add_argument("--notes", help="Personal curation notes")
     p_link.add_argument("--tags", help="Comma-separated tags (e.g. design,systems)")
     p_link.add_argument("--collection", help="Collection name")
+    p_link.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_link.add_argument("--image-url", help="Override primary image URL")
     p_link.add_argument("--quote", help="Accompanying text quote or excerpt")
     p_link.add_argument("--favorite", action="store_true", help="Mark as favorite")
@@ -1805,6 +2440,7 @@ def main():
     p_save.add_argument("--notes", help="Personal curation notes")
     p_save.add_argument("--tags", help="Comma-separated tags")
     p_save.add_argument("--collection", help="Collection name")
+    p_save.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_save.add_argument("--image-url", help="Override primary image URL")
     p_save.add_argument("--quote", help="Accompanying text quote or excerpt")
     p_save.add_argument("--favorite", action="store_true", help="Mark as favorite")
@@ -1820,6 +2456,7 @@ def main():
     p_quote.add_argument("--notes", help="Personal marginalia / notes")
     p_quote.add_argument("--tags", help="Comma-separated tags")
     p_quote.add_argument("--collection", help="Collection name")
+    p_quote.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_quote.add_argument("--favorite", action="store_true", help="Mark as favorite")
     p_quote.set_defaults(func=cmd_quote)
 
@@ -1829,6 +2466,7 @@ def main():
     p_note.add_argument("--title", help="Custom title for the note")
     p_note.add_argument("--tags", help="Comma-separated tags")
     p_note.add_argument("--collection", help="Collection name")
+    p_note.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_note.add_argument("--favorite", action="store_true", help="Mark as favorite")
     p_note.set_defaults(func=cmd_note)
 
@@ -1842,6 +2480,7 @@ def main():
     p_image.add_argument("--notes", help="Personal notes on the image")
     p_image.add_argument("--tags", help="Comma-separated tags")
     p_image.add_argument("--collection", help="Collection name")
+    p_image.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_image.add_argument("--favorite", action="store_true", help="Mark as favorite")
     p_image.set_defaults(func=cmd_image)
 
@@ -1852,6 +2491,7 @@ def main():
     p_video.add_argument("--notes", help="Personal curation notes")
     p_video.add_argument("--tags", help="Comma-separated tags")
     p_video.add_argument("--collection", help="Collection name")
+    p_video.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_video.add_argument("--favorite", action="store_true", help="Mark as favorite")
     p_video.set_defaults(func=cmd_video)
 
@@ -1860,6 +2500,7 @@ def main():
     p_list.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file", "link"], help="Filter by kind")
     p_list.add_argument("--tag", help="Filter by tag")
     p_list.add_argument("--collection", help="Filter by collection")
+    p_list.add_argument("--visibility", choices=["public", "shared", "private"], help="Filter by visibility tier")
     p_list.add_argument("--limit", type=int, default=20, help="Number of items to show")
     p_list.set_defaults(func=cmd_list)
 
@@ -1873,6 +2514,7 @@ def main():
             "bookmarks-html", "bookmarks", "netscape",
             "readwise",
             "arena-csv", "csv",
+            "raindrop-csv", "raindrop",
             "pinterest-csv", "pinterest",
             "rss", "feed",
             "bibtex", "bib",
@@ -1880,10 +2522,12 @@ def main():
             "json"
         ],
         default="digest",
-        help="Export target format (digest, llms-txt, obsidian, bookmarks-html, readwise, arena-csv, pinterest-csv, rss, bibtex, jsonl, json)"
+        help="Export target format (digest, llms-txt, obsidian, bookmarks-html, readwise, arena-csv, raindrop-csv, pinterest-csv, rss, bibtex, jsonl, json)"
     )
     p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file", "link"], help="Filter by kind")
     p_export.add_argument("--tag", help="Filter by tag")
+    p_export.add_argument("--visibility", choices=["public", "shared", "private"], help="Filter by visibility tier (e.g. export only public atoms)")
+    p_export.add_argument("--folder", help="Default Raindrop collection / folder name (default: WideWeb/<Kind>s)")
     p_export.add_argument("--board", help="Default Pinterest board name (default: WideWeb)")
     p_export.add_argument("--out", help="Output file path (default: stdout or vault/export/vault_digest.md)")
     p_export.set_defaults(func=cmd_export)
@@ -1902,6 +2546,22 @@ def main():
     # 9. MCP command
     p_mcp = subparsers.add_parser("mcp", help="Run the WideWeb Model Context Protocol (MCP) server for Claude Desktop / AI tools")
     p_mcp.set_defaults(func=cmd_mcp)
+
+    # 10. Import Are.na command
+    p_import_arena = subparsers.add_parser("import-arena", help="Import blocks from an Are.na channel into WideWeb atoms")
+    p_import_arena.add_argument("channel", help="Are.na channel slug, ID, or JSON file path")
+    p_import_arena.add_argument("--limit", type=int, default=100, help="Max blocks to fetch (default: 100)")
+    p_import_arena.add_argument("--tag", help="Additional tag to apply to imported atoms")
+    p_import_arena.add_argument("--collection", help="Collection name (defaults to channel title)")
+    p_import_arena.add_argument("--visibility", choices=["public", "shared", "private"], help="Explicitly set visibility tier (public, shared, private)")
+    p_import_arena.set_defaults(func=cmd_import_arena)
+
+    # 11. Backfill Transcripts command
+    p_backfill = subparsers.add_parser("backfill-transcripts", help="Throttled background drip to fetch YouTube captions/transcripts")
+    p_backfill.add_argument("--limit", type=int, default=30, help="Max videos to process in this run (default: 30)")
+    p_backfill.add_argument("--delay", type=float, default=3.5, help="Base delay in seconds between requests (default: 3.5)")
+    p_backfill.add_argument("--cookies", help="Path to cookies.txt exported from browser")
+    p_backfill.set_defaults(func=cmd_backfill_transcripts)
 
     args = parser.parse_args()
     args.func(args)
