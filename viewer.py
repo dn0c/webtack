@@ -1258,10 +1258,10 @@ def generate_viewer(vault_dir: Path) -> Path:
 
       // Cover image asset section
       let assetHtml = '';
-      const coverImg = payload.cover_image || {{}};
-      if (atom.cover_path || coverImg.relative_path) {{
-        const cPath = atom.cover_path || coverImg.relative_path;
-        const dims = coverImg.dimensions ? `${{coverImg.dimensions.width}} × ${{coverImg.dimensions.height}}` : null;
+      const coverImg = payload.cover_image || payload.asset || {{}};
+      if (atom.cover_path || coverImg.relative_path || coverImg.file) {{
+        const cPath = atom.cover_path || coverImg.relative_path || coverImg.file;
+        const dims = coverImg.dimensions ? `${{coverImg.dimensions.width}} × ${{coverImg.dimensions.height}}` : (metadata.dimensions ? `${{metadata.dimensions.width}} × ${{metadata.dimensions.height}}` : null);
         const ratio = coverImg.aspect_ratio || (metadata && metadata.aspect_ratio);
         const blur = coverImg.blurhash || (metadata && metadata.blurhash);
         const mime = coverImg.mime_type || 'image/jpeg';
@@ -1275,13 +1275,14 @@ def generate_viewer(vault_dir: Path) -> Path:
             `</div>`;
         }}
 
+        const assetTitle = atom.kind === 'image' ? 'Image Asset Specification' : 'Cover Image Asset';
         assetHtml = `
           <div class="meta-asset-box">
             <a href="${{cPath}}" target="_blank" title="Click to view full image">
               <img src="${{cPath}}" class="meta-asset-thumb" alt="${{escapeHtml(atom.title)}}">
             </a>
             <div class="meta-asset-fields">
-              <div style="font-weight:600; font-size:13px; margin-bottom:4px; color:var(--text);">Cover Image Asset</div>
+              <div style="font-weight:600; font-size:13px; margin-bottom:4px; color:var(--text);">${{assetTitle}}</div>
               <div class="meta-field-row"><span class="meta-field-label">File Path:</span><span class="meta-field-value spec-mono">${{escapeHtml(cPath)}}</span></div>
               ${{dims ? `<div class="meta-field-row"><span class="meta-field-label">Dimensions:</span><span class="meta-field-value">${{dims}} ${{ratio ? `(aspect: ${{ratio}})` : ''}}</span></div>` : ''}}
               ${{mime ? `<div class="meta-field-row"><span class="meta-field-label">Format:</span><span class="meta-field-value spec-mono">${{mime}}</span></div>` : ''}}
