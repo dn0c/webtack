@@ -602,35 +602,101 @@ def generate_viewer(vault_dir: Path) -> Path:
       color: var(--muted);
       margin-bottom: 4px;
     }}
-    .meta-spec-grid {{
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px 20px;
-      padding: 16px 18px;
+    /* 4-Tier Schema Layout */
+    .schema-tiers-container {{
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 24px;
+    }}
+    .schema-tier-card {{
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 10px;
-      margin-bottom: 20px;
+      padding: 16px 18px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }}
+    .schema-tier-card:hover {{
+      border-color: var(--accent);
+    }}
+    .tier-badge-header {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }}
+    .tier-number-pill {{
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }}
+    .tier-envelope .tier-number-pill {{
+      background: var(--tag-bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }}
+    .tier-provenance .tier-number-pill {{
+      background: rgba(180, 83, 9, 0.12);
+      color: #B45309;
+    }}
+    .tier-curation .tier-number-pill {{
+      background: rgba(43, 76, 126, 0.12);
+      color: var(--accent);
+    }}
+    .tier-payload .tier-number-pill {{
+      background: rgba(13, 148, 136, 0.12);
+      color: #0D9488;
+    }}
+    @media (prefers-color-scheme: dark) {{
+      .tier-provenance .tier-number-pill {{ color: #F59E0B; background: rgba(245, 158, 11, 0.18); }}
+      .tier-curation .tier-number-pill {{ color: #93C5FD; background: rgba(147, 197, 253, 0.18); }}
+      .tier-payload .tier-number-pill {{ color: #2DD4BF; background: rgba(45, 212, 191, 0.18); }}
+    }}
+    .tier-title {{
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }}
+    .tier-tagline {{
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-left: auto;
     }}
     @media (max-width: 600px) {{
-      .meta-spec-grid {{ grid-template-columns: 1fr; }}
+      .tier-tagline {{ display: none; }}
     }}
-    .spec-item {{
+    .tier-content-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 18px;
+      font-size: 12.5px;
+    }}
+    @media (max-width: 600px) {{
+      .tier-content-grid {{ grid-template-columns: 1fr; }}
+    }}
+    .tier-prop {{
       display: flex;
-      flex-direction: column;
-      gap: 2px;
+      gap: 8px;
+      align-items: baseline;
+      word-break: break-all;
     }}
-    .spec-label {{
-      font-size: 10px;
+    .tier-k {{
+      width: 100px;
+      flex-shrink: 0;
+      font-size: 10.5px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--muted);
     }}
-    .spec-value {{
-      font-size: 12.5px;
+    .tier-v {{
       color: var(--text);
-      word-break: break-all;
+      font-size: 12.5px;
     }}
     .spec-mono {{
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -1294,65 +1360,152 @@ def generate_viewer(vault_dir: Path) -> Path:
         `;
       }}
 
-      // Quote / Note banner
-      let contentBannerHtml = '';
+      // TIER 1: SYSTEM ENVELOPE
+      const tier1Html = `
+        <div class="schema-tier-card tier-envelope">
+          <div class="tier-badge-header">
+            <span class="tier-number-pill">Tier 1</span>
+            <span class="tier-title">System Envelope</span>
+            <span class="tier-tagline">Storage, identity & immutability</span>
+          </div>
+          <div class="tier-content-grid">
+            <div class="tier-prop"><span class="tier-k">Atom ID</span><span class="tier-v spec-mono">${{escapeHtml(atom.id)}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Schema</span><span class="tier-v">v${{raw.version || 2}} (OpenCurate Spec)</span></div>
+            <div class="tier-prop"><span class="tier-k">Storage Path</span><span class="tier-v spec-mono">${{escapeHtml(atom.folder_path || `atoms/.../${{atom.id}}`)}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Schema URL</span><span class="tier-v spec-mono" title="${{raw.$schema || 'https://opencurate.org/v1/atom.schema.json'}}">${{truncateUrl(raw.$schema || 'https://opencurate.org/v1/atom.schema.json', 32)}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Captured At</span><span class="tier-v">${{createdDateStr}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Updated At</span><span class="tier-v">${{updatedDateStr}}</span></div>
+          </div>
+        </div>
+      `;
+
+      // TIER 2: PROVENANCE LAYER
+      const favHtml = provenance.favicon ? `<img src="${{provenance.favicon}}" alt="" style="width:14px;height:14px;border-radius:2px;vertical-align:middle;margin-right:6px;">` : '';
+      const sourceLink = provenance.source_url ? `<a href="${{provenance.source_url}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.source_url, 46)}} ↗</a>` : '—';
+      const canonLink = (provenance.canonical_url && provenance.canonical_url !== provenance.source_url) ? `<a href="${{provenance.canonical_url}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.canonical_url, 46)}} ↗</a>` : null;
+
+      const tier2Html = `
+        <div class="schema-tier-card tier-provenance">
+          <div class="tier-badge-header">
+            <span class="tier-number-pill">Tier 2</span>
+            <span class="tier-title">Provenance Layer</span>
+            <span class="tier-tagline">Origin, attribution & publisher source</span>
+          </div>
+          <div class="tier-content-grid">
+            <div class="tier-prop"><span class="tier-k">Author</span><span class="tier-v">${{atom.author ? `<strong>${{escapeHtml(atom.author)}}</strong>` : '—'}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Publisher</span><span class="tier-v">${{favHtml}}${{escapeHtml(provenance.site_name || '—')}}</span></div>
+            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source URL</span><span class="tier-v">${{sourceLink}}</span></div>
+            ${{canonLink ? `<div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Canonical URL</span><span class="tier-v">${{canonLink}}</span></div>` : ''}}
+            <div class="tier-prop"><span class="tier-k">Published Date</span><span class="tier-v">${{publishedDateStr || '—'}}</span></div>
+          </div>
+        </div>
+      `;
+
+      // TIER 3: CURATION LAYER
+      const collectionsStr = (curation.collections && curation.collections.length) ? curation.collections.join(', ') : 'None (Inbox)';
+      const favoriteStr = curation.favorite ? '★ Favorited' : 'No';
+      const notesBlock = atom.notes ? `
+        <div class="meta-notes-banner" style="margin-top: 12px; margin-bottom: 0;">
+          <div class="meta-notes-title">Curator Notes</div>
+          <div>${{escapeHtml(atom.notes)}}</div>
+        </div>
+      ` : '';
+      const tagsBlock = (atom.tags && atom.tags.length) ? `
+        <div style="margin-top: 12px; display:flex; gap:8px; align-items:center;">
+          <span style="font-size:10.5px; font-weight:600; text-transform:uppercase; color:var(--muted); width:100px; flex-shrink:0;">Tags</span>
+          <div class="tags">${{(atom.tags || []).map(t => `<span class="tag">#${{t}}</span>`).join(' ')}}</div>
+        </div>
+      ` : '';
+
+      const tier3Html = `
+        <div class="schema-tier-card tier-curation">
+          <div class="tier-badge-header">
+            <span class="tier-number-pill">Tier 3</span>
+            <span class="tier-title">Curation Layer</span>
+            <span class="tier-tagline">Editorial perspective, taxonomy & annotations</span>
+          </div>
+          <div class="tier-content-grid">
+            <div class="tier-prop"><span class="tier-k">Semantic Kind</span><span class="tier-v"><span class="kind-pill kind-${{atom.kind}}">${{atom.kind}}</span></span></div>
+            <div class="tier-prop"><span class="tier-k">Curated Title</span><span class="tier-v" style="font-weight:600;">${{escapeHtml(atom.title || 'Untitled Atom')}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Collections</span><span class="tier-v">${{escapeHtml(collectionsStr)}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Favorite</span><span class="tier-v">${{favoriteStr}}</span></div>
+          </div>
+          ${{notesBlock}}
+          ${{tagsBlock}}
+        </div>
+      `;
+
+      // TIER 4: PAYLOAD LAYER
+      let payloadContentHtml = '';
+
       if (atom.kind === 'quote' && (atom.excerpt || atom.title)) {{
-        contentBannerHtml = `
-          <div class="meta-quote-banner">
+        payloadContentHtml += `
+          <div class="meta-quote-banner" style="margin-bottom: 14px;">
             “${{escapeHtml(atom.excerpt || atom.title)}}”
             ${{atom.author ? `<div style="font-size:14px; font-style:normal; margin-top:8px; color:var(--muted);">— ${{escapeHtml(atom.author)}}</div>` : ''}}
           </div>
         `;
       }} else if (atom.kind === 'note' && atom.excerpt) {{
-        contentBannerHtml = `
-          <div class="meta-quote-banner" style="font-style:normal; font-family:'Inter', sans-serif; font-size:14px; border-left-color:var(--text);">
+        payloadContentHtml += `
+          <div class="meta-quote-banner" style="font-style:normal; font-family:'Inter', sans-serif; font-size:14px; border-left-color:var(--text); margin-bottom: 14px;">
             ${{escapeHtml(atom.excerpt)}}
           </div>
         `;
       }}
 
-      // Curator notes
-      let notesBannerHtml = '';
-      if (atom.notes) {{
-        notesBannerHtml = `
-          <div class="meta-notes-banner">
-            <div class="meta-notes-title">Curator Notes</div>
-            <div>${{escapeHtml(atom.notes)}}</div>
+      if (payload.article || atom.article_markdown) {{
+        const artFile = payload.article && payload.article.file ? payload.article.file : 'article.md';
+        const artWordCount = payload.article && payload.article.word_count ? payload.article.word_count : (wordCount || 0);
+        payloadContentHtml += `
+          <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Offline Article Text</div>
+              <div style="font-size:12px; color:var(--muted);">
+                Stored in <code class="spec-mono">${{artFile}}</code> • ${{artWordCount.toLocaleString()}} words ${{readTime ? `(${{readTime}})` : ''}}
+              </div>
+            </div>
+            ${{atom.article_markdown ? `<button class="meta-btn primary" onclick="openReaderFromMeta('${{atom.id}}')">📖 Read Article</button>` : ''}}
           </div>
         `;
       }}
 
-      // Tags
-      const tagsHtml = (atom.tags || []).map(t => `<span class="tag">#${{t}}</span>`).join(' ');
+      if (assetHtml) {{
+        payloadContentHtml += assetHtml;
+      }}
 
-      // Spec Grid (System & Provenance)
-      const specItems = [
-        {{ label: 'Schema Version', value: `v${{raw.version || 2}} (Clean Hybrid Spec)` }},
-        {{ label: 'Storage Folder', value: atom.folder_path || `atoms/.../${{atom.id}}`, mono: true }},
-        {{ label: 'Author', value: atom.author || '—' }},
-        {{ label: 'Site / Domain', value: provenance.site_name || '—' }},
-        {{ label: 'Source URL', value: provenance.source_url ? `<a href="${{provenance.source_url}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.source_url)}} ↗</a>` : '—' }},
-        {{ label: 'Canonical URL', value: provenance.canonical_url ? `<a href="${{provenance.canonical_url}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.canonical_url)}} ↗</a>` : '—' }},
-        {{ label: 'Word Count', value: wordCount ? `${{wordCount.toLocaleString()}} words ${{readTime ? `(${{readTime}})` : ''}}` : '—' }},
-        {{ label: 'Favorite', value: curation.favorite ? '★ Yes' : 'No' }},
-        {{ label: 'Collections', value: (curation.collections && curation.collections.length) ? curation.collections.join(', ') : 'None' }},
-        {{ label: 'Created At', value: createdDateStr }},
-        {{ label: 'Updated At', value: updatedDateStr }},
-      ];
-
-      if (payload.article && payload.article.file) {{
-        specItems.push({{ label: 'Article Text File', value: payload.article.file, mono: true }});
+      const payloadGridItems = [];
+      if (targetUrl) {{
+        payloadGridItems.push({{ label: 'Destination URL', value: `<a href="${{targetUrl}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(targetUrl, 46)}} ↗</a>` }});
+      }}
+      if (wordCount) {{
+        payloadGridItems.push({{ label: 'Total Words', value: `${{wordCount.toLocaleString()}} words ${{readTime ? `(${{readTime}})` : ''}}` }});
       }}
       if (payload.text && payload.text.file) {{
-        specItems.push({{ label: 'Text Excerpt File', value: payload.text.file, mono: true }});
+        payloadGridItems.push({{ label: 'Text Excerpt File', value: payload.text.file, mono: true }});
       }}
 
-      const specGridHtml = specItems.map(item => `
-        <div class="spec-item">
-          <div class="spec-label">${{item.label}}</div>
-          <div class="spec-value ${{item.mono ? 'spec-mono' : ''}}">${{item.value}}</div>
+      const payloadMetricsHtml = payloadGridItems.length ? `
+        <div class="tier-content-grid" style="margin-top: 10px;">
+          ${{payloadGridItems.map(item => `
+            <div class="tier-prop">
+              <span class="tier-k">${{item.label}}</span>
+              <span class="tier-v ${{item.mono ? 'spec-mono' : ''}}">${{item.value}}</span>
+            </div>
+          `).join('')}}
         </div>
-      `).join('');
+      ` : '';
+
+      const tier4Html = `
+        <div class="schema-tier-card tier-payload">
+          <div class="tier-badge-header">
+            <span class="tier-number-pill">Tier 4</span>
+            <span class="tier-title">Payload Layer</span>
+            <span class="tier-tagline">Offline assets, content body & extracted metrics</span>
+          </div>
+          ${{payloadContentHtml}}
+          ${{payloadMetricsHtml}}
+        </div>
+      `;
 
       // Raw JSON
       const rawJsonFormatted = JSON.stringify(raw, null, 2);
@@ -1367,20 +1520,11 @@ def generate_viewer(vault_dir: Path) -> Path:
           ${{actions.join(' ')}}
         </div>
 
-        ${{contentBannerHtml}}
-        ${{notesBannerHtml}}
-        ${{assetHtml}}
-
-        ${{tagsHtml ? `
-          <div style="margin-bottom: 20px; display:flex; gap:8px; align-items:center;">
-            <span style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--muted);">Tags:</span>
-            <div class="tags">${{tagsHtml}}</div>
-          </div>
-        ` : ''}}
-
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:8px;">Properties & Provenance</div>
-        <div class="meta-spec-grid">
-          ${{specGridHtml}}
+        <div class="schema-tiers-container">
+          ${{tier1Html}}
+          ${{tier2Html}}
+          ${{tier3Html}}
+          ${{tier4Html}}
         </div>
 
         <details class="meta-json-details">
