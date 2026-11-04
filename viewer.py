@@ -1551,10 +1551,10 @@ def generate_viewer(vault_dir: Path) -> Path:
         if (hasTranscript && atom.excerpt) {{
           const lines = atom.excerpt.split('\n').filter(Boolean);
           const formattedLines = lines.map(line => {{
-            const m = line.match(/^\\\[([0-9]+:[0-9]+(?::[0-9]+)?)\\\]\\s*(.*)$/);
-            if (m) {{
-              const timeStr = m[1];
-              const textStr = escapeHtml(m[2]);
+            if (line.startsWith('[') && line.indexOf(']') > 1) {{
+              const closeIdx = line.indexOf(']');
+              const timeStr = line.substring(1, closeIdx).trim();
+              const textStr = escapeHtml(line.substring(closeIdx + 1).trim());
               const parts = timeStr.split(':').map(Number);
               const sec = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
               return `<div style="display:flex; gap:10px; margin-bottom:6px; align-items:baseline;">
@@ -1863,3 +1863,9 @@ def run_viewer_server(vault_dir: Path, port: int = 8080, open_browser: bool = Tr
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nWideWeb server stopped.")
+
+
+if __name__ == "__main__":
+    v_dir = Path("vault")
+    out = generate_viewer(v_dir)
+    print(f"✨ Regenerated WideWeb viewer at: {out}")
