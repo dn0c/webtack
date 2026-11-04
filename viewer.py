@@ -53,13 +53,16 @@ def get_atoms_data(vault_dir: Path):
             "notes": r["notes"],
             "tags": tags,
             "date": r["created_at"][:10],
+            "created_at": r["created_at"],
             "destination_url": r["destination_url"],
             "source_url": r["source_url"],
             "author": r["author"],
             "cover_path": r["cover_file_path"],
             "metadata": meta,
             "article_markdown": article_text,
-            "excerpt": r["text_content"]
+            "excerpt": r["text_content"],
+            "folder_path": f"atoms/{created_at[:4]}/{created_at[5:7]}/{r['id']}",
+            "raw": raw
         })
     return atoms_data, kind_counts
 
@@ -266,11 +269,13 @@ def generate_viewer(vault_dir: Path) -> Path:
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      cursor: pointer;
     }}
     .card:hover {{
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border-color: var(--accent);
     }}
     .card-header {{
       padding: 14px 16px 10px;
@@ -467,6 +472,202 @@ def generate_viewer(vault_dir: Path) -> Path:
       height: auto;
       border-radius: 8px;
       margin: 20px 0;
+    }}
+
+    /* Metadata Inspector Modal Styling */
+    .meta-dialog-body {{
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13.5px;
+      line-height: 1.5;
+      padding: 24px 28px 36px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }}
+    .meta-headline {{
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 24px;
+      font-weight: 500;
+      line-height: 1.3;
+      margin-bottom: 8px;
+      color: var(--text);
+    }}
+    .meta-byline {{
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+      margin-bottom: 18px;
+    }}
+    .meta-actions-bar {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }}
+    .meta-btn {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid var(--border);
+      background: var(--tag-bg);
+      color: var(--text);
+    }}
+    .meta-btn:hover {{
+      border-color: var(--text);
+    }}
+    .meta-btn.primary {{
+      background: var(--accent);
+      color: #FFF;
+      border-color: var(--accent);
+    }}
+    .meta-btn.primary:hover {{
+      opacity: 0.9;
+    }}
+    .meta-asset-box {{
+      display: flex;
+      gap: 18px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 20px;
+      align-items: flex-start;
+    }}
+    @media (max-width: 650px) {{
+      .meta-asset-box {{ flex-direction: column; }}
+    }}
+    .meta-asset-thumb {{
+      max-width: 220px;
+      max-height: 160px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+    }}
+    .meta-asset-fields {{
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }}
+    .meta-field-row {{
+      display: flex;
+      gap: 10px;
+    }}
+    .meta-field-label {{
+      width: 85px;
+      flex-shrink: 0;
+      color: var(--muted);
+      font-weight: 500;
+    }}
+    .meta-field-value {{
+      color: var(--text);
+      word-break: break-all;
+    }}
+    .meta-quote-banner {{
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 19px;
+      line-height: 1.5;
+      font-style: italic;
+      padding: 16px 20px;
+      background: var(--bg);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 20px;
+    }}
+    .meta-notes-banner {{
+      padding: 14px 16px;
+      background: var(--tag-bg);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--tag-text);
+      margin-bottom: 20px;
+    }}
+    .meta-notes-title {{
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }}
+    .meta-spec-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px 20px;
+      padding: 16px 18px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }}
+    @media (max-width: 600px) {{
+      .meta-spec-grid {{ grid-template-columns: 1fr; }}
+    }}
+    .spec-item {{
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }}
+    .spec-label {{
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }}
+    .spec-value {{
+      font-size: 12.5px;
+      color: var(--text);
+      word-break: break-all;
+    }}
+    .spec-mono {{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+    }}
+    .meta-json-details {{
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 14px;
+    }}
+    .meta-json-summary {{
+      padding: 10px 16px;
+      background: var(--tag-bg);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }}
+    .meta-json-summary:hover {{
+      background: var(--border);
+    }}
+    .meta-json-pre {{
+      margin: 0;
+      padding: 16px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+      line-height: 1.45;
+      max-height: 360px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
     }}
 
     /* Capture Form Styling */
@@ -701,9 +902,27 @@ def generate_viewer(vault_dir: Path) -> Path:
   <dialog id="readerModal" closedby="any">
     <div class="modal-header">
       <div id="modalMeta" class="modal-meta" style="margin-bottom:0;"></div>
-      <button class="modal-close" id="closeModalBtn" onclick="document.getElementById('readerModal').close()">✕</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn" onclick="openMetaFromReader()" style="padding: 4px 10px; font-size: 12px;">ℹ️ View Metadata</button>
+        <button class="modal-close" id="closeModalBtn" onclick="document.getElementById('readerModal').close()">✕</button>
+      </div>
     </div>
     <div class="modal-body" id="modalBody"></div>
+  </dialog>
+
+  <!-- Metadata Inspector Dialog Modal -->
+  <dialog id="metadataModal" closedby="any" style="max-width: 840px; width: 92%;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span id="metaKindPill" class="kind-pill"></span>
+        <span id="metaIdPill" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; color: var(--muted); background: var(--tag-bg); padding: 2px 8px; border-radius: 4px;"></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn" id="copyIdBtn" onclick="copyCurrentId()" title="Copy Atom ID">📋 Copy ID</button>
+        <button class="modal-close" onclick="document.getElementById('metadataModal').close()">✕</button>
+      </div>
+    </div>
+    <div class="meta-dialog-body" id="metadataModalBody"></div>
   </dialog>
 
   <div class="toast" id="toast">✨ Saved to WideWeb vault!</div>
@@ -809,6 +1028,13 @@ def generate_viewer(vault_dir: Path) -> Path:
           </div>
         `;
 
+        card.addEventListener('click', (e) => {{
+          if (e.target.closest('a') || e.target.closest('button')) {{
+            return;
+          }}
+          openMetadataModal(atom.id);
+        }});
+
         grid.appendChild(card);
       }});
     }}
@@ -894,9 +1120,62 @@ def generate_viewer(vault_dir: Path) -> Path:
       }}
     }}
 
+    function escapeHtml(str) {{
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }}
+
+    function truncateUrl(url, maxLen = 42) {{
+      if (!url) return '';
+      if (url.length <= maxLen) return url;
+      return url.slice(0, maxLen) + '...';
+    }}
+
+    function copyCurrentId() {{
+      if (!window.currentMetaAtomId) return;
+      navigator.clipboard.writeText(window.currentMetaAtomId).then(() => {{
+        const btn = document.getElementById('copyIdBtn');
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.textContent = orig, 1800);
+      }});
+    }}
+
+    function copyAtomJson(atomId) {{
+      const atom = ATOMS.find(a => a.id === atomId);
+      if (!atom || !atom.raw) return;
+      navigator.clipboard.writeText(JSON.stringify(atom.raw, null, 2)).then(() => {{
+        const btn = document.getElementById('metaCopyJsonBtn');
+        if (btn) {{
+          const orig = btn.textContent;
+          btn.textContent = '✓ JSON Copied!';
+          setTimeout(() => btn.textContent = orig, 1800);
+        }}
+      }});
+    }}
+
+    function openReaderFromMeta(atomId) {{
+      document.getElementById('metadataModal').close();
+      openReader(atomId);
+    }}
+
+    function openMetaFromReader() {{
+      document.getElementById('readerModal').close();
+      if (window.currentReaderAtomId) {{
+        openMetadataModal(window.currentReaderAtomId);
+      }}
+    }}
+
     function openReader(atomId) {{
       const atom = ATOMS.find(a => a.id === atomId);
       if (!atom || !atom.article_markdown) return;
+
+      window.currentReaderAtomId = atomId;
 
       const modal = document.getElementById('readerModal');
       const body = document.getElementById('modalBody');
@@ -922,6 +1201,197 @@ def generate_viewer(vault_dir: Path) -> Path:
 
       body.innerHTML = `<h1>${{atom.title}}</h1>` + parsedHtml;
       modal.showModal();
+    }}
+
+    function openMetadataModal(atomId) {{
+      const atom = ATOMS.find(a => a.id === atomId);
+      if (!atom) return;
+
+      window.currentMetaAtomId = atom.id;
+
+      const raw = atom.raw || {{}};
+      const curation = raw.curation || {{}};
+      const provenance = raw.provenance || {{}};
+      const payload = raw.payload || {{}};
+      const metadata = atom.metadata || raw.metadata_json || {{}};
+
+      const kindPill = document.getElementById('metaKindPill');
+      kindPill.className = `kind-pill kind-${{atom.kind}}`;
+      kindPill.textContent = atom.kind.toUpperCase();
+      document.getElementById('metaIdPill').textContent = atom.id;
+
+      const modalBody = document.getElementById('metadataModalBody');
+
+      // Format dates
+      const createdDateStr = atom.created_at || (raw.created_at ? raw.created_at.slice(0, 19).replace('T', ' ') + ' UTC' : atom.date);
+      const updatedDateStr = raw.updated_at ? raw.updated_at.slice(0, 19).replace('T', ' ') + ' UTC' : '—';
+      const publishedDateStr = provenance.published_at || metadata.published_at || null;
+
+      // Byline items
+      const bylineParts = [];
+      if (atom.author) {{
+        bylineParts.push(`<span><strong>${{escapeHtml(atom.author)}}</strong></span>`);
+      }}
+      if (provenance.site_name) {{
+        const fav = provenance.favicon ? `<img src="${{provenance.favicon}}" alt="" style="width:14px;height:14px;border-radius:2px;vertical-align:middle;margin-right:4px;">` : '';
+        bylineParts.push(`<span>${{fav}}${{escapeHtml(provenance.site_name)}}</span>`);
+      }}
+      if (publishedDateStr) {{
+        bylineParts.push(`<span>Published: ${{publishedDateStr}}</span>`);
+      }}
+      bylineParts.push(`<span>Captured: ${{createdDateStr}}</span>`);
+
+      // Actions
+      const wordCount = metadata.word_count || (payload.article && payload.article.word_count) || (payload.text && payload.text.word_count);
+      const readTime = wordCount ? `~${{Math.ceil(wordCount / 225)}} min read` : '';
+      const wordCountLabel = wordCount ? `${{wordCount.toLocaleString()}} words` : '';
+
+      const actions = [];
+      if (atom.article_markdown) {{
+        actions.push(`<button class="meta-btn primary" onclick="openReaderFromMeta('${{atom.id}}')">📖 Read Full Article ${{wordCountLabel ? `(${{wordCountLabel}})` : ''}}</button>`);
+      }}
+      const targetUrl = atom.destination_url || atom.source_url || provenance.canonical_url;
+      if (targetUrl) {{
+        actions.push(`<a class="meta-btn" href="${{targetUrl}}" target="_blank" rel="noopener">🔗 Visit Original URL ↗</a>`);
+      }}
+      actions.push(`<button class="meta-btn" onclick="copyAtomJson('${{atom.id}}')" id="metaCopyJsonBtn">📋 Copy atom.json</button>`);
+
+      // Cover image asset section
+      let assetHtml = '';
+      const coverImg = payload.cover_image || {{}};
+      if (atom.cover_path || coverImg.relative_path) {{
+        const cPath = atom.cover_path || coverImg.relative_path;
+        const dims = coverImg.dimensions ? `${{coverImg.dimensions.width}} × ${{coverImg.dimensions.height}}` : null;
+        const ratio = coverImg.aspect_ratio || (metadata && metadata.aspect_ratio);
+        const blur = coverImg.blurhash || (metadata && metadata.blurhash);
+        const mime = coverImg.mime_type || 'image/jpeg';
+        const hash = coverImg.hash || null;
+        const palette = coverImg.color_palette || (metadata && metadata.color_palette) || [];
+
+        let paletteDots = '';
+        if (palette && palette.length) {{
+          paletteDots = `<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">` +
+            palette.map(c => `<span style="display:inline-flex; align-items:center; gap:4px; font-family:ui-monospace, monospace; font-size:11px;"><span style="display:inline-block; width:13px; height:13px; border-radius:50%; background:${{c}}; border:1px solid rgba(0,0,0,0.15);"></span>${{c}}</span>`).join(' ') +
+            `</div>`;
+        }}
+
+        assetHtml = `
+          <div class="meta-asset-box">
+            <a href="${{cPath}}" target="_blank" title="Click to view full image">
+              <img src="${{cPath}}" class="meta-asset-thumb" alt="${{escapeHtml(atom.title)}}">
+            </a>
+            <div class="meta-asset-fields">
+              <div style="font-weight:600; font-size:13px; margin-bottom:4px; color:var(--text);">Cover Image Asset</div>
+              <div class="meta-field-row"><span class="meta-field-label">File Path:</span><span class="meta-field-value spec-mono">${{escapeHtml(cPath)}}</span></div>
+              ${{dims ? `<div class="meta-field-row"><span class="meta-field-label">Dimensions:</span><span class="meta-field-value">${{dims}} ${{ratio ? `(aspect: ${{ratio}})` : ''}}</span></div>` : ''}}
+              ${{mime ? `<div class="meta-field-row"><span class="meta-field-label">Format:</span><span class="meta-field-value spec-mono">${{mime}}</span></div>` : ''}}
+              ${{blur ? `<div class="meta-field-row"><span class="meta-field-label">Blurhash:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${{blur}}</span></div>` : ''}}
+              ${{paletteDots ? `<div class="meta-field-row"><span class="meta-field-label">Palette:</span><div class="meta-field-value">${{paletteDots}}</div></div>` : ''}}
+              ${{hash ? `<div class="meta-field-row"><span class="meta-field-label">SHA-256:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${{hash}}</span></div>` : ''}}
+            </div>
+          </div>
+        `;
+      }}
+
+      // Quote / Note banner
+      let contentBannerHtml = '';
+      if (atom.kind === 'quote' && (atom.excerpt || atom.title)) {{
+        contentBannerHtml = `
+          <div class="meta-quote-banner">
+            “${{escapeHtml(atom.excerpt || atom.title)}}”
+            ${{atom.author ? `<div style="font-size:14px; font-style:normal; margin-top:8px; color:var(--muted);">— ${{escapeHtml(atom.author)}}</div>` : ''}}
+          </div>
+        `;
+      }} else if (atom.kind === 'note' && atom.excerpt) {{
+        contentBannerHtml = `
+          <div class="meta-quote-banner" style="font-style:normal; font-family:'Inter', sans-serif; font-size:14px; border-left-color:var(--text);">
+            ${{escapeHtml(atom.excerpt)}}
+          </div>
+        `;
+      }}
+
+      // Curator notes
+      let notesBannerHtml = '';
+      if (atom.notes) {{
+        notesBannerHtml = `
+          <div class="meta-notes-banner">
+            <div class="meta-notes-title">Curator Notes</div>
+            <div>${{escapeHtml(atom.notes)}}</div>
+          </div>
+        `;
+      }}
+
+      // Tags
+      const tagsHtml = (atom.tags || []).map(t => `<span class="tag">#${{t}}</span>`).join(' ');
+
+      // Spec Grid (System & Provenance)
+      const specItems = [
+        {{ label: 'Schema Version', value: `v${{raw.version || 2}} (Clean Hybrid Spec)` }},
+        {{ label: 'Storage Folder', value: atom.folder_path || `atoms/.../${{atom.id}}`, mono: true }},
+        {{ label: 'Author', value: atom.author || '—' }},
+        {{ label: 'Site / Domain', value: provenance.site_name || '—' }},
+        {{ label: 'Source URL', value: provenance.source_url ? `<a href="${{provenance.source_url}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.source_url)}} ↗</a>` : '—' }},
+        {{ label: 'Canonical URL', value: provenance.canonical_url ? `<a href="${{provenance.canonical_url}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.canonical_url)}} ↗</a>` : '—' }},
+        {{ label: 'Word Count', value: wordCount ? `${{wordCount.toLocaleString()}} words ${{readTime ? `(${{readTime}})` : ''}}` : '—' }},
+        {{ label: 'Favorite', value: curation.favorite ? '★ Yes' : 'No' }},
+        {{ label: 'Collections', value: (curation.collections && curation.collections.length) ? curation.collections.join(', ') : 'None' }},
+        {{ label: 'Created At', value: createdDateStr }},
+        {{ label: 'Updated At', value: updatedDateStr }},
+      ];
+
+      if (payload.article && payload.article.file) {{
+        specItems.push({{ label: 'Article Text File', value: payload.article.file, mono: true }});
+      }}
+      if (payload.text && payload.text.file) {{
+        specItems.push({{ label: 'Text Excerpt File', value: payload.text.file, mono: true }});
+      }}
+
+      const specGridHtml = specItems.map(item => `
+        <div class="spec-item">
+          <div class="spec-label">${{item.label}}</div>
+          <div class="spec-value ${{item.mono ? 'spec-mono' : ''}}">${{item.value}}</div>
+        </div>
+      `).join('');
+
+      // Raw JSON
+      const rawJsonFormatted = JSON.stringify(raw, null, 2);
+
+      modalBody.innerHTML = `
+        <div>
+          <h2 class="meta-headline">${{escapeHtml(atom.title || 'Untitled Atom')}}</h2>
+          <div class="meta-byline">${{bylineParts.join(' ')}}</div>
+        </div>
+
+        <div class="meta-actions-bar">
+          ${{actions.join(' ')}}
+        </div>
+
+        ${{contentBannerHtml}}
+        ${{notesBannerHtml}}
+        ${{assetHtml}}
+
+        ${{tagsHtml ? `
+          <div style="margin-bottom: 20px; display:flex; gap:8px; align-items:center;">
+            <span style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--muted);">Tags:</span>
+            <div class="tags">${{tagsHtml}}</div>
+          </div>
+        ` : ''}}
+
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:8px;">Properties & Provenance</div>
+        <div class="meta-spec-grid">
+          ${{specGridHtml}}
+        </div>
+
+        <details class="meta-json-details">
+          <summary class="meta-json-summary">
+            <span>{{ }} Full <code>atom.json</code> Spec</span>
+            <span style="font-size:11px; font-weight:500; color:var(--muted);">Click to inspect raw file</span>
+          </summary>
+          <pre class="meta-json-pre"><code>${{escapeHtml(rawJsonFormatted)}}</code></pre>
+        </details>
+      `;
+
+      document.getElementById('metadataModal').showModal();
     }}
 
     // Check URL parameters for bookmarklet pre-fill
@@ -973,7 +1443,7 @@ def generate_viewer(vault_dir: Path) -> Path:
     }});
 
     // Close on backdrop click
-    ['readerModal', 'captureModal'].forEach(id => {{
+    ['readerModal', 'captureModal', 'metadataModal'].forEach(id => {{
       document.getElementById(id).addEventListener('click', (e) => {{
         const dialog = document.getElementById(id);
         const rect = dialog.getBoundingClientRect();
@@ -998,6 +1468,10 @@ def generate_viewer(vault_dir: Path) -> Path:
 class WideWebCaptureHandler(SimpleHTTPRequestHandler):
     """Local HTTP Server that serves static vault files and handles /api/capture requests."""
     vault_dir = None
+
+    def __init__(self, *args, **kwargs):
+        directory = str(self.vault_dir) if self.vault_dir else None
+        super().__init__(*args, directory=directory, **kwargs)
 
     def do_POST(self):
         if self.path == "/api/capture":
@@ -1074,13 +1548,16 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                     "notes": atom_doc["curation"]["notes"],
                     "tags": atom_doc["curation"]["tags"],
                     "date": created_at[:10],
+                    "created_at": created_at,
                     "destination_url": atom_doc["payload"]["destination_url"],
                     "source_url": atom_doc["provenance"]["source_url"],
                     "author": atom_doc["provenance"]["author"],
                     "cover_path": atom_doc["payload"].get("cover_image", {}).get("relative_path") if atom_doc["payload"].get("cover_image") else None,
                     "metadata": atom_doc.get("metadata_json", {}),
                     "article_markdown": article_text,
-                    "excerpt": atom_doc["payload"].get("text", {}).get("excerpt") if atom_doc["payload"].get("text") else None
+                    "excerpt": atom_doc["payload"].get("text", {}).get("excerpt") if atom_doc["payload"].get("text") else None,
+                    "folder_path": f"atoms/{created_at[:4]}/{created_at[5:7]}/{atom_doc['id']}",
+                    "raw": atom_doc
                 }
 
                 response_bytes = json.dumps({"success": True, "atom": card_data}).encode("utf-8")
