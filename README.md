@@ -130,7 +130,7 @@ Once connected, your AI assistant can invoke:
 
 ## Knowledge Exports & Data Portability
 
-WideWeb guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 10 open standards via the **Export Hub** (`/export.html`) or the CLI:
+WideWeb guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 11 open standards via the **Export Hub** (`/export.html`) or the CLI:
 
 | Target | Command | Primary Ecosystem | Output File |
 | :--- | :--- | :--- | :--- |
@@ -140,6 +140,7 @@ WideWeb guarantees your knowledge is never held hostage in a proprietary silo. Y
 | **Readwise Highlights**| `curate.py export --target readwise` | Readwise, Reader | `readwise.csv` |
 | **`llms.txt` Index** | `curate.py export --target llms-txt` | LLM Agents, Context Optimization | `llms.txt` |
 | **Are.na CSV** | `curate.py export --target arena-csv` | Are.na Channels | `arena_export.csv` |
+| **Pinterest Bulk CSV** | `curate.py export --target pinterest-csv` | Pinterest Business, Visual Boards | `pinterest_pins.csv` |
 | **RSS 2.0 Feed** | `curate.py export --target rss` | Feedly, NetNewsWire, RSS Readers | `feed.xml` |
 | **BibTeX Citations** | `curate.py export --target bibtex` | Zotero, LaTeX, Mendeley | `vault.bib` |
 | **JSONL Dataset** | `curate.py export --target jsonl` | Vector Embeddings, LangChain, RAG | `vault.jsonl` |

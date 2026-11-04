@@ -1030,10 +1030,17 @@ def generate_viewer(vault_dir: Path) -> Path:
                   <div class="export-item-desc">Format ready for Are.na channel import</div>
                 </div>
               </a>
+              <a href="/api/export?target=pinterest-csv" download="pinterest_pins.csv" class="export-item" onclick="handleExportClick(event, 'pinterest-csv')">
+                <span class="export-item-icon">📌</span>
+                <div>
+                  <div class="export-item-title">Pinterest Bulk Pins (.csv)</div>
+                  <div class="export-item-desc">Format for Pinterest bulk pin & video upload</div>
+                </div>
+              </a>
               <a href="export.html" class="export-item" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;">
                 <span class="export-item-icon">✨</span>
                 <div>
-                  <div class="export-item-title" style="color: var(--accent);">View All 10 Formats →</div>
+                  <div class="export-item-title" style="color: var(--accent);">View All 11 Formats in Hub →</div>
                   <div class="export-item-desc">BibTeX, RSS Feed, JSONL, llms.txt & more</div>
                 </div>
               </a>
@@ -2470,7 +2477,7 @@ def generate_export_page(vault_dir: Path) -> Path:
         </p>
         <div class="hero-stats-row">
           <div class="hero-stat">
-            <span class="hero-stat-val">10 Formats</span>
+            <span class="hero-stat-val">11 Formats</span>
             <span class="hero-stat-lbl">Active Export Targets</span>
           </div>
           <div class="hero-stat">
@@ -2494,11 +2501,11 @@ def generate_export_page(vault_dir: Path) -> Path:
 
       <div class="controls">
         <div class="filter-tabs">
-          <button class="tab-btn active" data-cat="all">All Formats (10)</button>
+          <button class="tab-btn active" data-cat="all">All Formats (11)</button>
           <button class="tab-btn" data-cat="ai">🤖 AI & LLM (3)</button>
           <button class="tab-btn" data-cat="pkm">🧠 PKM & Obsidian (1)</button>
           <button class="tab-btn" data-cat="browser">🌐 Browsers (1)</button>
-          <button class="tab-btn" data-cat="reading">⚡ Active Recall (2)</button>
+          <button class="tab-btn" data-cat="reading">⚡ Active Recall & Curation (3)</button>
           <button class="tab-btn" data-cat="syndication">📚 Citations & Feeds (3)</button>
         </div>
         <div class="search-box">
@@ -2594,6 +2601,19 @@ def generate_export_page(vault_dir: Path) -> Path:
         included: "Title, Source URL, Description with notes and hashtags",
         tools: ["Are.na Channels", "Curation Research"],
         cli: "python3 curate.py export --target arena-csv"
+      }},
+      {{
+        id: "pinterest-csv",
+        category: "reading",
+        category_name: "Visual Curation",
+        title: "Pinterest Bulk Pins Import",
+        filename: "pinterest_pins.csv",
+        ext: ".csv",
+        icon: "📌",
+        summary: "Official Pinterest bulk upload CSV for batch-creating Image and Video Pins across boards with automated keyword and outbound source link mapping.",
+        included: "Title (max 100), Media URL, Board / Section routing, Video thumbnail, Description (max 500), Outbound Link, Keywords",
+        tools: ["Pinterest Business", "Visual Boards", "Pin Scheduling", "Outbound Traffic"],
+        cli: "python3 curate.py export --target pinterest-csv"
       }},
       {{
         id: "rss",
@@ -2837,6 +2857,12 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                     curate.cmd_export(args)
                     mime = "text/csv; charset=utf-8"
                     filename = "arena_export.csv"
+                elif target in ("pinterest-csv", "pinterest"):
+                    out_path = export_dir / "pinterest_pins.csv"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="pinterest-csv", out=str(out_path), board="WideWeb")
+                    curate.cmd_export(args)
+                    mime = "text/csv; charset=utf-8"
+                    filename = "pinterest_pins.csv"
                 elif target in ("rss", "feed"):
                     out_path = export_dir / "feed.xml"
                     args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="rss", out=str(out_path))

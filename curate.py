@@ -1288,6 +1288,55 @@ def cmd_export(args):
         out_stream.close()
         print(f"✅ Exported {len(rows)} items for are.na/import/csv to: {out_path}")
 
+    elif args.target in ("pinterest-csv", "pinterest"):
+        out_path = Path(args.out) if args.out else export_dir / "pinterest_pins.csv"
+        default_board = getattr(args, "board", None) or "WideWeb"
+
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Title", "Media URL", "Pinterest board", "Thumbnail", "Description", "Link", "Publish date", "Keywords"])
+
+            for r in rows:
+                title = (r["atom_title"] or "Untitled Pin")[:100]
+                tags_list = json.loads(r["tags"]) if r["tags"] else []
+                raw_json = json.loads(r["raw_json"])
+                kind = r["kind"]
+                dest_url = r["destination_url"] or r["source_url"] or ""
+
+                if getattr(args, "board", None):
+                    board = args.board
+                elif tags_list:
+                    board = f"{default_board}/{tags_list[0].replace('-', ' ').title()}"
+                else:
+                    board = default_board
+
+                media_url = ""
+                thumbnail = ""
+
+                if kind == "video":
+                    m = re.search(r"(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})", dest_url)
+                    if m:
+                        vid_id = m.group(1)
+                        media_url = f"https://img.youtube.com/vi/{vid_id}/maxresdefault.jpg"
+                        thumbnail = f"https://img.youtube.com/vi/{vid_id}/hqdefault.jpg"
+                    else:
+                        media_url = dest_url
+                        thumbnail = "00:01"
+                elif kind == "image":
+                    media_url = r["source_url"] or dest_url
+                else:
+                    media_url = dest_url
+
+                desc_text = r["notes"] or (r["text_content"][:490] if r["text_content"] else "")
+                desc = (desc_text or title)[:500]
+                keywords = ", ".join(tags_list)
+                link = dest_url
+                publish_date = ""
+
+                writer.writerow([title, media_url, board, thumbnail, desc, link, publish_date, keywords])
+
+        print(f"✅ Exported {len(rows)} items for Pinterest bulk upload to: {out_path}")
+
     elif args.target in ("digest", "llms", "notebooklm"):
         out_path = Path(args.out) if args.out else export_dir / "vault_digest.md"
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1824,16 +1873,18 @@ def main():
             "bookmarks-html", "bookmarks", "netscape",
             "readwise",
             "arena-csv", "csv",
+            "pinterest-csv", "pinterest",
             "rss", "feed",
             "bibtex", "bib",
             "jsonl",
             "json"
         ],
         default="digest",
-        help="Export target format (digest, llms-txt, obsidian, bookmarks-html, readwise, arena-csv, rss, bibtex, jsonl, json)"
+        help="Export target format (digest, llms-txt, obsidian, bookmarks-html, readwise, arena-csv, pinterest-csv, rss, bibtex, jsonl, json)"
     )
     p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file", "link"], help="Filter by kind")
     p_export.add_argument("--tag", help="Filter by tag")
+    p_export.add_argument("--board", help="Default Pinterest board name (default: WideWeb)")
     p_export.add_argument("--out", help="Output file path (default: stdout or vault/export/vault_digest.md)")
     p_export.set_defaults(func=cmd_export)
 
