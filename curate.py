@@ -1244,6 +1244,120 @@ def cmd_export(args):
             out_stream.close()
             print(f"✅ Exported {len(rows)} items for are.na/import/csv to: {args.out}")
 
+    elif args.target in ("digest", "llms", "notebooklm"):
+        out_path = Path(args.out) if args.out else vault_dir / "export" / "vault_digest.md"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        lines = [
+            f"# WideWeb Vault Knowledge Digest",
+            f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} | Total Curated Atoms: {len(rows)}",
+            f"\n> This document is a unified compilation of curated articles, video transcripts, notes, quotes, and bookmarks from the WideWeb vault. Optimized for analysis, indexing, and synthesis in NotebookLM, Claude Projects, and local LLMs.\n",
+            "---"
+        ]
+
+        for r in rows:
+            aid = r["id"]
+            kind = r["kind"]
+            title = r["atom_title"]
+            date_str = r["created_at"][:10]
+            author = r["author"] or "—"
+            url = r["destination_url"] or r["source_url"] or "—"
+            tags_list = json.loads(r["tags"]) if r["tags"] else []
+            tag_str = ", ".join([f"#{t}" for t in tags_list]) if tags_list else "None"
+            notes = r["notes"]
+
+            created_at = r["created_at"]
+            atom_folder = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / aid
+
+            # Determine content body
+            body = None
+            if kind == "article":
+                art_file = atom_folder / "article.md"
+                if art_file.exists():
+                    try:
+                        with open(art_file, "r", encoding="utf-8") as af:
+                            body = af.read()
+                    except Exception:
+                        pass
+            elif kind == "video":
+                trans_file = atom_folder / "transcript.txt"
+                if trans_file.exists():
+                    try:
+                        with open(trans_file, "r", encoding="utf-8") as tf:
+                            body = tf.read()
+                    except Exception:
+                        pass
+            elif kind == "note":
+                note_file = atom_folder / "note.md"
+                if not note_file.exists():
+                    note_file = atom_folder / "note.txt"
+                if note_file.exists():
+                    try:
+                        with open(note_file, "r", encoding="utf-8") as nf:
+                            body = nf.read()
+                    except Exception:
+                        pass
+            elif kind == "quote":
+                body = r["text_content"]
+
+            if not body and r["text_content"]:
+                body = r["text_content"]
+
+            kind_emoji = {
+                "article": "📖",
+                "bookmark": "🔖",
+                "video": "🎬",
+                "quote": "✍️",
+                "note": "📝",
+                "image": "🎨",
+                "file": "📄"
+            }.get(kind, "•")
+
+            lines.append(f"\n## {kind_emoji} [{kind.upper()}] {title}")
+            lines.append(f"- **Atom ID**: `{aid}`")
+            lines.append(f"- **Date**: {date_str}")
+            if author and author != "—":
+                lines.append(f"- **Author / Channel**: {author}")
+            if url and url != "—":
+                lines.append(f"- **URL**: {url}")
+            lines.append(f"- **Tags**: {tag_str}")
+            if notes:
+                lines.append(f"- **Curator Notes**: {notes}")
+
+            if body:
+                section_title = {
+                    "article": "### Full Article Text",
+                    "video": "### Spoken Dialogue & Transcript",
+                    "note": "### Note Body",
+                    "quote": "### Attributed Quote"
+                }.get(kind, "### Content")
+                lines.append(f"\n{section_title}\n\n{body.strip()}")
+
+            lines.append("\n---")
+
+        output_text = "\n".join(lines)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(output_text)
+        print(f"✅ Generated NotebookLM/LLM Knowledge Digest: {out_path} ({len(rows)} atoms, {len(output_text.split())} words)")
+
+    elif args.target == "llms-txt":
+        out_path = Path(args.out) if args.out else vault_dir / "export" / "llms.txt"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            f"# WideWeb Vault Index",
+            f"> Curated knowledge base of articles, bookmarks, videos, and notes.\n"
+        ]
+        for r in rows:
+            title = r["atom_title"]
+            url = r["destination_url"] or r["source_url"] or f"atoms/{r['id']}"
+            desc = r["notes"] or (r["text_content"][:120] if r["text_content"] else "")
+            lines.append(f"- [{title}]({url}): {desc}")
+
+        output_text = "\n".join(lines)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(output_text)
+        print(f"✅ Generated standard llms.txt index: {out_path}")
+
     elif args.target == "json":
         atoms_list = [json.loads(r["raw_json"]) for r in rows]
         content = json.dumps(atoms_list, indent=2)
@@ -1375,6 +1489,12 @@ def cmd_view(args):
         print("\n💡 Tip: Run `python3 curate.py view --server` to enable live 1-click capture and bookmarklet integration directly from the browser!")
 
 
+def cmd_mcp(args):
+    """Run the WideWeb Model Context Protocol (MCP) server for Claude Desktop / AI assistants."""
+    import wideweb_mcp
+    wideweb_mcp.main()
+
+
 def main():
     parser = argparse.ArgumentParser(description="OpenCurate CLI - Local-first web curation framework")
     parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to OpenCurate vault directory")
@@ -1482,10 +1602,10 @@ def main():
 
     # 6. Export command
     p_export = subparsers.add_parser("export", help="Export atoms to platform formats")
-    p_export.add_argument("--target", choices=["arena-csv", "json"], default="arena-csv", help="Export target")
+    p_export.add_argument("--target", choices=["digest", "llms", "llms-txt", "arena-csv", "json"], default="digest", help="Export target (digest for NotebookLM/Claude, llms-txt, arena-csv, json)")
     p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file", "link"], help="Filter by kind")
     p_export.add_argument("--tag", help="Filter by tag")
-    p_export.add_argument("--out", help="Output file path (default: stdout)")
+    p_export.add_argument("--out", help="Output file path (default: stdout or vault/export/vault_digest.md)")
     p_export.set_defaults(func=cmd_export)
 
     # 7. Reindex command
@@ -1498,6 +1618,10 @@ def main():
     p_view.add_argument("--port", type=int, default=8080, help="Port for local HTTP server (default: 8080)")
     p_view.add_argument("--no-open", action="store_true", help="Do not automatically open browser")
     p_view.set_defaults(func=cmd_view)
+
+    # 9. MCP command
+    p_mcp = subparsers.add_parser("mcp", help="Run the WideWeb Model Context Protocol (MCP) server for Claude Desktop / AI tools")
+    p_mcp.set_defaults(func=cmd_mcp)
 
     args = parser.parse_args()
     args.func(args)
