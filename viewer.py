@@ -299,6 +299,7 @@ def generate_viewer(vault_dir: Path) -> Path:
     .kind-quote {{ color: #9B2C2C; background: rgba(155,44,44,0.1); }}
     .kind-note {{ color: #7B341E; background: rgba(123,52,30,0.1); }}
     .kind-image {{ color: #2C7A7B; background: rgba(44,122,123,0.1); }}
+    .kind-video {{ color: #6B46C1; background: rgba(107,70,193,0.1); }}
     
     .card-cover {{
       width: 100%;
@@ -872,6 +873,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           <button class="tab-btn" data-filter="quote">Quotes <span class="tab-badge" id="badge-quote"></span></button>
           <button class="tab-btn" data-filter="note">Notes <span class="tab-badge" id="badge-note"></span></button>
           <button class="tab-btn" data-filter="image">Images <span class="tab-badge" id="badge-image"></span></button>
+          <button class="tab-btn" data-filter="video">Videos <span class="tab-badge" id="badge-video"></span></button>
         </div>
         <div class="search-box">
           <span class="search-icon">🔍</span>
@@ -1073,7 +1075,9 @@ def generate_viewer(vault_dir: Path) -> Path:
 
         let tagsHtml = (atom.tags || []).map(t => `<span class="tag">#${{t}}</span>`).join('');
         let extrasHtml = '';
-        if (atom.article_markdown) {{
+        if (atom.kind === 'video' || (atom.raw && atom.raw.payload && atom.raw.payload.video && atom.raw.payload.video.embed_url)) {{
+          extrasHtml = `<button class="read-btn" style="background:#6B46C1;" onclick="openVideoPlayer('${{atom.id}}')">▶ Play</button>`;
+        }} else if (atom.article_markdown) {{
           extrasHtml = `<button class="read-btn" onclick="openReader('${{atom.id}}')">📖 Read</button>`;
         }} else if (atom.metadata && atom.metadata.color_palette && atom.metadata.color_palette.length) {{
           extrasHtml = `<div class="palette-dots">` + atom.metadata.color_palette.map(c => `<div class="palette-dot" style="background:${{c}}" title="${{c}}"></div>`).join('') + `</div>`;
@@ -1125,6 +1129,14 @@ def generate_viewer(vault_dir: Path) -> Path:
       document.getElementById('noteForm').style.display = tab === 'note' ? 'block' : 'none';
     }}
 
+    function cleanTags(str) {{
+      if (!str) return null;
+      return str.split(',')
+        .map(s => s.trim().replace(/^#+/, '').toLowerCase().replace(/[\\s_]+/g, '-').replace(/[^a-z0-9.-]/g, '').replace(/^-+|-+$/g, ''))
+        .filter(Boolean)
+        .join(',');
+    }}
+
     async function handleCaptureSubmit(e, kind) {{
       e.preventDefault();
       
@@ -1136,18 +1148,18 @@ def generate_viewer(vault_dir: Path) -> Path:
         submitBtn = document.getElementById('capLinkSubmit');
         payload.url = document.getElementById('capUrl').value.trim();
         payload.title = document.getElementById('capLinkTitle').value.trim() || null;
-        payload.tags = document.getElementById('capLinkTags').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capLinkTags').value);
       }} else if (kind === 'quote') {{
         submitBtn = document.getElementById('capQuoteSubmit');
         payload.quote = document.getElementById('capQuoteText').value.trim();
         payload.author = document.getElementById('capQuoteAuthor').value.trim() || null;
         payload.source = document.getElementById('capQuoteSource').value.trim() || null;
-        payload.tags = document.getElementById('capQuoteTags').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capQuoteTags').value);
       }} else if (kind === 'note') {{
         submitBtn = document.getElementById('capNoteSubmit');
         payload.text = document.getElementById('capNoteText').value.trim();
         payload.title = document.getElementById('capNoteTitle').value.trim() || null;
-        payload.tags = document.getElementById('capNoteTags').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capNoteTags').value);
       }}
 
       if (!isHttp) {{
@@ -1228,6 +1240,43 @@ def generate_viewer(vault_dir: Path) -> Path:
     function openReaderFromMeta(atomId) {{
       document.getElementById('metadataModal').close();
       openReader(atomId);
+    }}
+
+    function openVideoFromMeta(atomId) {{
+      document.getElementById('metadataModal').close();
+      openVideoPlayer(atomId);
+    }}
+
+    function openVideoPlayer(atomId) {{
+      const atom = ATOMS.find(a => a.id === atomId);
+      if (!atom) return;
+
+      const video = (atom.raw && atom.raw.payload && atom.raw.payload.video) || {{}};
+      const embedUrl = video.embed_url || (atom.destination_url ? atom.destination_url.replace("watch?v=", "embed/") : null);
+      if (!embedUrl) return;
+
+      window.currentReaderAtomId = atomId;
+
+      const modal = document.getElementById('readerModal');
+      const body = document.getElementById('modalBody');
+      const meta = document.getElementById('modalMeta');
+
+      meta.innerHTML = `
+        <span><strong>${{atom.author || 'YouTube'}}</strong></span>
+        <span>•</span>
+        <span>${{atom.date}}</span>
+        <span>•</span>
+        <span>Video (${{video.provider || 'Stream'}})</span>
+      `;
+
+      body.innerHTML = `
+        <h1 style="font-size:22px; margin-bottom:16px; font-family:'Inter', sans-serif; font-weight:600; line-height:1.3;">${{escapeHtml(atom.title)}}</h1>
+        <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px; margin-bottom:20px; background:#000; box-shadow:0 4px 16px rgba(0,0,0,0.2);">
+          <iframe src="${{embedUrl}}?autoplay=1" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        ${{atom.notes ? `<div class="meta-notes-banner" style="margin-top:16px;">${{escapeHtml(atom.notes)}}</div>` : ''}}
+      `;
+      modal.showModal();
     }}
 
     function openMetaFromReader() {{
@@ -1313,6 +1362,9 @@ def generate_viewer(vault_dir: Path) -> Path:
       const wordCountLabel = wordCount ? `${{wordCount.toLocaleString()}} words` : '';
 
       const actions = [];
+      if (atom.kind === 'video' || (payload.video && payload.video.embed_url)) {{
+        actions.push(`<button class="meta-btn primary" style="background:#6B46C1; border-color:#6B46C1;" onclick="openVideoFromMeta('${{atom.id}}')">▶ Watch Video</button>`);
+      }}
       if (atom.article_markdown) {{
         actions.push(`<button class="meta-btn primary" onclick="openReaderFromMeta('${{atom.id}}')">📖 Read Full Article ${{wordCountLabel ? `(${{wordCountLabel}})` : ''}}</button>`);
       }}
@@ -1464,6 +1516,22 @@ def generate_viewer(vault_dir: Path) -> Path:
               </div>
             </div>
             ${{atom.article_markdown ? `<button class="meta-btn primary" onclick="openReaderFromMeta('${{atom.id}}')">📖 Read Article</button>` : ''}}
+          </div>
+        `;
+      }}
+
+      if (payload.video || atom.kind === 'video') {{
+        const vidProvider = (payload.video && payload.video.provider) || 'Video';
+        const vidEmbed = payload.video && payload.video.embed_url;
+        payloadContentHtml += `
+          <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-weight:600; font-size:13px; margin-bottom:2px;">${{escapeHtml(vidProvider)}} Stream</div>
+              <div style="font-size:12px; color:var(--muted);">
+                Embedded player ready • Channel: <strong>${{escapeHtml(atom.author || 'Creator')}}</strong>
+              </div>
+            </div>
+            ${{vidEmbed ? `<button class="meta-btn primary" style="background:#6B46C1; border-color:#6B46C1;" onclick="openVideoFromMeta('${{atom.id}}')">▶ Watch Video</button>` : ''}}
           </div>
         `;
       }}

@@ -15,7 +15,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, parse_qs, quote
 
 try:
     import requests
@@ -79,6 +79,35 @@ def generate_atom_id() -> str:
     ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     rand_suffix = os.urandom(3).hex()
     return f"atm_{ts}_{rand_suffix}"
+
+
+def normalize_tag(tag: str) -> str:
+    """Normalize a single tag to universal lowercase kebab-style slug."""
+    t = tag.strip().lstrip("#").lower()
+    t = re.sub(r"[\s_]+", "-", t)
+    t = re.sub(r"[^a-z0-9\.\-]", "", t)
+    return t.strip("-")
+
+
+def normalize_tags(tags_input) -> list[str]:
+    """Normalize tags to universal lowercase tokens (hyphen-separated for multi-word)."""
+    if not tags_input:
+        return []
+    if isinstance(tags_input, str):
+        raw = [t.strip() for t in tags_input.split(",") if t.strip()]
+    elif isinstance(tags_input, (list, tuple, set)):
+        raw = [str(t).strip() for t in tags_input if str(t).strip()]
+    else:
+        return []
+
+    cleaned = []
+    seen = set()
+    for t in raw:
+        t_clean = normalize_tag(t)
+        if t_clean and t_clean not in seen:
+            seen.add(t_clean)
+            cleaned.append(t_clean)
+    return cleaned
 
 
 def extract_dominant_colors(image_path: Path, num_colors: int = 3) -> list[str]:
@@ -245,8 +274,228 @@ def download_image(image_url: str, dest_path: Path) -> dict:
     }
 
 
+def extract_video_info(url: str) -> dict | None:
+    """Detect if a URL is a video (YouTube, Vimeo) and fetch oEmbed metadata + thumbnail."""
+    parsed = urlparse(url)
+    netloc = parsed.netloc.lower()
+
+    # 1. YouTube
+    if any(d in netloc for d in ["youtube.com", "youtu.be", "youtube-nocookie.com", "music.youtube.com"]):
+        video_id = None
+        if netloc == "youtu.be":
+            video_id = parsed.path.lstrip("/").split("?")[0]
+        elif parsed.path == "/watch":
+            qs = parse_qs(parsed.query)
+            video_id = qs.get("v", [None])[0]
+        elif parsed.path.startswith(("/embed/", "/v/", "/shorts/")):
+            parts = [p for p in parsed.path.split("/") if p]
+            if len(parts) >= 2:
+                video_id = parts[1]
+
+        if not video_id:
+            return None
+
+        clean_url = f"https://www.youtube.com/watch?v={video_id}"
+        embed_url = f"https://www.youtube.com/embed/{video_id}"
+        oembed_url = f"https://www.youtube.com/oembed?url={quote(clean_url)}&format=json"
+
+        meta = {
+            "provider": "YouTube",
+            "video_id": video_id,
+            "canonical_url": clean_url,
+            "embed_url": embed_url,
+            "title": "YouTube Video",
+            "author": None,
+            "author_url": None,
+            "thumbnail_url": f"https://i.ytimg.com/vi/{video_id}/sddefault.jpg",
+            "favicon": "https://www.youtube.com/s/desktop/12d6b690/img/favicon_144x144.png"
+        }
+
+        try:
+            resp = requests.get(oembed_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=6)
+            if resp.status_code == 200:
+                d = resp.json()
+                meta["title"] = d.get("title", meta["title"])
+                meta["author"] = d.get("author_name")
+                meta["author_url"] = d.get("author_url")
+                if d.get("thumbnail_url"):
+                    meta["thumbnail_url"] = d["thumbnail_url"]
+        except Exception as e:
+            print(f"⚠️ YouTube oEmbed lookup warning: {e}")
+
+        return meta
+
+    # 2. Vimeo
+    if "vimeo.com" in netloc:
+        parts = [p for p in parsed.path.split("/") if p and p.isdigit()]
+        video_id = parts[0] if parts else None
+        clean_url = f"https://vimeo.com/{video_id}" if video_id else url
+        oembed_url = f"https://vimeo.com/api/oembed.json?url={quote(clean_url)}"
+
+        meta = {
+            "provider": "Vimeo",
+            "video_id": video_id,
+            "canonical_url": clean_url,
+            "embed_url": f"https://player.vimeo.com/video/{video_id}" if video_id else None,
+            "title": "Vimeo Video",
+            "author": None,
+            "author_url": None,
+            "thumbnail_url": None,
+            "favicon": "https://f.vimeocdn.com/images_v6/favicon_32.png"
+        }
+
+        try:
+            resp = requests.get(oembed_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=6)
+            if resp.status_code == 200:
+                d = resp.json()
+                meta["title"] = d.get("title", meta["title"])
+                meta["author"] = d.get("author_name")
+                meta["author_url"] = d.get("author_url")
+                meta["thumbnail_url"] = d.get("thumbnail_url")
+        except Exception:
+            pass
+
+        return meta
+
+    return None
+
+
+def cmd_video(args):
+    """Save a video stream (YouTube, Vimeo, etc.) with oEmbed metadata, embed link, and poster thumbnail."""
+    vault_dir = Path(args.vault).resolve()
+    print(f"🎬 Processing video from {args.url}...")
+    video_info = extract_video_info(args.url)
+
+    if not video_info:
+        print("ℹ️ URL is not a recognized video provider. Falling back to web link.")
+        return cmd_save_link(args)
+
+    atom_id = generate_atom_id()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    atom_title = args.title or video_info["title"]
+    notes = getattr(args, "notes", None)
+    tags = normalize_tags(getattr(args, "tags", None))
+    collections = [c.strip() for c in args.collection.split(",") if c.strip()] if getattr(args, "collection", None) else []
+
+    # Prepare sidecar folder: vault/atoms/YYYY/MM/<atom_id>/
+    now = datetime.now(timezone.utc)
+    rel_folder = Path("atoms") / f"{now.year}" / f"{now.month:02d}" / atom_id
+    abs_folder = vault_dir / rel_folder
+    abs_folder.mkdir(parents=True, exist_ok=True)
+
+    # Download Video Poster Thumbnail (Universal visual anchor)
+    cover_meta = None
+    cover_rel_path = None
+    if video_info.get("thumbnail_url"):
+        cover_filename = "cover.jpg"
+        abs_cover_path = abs_folder / cover_filename
+        try:
+            print(f"📥 Downloading video poster thumbnail from {video_info['thumbnail_url']}...")
+            downloaded = download_image(video_info["thumbnail_url"], abs_cover_path)
+            cover_rel_path = str(rel_folder / cover_filename)
+            cover_meta = {
+                "file": cover_filename,
+                "relative_path": cover_rel_path,
+                "mime_type": downloaded["mime_type"],
+                "hash": downloaded["hash"],
+                "dimensions": downloaded["dimensions"],
+                "aspect_ratio": downloaded["aspect_ratio"],
+                "blurhash": downloaded["blurhash"],
+                "color_palette": downloaded["color_palette"],
+                "alt_text": atom_title,
+                "original_src_url": video_info["thumbnail_url"]
+            }
+        except Exception as e:
+            print(f"⚠️ Failed to download poster thumbnail ({e})")
+
+    meta_bag = {
+        "provider": video_info["provider"],
+        "embed_url": video_info["embed_url"],
+        "aspect_ratio": cover_meta["aspect_ratio"] if cover_meta else None,
+        "blurhash": cover_meta["blurhash"] if cover_meta else None,
+        "color_palette": cover_meta["color_palette"] if cover_meta else None,
+        "favicon": video_info["favicon"]
+    }
+
+    atom_doc = {
+        "$schema": SCHEMA_URL,
+        "id": atom_id,
+        "kind": "video",
+        "version": 2,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+        "provenance": {
+            "source_url": args.url,
+            "source_title": video_info["title"],
+            "canonical_url": video_info["canonical_url"],
+            "site_name": video_info["provider"],
+            "author": video_info["author"],
+            "author_url": video_info["author_url"],
+            "published_at": None,
+            "favicon": video_info["favicon"]
+        },
+        "curation": {
+            "atom_title": atom_title,
+            "notes": notes,
+            "tags": tags,
+            "collections": collections,
+            "favorite": getattr(args, "favorite", False)
+        },
+        "payload": {
+            "destination_url": video_info["canonical_url"],
+            "cover_image": cover_meta,
+            "text": None,
+            "article": None,
+            "video": {
+                "provider": video_info["provider"],
+                "embed_url": video_info["embed_url"],
+                "duration_seconds": None
+            },
+            "file": None
+        },
+        "metadata_json": meta_bag
+    }
+
+    # Write atom.json
+    atom_json_path = abs_folder / "atom.json"
+    with open(atom_json_path, "w", encoding="utf-8") as f:
+        json.dump(atom_doc, f, indent=2)
+
+    # Insert into SQLite
+    conn = get_db(vault_dir)
+    with conn:
+        conn.execute("""
+            INSERT OR REPLACE INTO atoms (
+                id, kind, created_at, updated_at,
+                atom_title, notes, tags, collections, favorite,
+                destination_url, cover_file_path,
+                text_content, source_url, author,
+                metadata, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            atom_id, "video", now_iso, now_iso,
+            atom_title, notes, json.dumps(tags), json.dumps(collections),
+            1 if getattr(args, "favorite", False) else 0,
+            video_info["canonical_url"], cover_rel_path,
+            None, args.url, video_info["author"],
+            json.dumps(meta_bag), json.dumps(atom_doc)
+        ))
+
+    print(f"\n🎬 Video atom saved successfully!")
+    print(f"   ID:       {atom_id}")
+    print(f"   Provider: {video_info['provider']}")
+    print(f"   Title:    {atom_title}")
+    print(f"   Channel:  {video_info['author'] or '—'}")
+    print(f"   Folder:   {abs_folder}")
+    return atom_doc
+
+
 def cmd_save_link(args):
     """Save a URL/link into the vault, scraping metadata, cover image, and full article text."""
+    # Auto-detect if this is a video URL (YouTube, Vimeo)
+    if extract_video_info(args.url) and not getattr(args, "quote", None):
+        return cmd_video(args)
+
     vault_dir = Path(args.vault).resolve()
     print(f"🌐 Scraping {args.url}...")
     try:
@@ -273,7 +522,7 @@ def cmd_save_link(args):
     now_iso = datetime.now(timezone.utc).isoformat()
     atom_title = args.title or scraped["source_title"]
     notes = args.notes or scraped["description"]
-    tags = [t.strip().lstrip("#") for t in args.tags.split(",") if t.strip()] if args.tags else []
+    tags = normalize_tags(args.tags)
     collections = [c.strip() for c in args.collection.split(",") if c.strip()] if args.collection else []
 
     # Prepare sidecar folder: vault/atoms/YYYY/MM/<atom_id>/
@@ -429,7 +678,7 @@ def cmd_quote(args):
     atom_title = args.title or snippet_title
     word_count = len(words)
 
-    tags = [t.strip().lstrip("#") for t in args.tags.split(",") if t.strip()] if args.tags else []
+    tags = normalize_tags(args.tags)
     collections = [c.strip() for c in args.collection.split(",") if c.strip()] if args.collection else []
 
     rel_folder = Path("atoms") / f"{now.year}" / f"{now.month:02d}" / atom_id
@@ -528,7 +777,7 @@ def cmd_note(args):
     atom_title = args.title or snippet_title
     word_count = len(words)
 
-    tags = [t.strip().lstrip("#") for t in args.tags.split(",") if t.strip()] if args.tags else []
+    tags = normalize_tags(args.tags)
     collections = [c.strip() for c in args.collection.split(",") if c.strip()] if args.collection else []
 
     rel_folder = Path("atoms") / f"{now.year}" / f"{now.month:02d}" / atom_id
@@ -656,7 +905,7 @@ def cmd_image(args):
 
     cover_rel_path = str(rel_folder / cover_filename)
     atom_title = args.title or (Path(src).stem if not is_url else "Image")
-    tags = [t.strip().lstrip("#") for t in args.tags.split(",") if t.strip()] if args.tags else []
+    tags = normalize_tags(args.tags)
     collections = [c.strip() for c in args.collection.split(",") if c.strip()] if args.collection else []
 
     meta_bag = {
@@ -910,7 +1159,7 @@ def cmd_reindex(args):
                     """, (
                         atom_id, kind, now_iso, doc.get("updated_at", now_iso),
                         cur.get("atom_title", "Untitled"), cur.get("notes"),
-                        json.dumps(cur.get("tags", [])), json.dumps(cur.get("collections", [])),
+                        json.dumps(normalize_tags(cur.get("tags", []))), json.dumps(cur.get("collections", [])),
                         1 if cur.get("favorite") else 0, payload.get("destination_url"),
                         cover_rel_path, text.get("excerpt"), prov.get("source_url"),
                         prov.get("author"), json.dumps(meta_bag), json.dumps(doc)
@@ -1006,7 +1255,17 @@ def main():
     p_image.add_argument("--favorite", action="store_true", help="Mark as favorite")
     p_image.set_defaults(func=cmd_image)
 
-    # 5. List command
+    # 5. Video command
+    p_video = subparsers.add_parser("video", help="Save a video stream (YouTube, Vimeo, etc.)")
+    p_video.add_argument("url", help="URL of the video to capture")
+    p_video.add_argument("--title", help="Custom video title")
+    p_video.add_argument("--notes", help="Personal curation notes")
+    p_video.add_argument("--tags", help="Comma-separated tags")
+    p_video.add_argument("--collection", help="Collection name")
+    p_video.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    p_video.set_defaults(func=cmd_video)
+
+    # 6. List command
     p_list = subparsers.add_parser("list", help="List atoms in the vault")
     p_list.add_argument("--kind", choices=["quote", "note", "link", "image", "video", "file"], help="Filter by kind")
     p_list.add_argument("--tag", help="Filter by tag")

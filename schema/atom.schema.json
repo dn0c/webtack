@@ -47,7 +47,11 @@
         "notes": { "type": ["string", "null"] },
         "tags": {
           "type": "array",
-          "items": { "type": "string" },
+          "description": "Universal lowercase tags (hyphen-separated for multi-word phrases)",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9.\\-]+$"
+          },
           "default": []
         },
         "collections": {
