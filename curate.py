@@ -6,13 +6,16 @@ A local-first, durable web curation and bookmarking framework using the Payload 
 
 import argparse
 import csv
+import email.utils
 import hashlib
+import html
 import json
 import os
 import re
 import sqlite3
 import sys
 import time
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, parse_qs, quote
@@ -1144,6 +1147,7 @@ def cmd_image(args):
     print(f"   Kind:    image")
     print(f"   Ratio:   {downloaded['aspect_ratio']} | Blurhash: {downloaded['blurhash']}")
     print(f"   Folder:  {abs_folder}")
+    return atom_doc
 
 
 def cmd_list(args):
@@ -1204,8 +1208,46 @@ def cmd_list(args):
         print("─" * 80)
 
 
+def get_atom_content_body(vault_dir: Path, r: sqlite3.Row) -> str:
+    """Retrieve the primary textual body of an atom (article text, transcript, note, or quote)."""
+    aid = r["id"]
+    kind = r["kind"]
+    created_at = r["created_at"]
+    atom_folder = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / aid
+
+    if kind == "article":
+        art_file = atom_folder / "article.md"
+        if art_file.exists():
+            try:
+                with open(art_file, "r", encoding="utf-8") as af:
+                    return af.read()
+            except Exception:
+                pass
+    elif kind == "video":
+        trans_file = atom_folder / "transcript.txt"
+        if trans_file.exists():
+            try:
+                with open(trans_file, "r", encoding="utf-8") as tf:
+                    return tf.read()
+            except Exception:
+                pass
+    elif kind == "note":
+        for fn in ("note.md", "note.txt"):
+            nf = atom_folder / fn
+            if nf.exists():
+                try:
+                    with open(nf, "r", encoding="utf-8") as nf_file:
+                        return nf_file.read()
+                except Exception:
+                    pass
+    elif kind == "quote":
+        return r["text_content"] or ""
+
+    return r["text_content"] or ""
+
+
 def cmd_export(args):
-    """Export atoms to third-party formats (e.g. are.na/import/csv)."""
+    """Export atoms to third-party formats (NotebookLM, Obsidian, Bookmarks, Readwise, Are.na, RSS, BibTeX, JSONL, JSON)."""
     vault_dir = Path(args.vault).resolve()
     conn = get_db(vault_dir)
     query = "SELECT * FROM atoms WHERE 1=1"
@@ -1219,9 +1261,12 @@ def cmd_export(args):
     query += " ORDER BY created_at ASC"
 
     rows = conn.execute(query, params).fetchall()
+    export_dir = vault_dir / "export"
+    export_dir.mkdir(parents=True, exist_ok=True)
 
     if args.target == "arena-csv":
-        out_stream = open(args.out, "w", newline="", encoding="utf-8") if args.out else sys.stdout
+        out_path = Path(args.out) if args.out else export_dir / "arena_export.csv"
+        out_stream = open(out_path, "w", newline="", encoding="utf-8")
         writer = csv.writer(out_stream)
         writer.writerow(["Title", "Source", "Description"])
 
@@ -1240,12 +1285,11 @@ def cmd_export(args):
             description = "\n\n".join(parts)
             writer.writerow([title, source, description])
 
-        if args.out:
-            out_stream.close()
-            print(f"✅ Exported {len(rows)} items for are.na/import/csv to: {args.out}")
+        out_stream.close()
+        print(f"✅ Exported {len(rows)} items for are.na/import/csv to: {out_path}")
 
     elif args.target in ("digest", "llms", "notebooklm"):
-        out_path = Path(args.out) if args.out else vault_dir / "export" / "vault_digest.md"
+        out_path = Path(args.out) if args.out else export_dir / "vault_digest.md"
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         lines = [
@@ -1265,43 +1309,7 @@ def cmd_export(args):
             tags_list = json.loads(r["tags"]) if r["tags"] else []
             tag_str = ", ".join([f"#{t}" for t in tags_list]) if tags_list else "None"
             notes = r["notes"]
-
-            created_at = r["created_at"]
-            atom_folder = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / aid
-
-            # Determine content body
-            body = None
-            if kind == "article":
-                art_file = atom_folder / "article.md"
-                if art_file.exists():
-                    try:
-                        with open(art_file, "r", encoding="utf-8") as af:
-                            body = af.read()
-                    except Exception:
-                        pass
-            elif kind == "video":
-                trans_file = atom_folder / "transcript.txt"
-                if trans_file.exists():
-                    try:
-                        with open(trans_file, "r", encoding="utf-8") as tf:
-                            body = tf.read()
-                    except Exception:
-                        pass
-            elif kind == "note":
-                note_file = atom_folder / "note.md"
-                if not note_file.exists():
-                    note_file = atom_folder / "note.txt"
-                if note_file.exists():
-                    try:
-                        with open(note_file, "r", encoding="utf-8") as nf:
-                            body = nf.read()
-                    except Exception:
-                        pass
-            elif kind == "quote":
-                body = r["text_content"]
-
-            if not body and r["text_content"]:
-                body = r["text_content"]
+            body = get_atom_content_body(vault_dir, r)
 
             kind_emoji = {
                 "article": "📖",
@@ -1341,7 +1349,7 @@ def cmd_export(args):
         print(f"✅ Generated NotebookLM/LLM Knowledge Digest: {out_path} ({len(rows)} atoms, {len(output_text.split())} words)")
 
     elif args.target == "llms-txt":
-        out_path = Path(args.out) if args.out else vault_dir / "export" / "llms.txt"
+        out_path = Path(args.out) if args.out else export_dir / "llms.txt"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         lines = [
             f"# WideWeb Vault Index",
@@ -1358,15 +1366,221 @@ def cmd_export(args):
             f.write(output_text)
         print(f"✅ Generated standard llms.txt index: {out_path}")
 
+    elif args.target in ("obsidian", "logseq"):
+        out_zip = Path(args.out) if args.out else export_dir / "vault_obsidian.zip"
+        obsidian_folder = export_dir / "obsidian"
+        obsidian_folder.mkdir(parents=True, exist_ok=True)
+
+        zip_files = []
+        for r in rows:
+            aid = r["id"]
+            kind = r["kind"]
+            title = r["atom_title"]
+            clean_title = re.sub(r'[\/\\:\*\?"<>\|]+', '_', title).strip()
+            filename = f"{clean_title[:60]}_{aid[-6:]}.md"
+            tags_list = json.loads(r["tags"]) if r["tags"] else []
+
+            fm = [
+                "---",
+                f"id: \"{aid}\"",
+                f"title: \"{title.replace('\"', '\\\"')}\"",
+                f"kind: {kind}",
+                f"date: \"{r['created_at'][:10]}\"",
+                f"created_at: \"{r['created_at']}\""
+            ]
+            url = r["destination_url"] or r["source_url"]
+            if url:
+                fm.append(f"url: \"{url}\"")
+            if r["author"]:
+                fm.append(f"author: \"{r['author'].replace('\"', '\\\"')}\"")
+            if tags_list:
+                fm.append("tags:")
+                for t in tags_list:
+                    fm.append(f"  - {t}")
+            else:
+                fm.append("tags: []")
+            fm.append("---\n")
+
+            content_lines = [
+                "\n".join(fm),
+                f"# {title}\n"
+            ]
+            if url:
+                content_lines.append(f"> **Source**: [{url}]({url})\n")
+            if r["notes"]:
+                content_lines.append(f"### Curator Notes\n\n{r['notes']}\n")
+
+            body = get_atom_content_body(vault_dir, r)
+            if body:
+                content_lines.append(f"### Content\n\n{body.strip()}\n")
+
+            note_content = "\n".join(content_lines)
+            note_path = obsidian_folder / filename
+            with open(note_path, "w", encoding="utf-8") as nf:
+                nf.write(note_content)
+            zip_files.append((note_path, filename))
+
+        with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+            for n_path, z_name in zip_files:
+                zf.write(n_path, arcname=z_name)
+
+        print(f"✅ Exported {len(rows)} atoms to Obsidian/Logseq vault archive: {out_zip}")
+
+    elif args.target in ("bookmarks-html", "bookmarks", "netscape"):
+        out_path = Path(args.out) if args.out else export_dir / "bookmarks.html"
+        lines = [
+            "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
+            "<!-- This is an automatically generated file. -->",
+            '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+            "<TITLE>WideWeb Bookmarks</TITLE>",
+            "<H1>WideWeb Bookmarks</H1>",
+            "<DL><p>"
+        ]
+        for r in rows:
+            url = r["destination_url"] or r["source_url"]
+            if not url:
+                continue
+            try:
+                dt = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
+                ts = int(dt.timestamp())
+            except Exception:
+                ts = int(time.time())
+            tags_list = json.loads(r["tags"]) if r["tags"] else []
+            tag_str = html.escape(",".join(tags_list))
+            title = html.escape(r["atom_title"])
+            notes = html.escape(r["notes"] or (r["text_content"][:200] if r["text_content"] else ""))
+            lines.append(f'    <DT><A HREF="{html.escape(url)}" ADD_DATE="{ts}" TAGS="{tag_str}">{title}</A>')
+            if notes:
+                lines.append(f'    <DD>{notes}')
+        lines.append("</DL><p>")
+
+        output_text = "\n".join(lines)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(output_text)
+        print(f"✅ Exported universal Netscape HTML bookmarks: {out_path}")
+
+    elif args.target == "readwise":
+        out_path = Path(args.out) if args.out else export_dir / "readwise.csv"
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Highlight", "Title", "Author", "URL", "Note", "Location"])
+            for r in rows:
+                kind = r["kind"]
+                body = get_atom_content_body(vault_dir, r)
+                highlight = body[:1000] if body else (r["notes"] or r["atom_title"])
+                title = r["atom_title"]
+                author = r["author"] or ""
+                url = r["destination_url"] or r["source_url"] or ""
+                notes = r["notes"] or ""
+                writer.writerow([highlight, title, author, url, notes, r["id"]])
+        print(f"✅ Exported {len(rows)} items for Readwise to: {out_path}")
+
+    elif args.target in ("rss", "feed"):
+        out_path = Path(args.out) if args.out else export_dir / "feed.xml"
+        now_rfc822 = email.utils.format_datetime(datetime.now(timezone.utc))
+        lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<rss version="2.0">',
+            '  <channel>',
+            '    <title>WideWeb Curation Vault</title>',
+            '    <link>http://127.0.0.1:8080/</link>',
+            '    <description>Personal local-first curation stream</description>',
+            f'    <lastBuildDate>{now_rfc822}</lastBuildDate>'
+        ]
+        for r in rows:
+            url = r["destination_url"] or r["source_url"] or f"http://127.0.0.1:8080/#atom-{r['id']}"
+            try:
+                dt = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
+                pub_date = email.utils.format_datetime(dt)
+            except Exception:
+                pub_date = now_rfc822
+            tags_list = json.loads(r["tags"]) if r["tags"] else []
+            body = get_atom_content_body(vault_dir, r)
+            desc_parts = []
+            if r["notes"]:
+                desc_parts.append(f"<p><strong>Curator Notes:</strong> {html.escape(r['notes'])}</p>")
+            if body:
+                desc_parts.append(f"<div>{html.escape(body[:2000])}</div>")
+            desc_html = "".join(desc_parts)
+
+            lines.append('    <item>')
+            lines.append(f'      <title>{html.escape(r["atom_title"])}</title>')
+            lines.append(f'      <link>{html.escape(url)}</link>')
+            lines.append(f'      <guid isPermaLink="false">{r["id"]}</guid>')
+            lines.append(f'      <pubDate>{pub_date}</pubDate>')
+            if r["author"]:
+                lines.append(f'      <author>{html.escape(r["author"])}</author>')
+            for t in tags_list:
+                lines.append(f'      <category>{html.escape(t)}</category>')
+            lines.append(f'      <description><![CDATA[{desc_html}]]></description>')
+            lines.append('    </item>')
+
+        lines.append('  </channel>')
+        lines.append('</rss>')
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        print(f"✅ Generated RSS 2.0 syndication feed: {out_path}")
+
+    elif args.target in ("bibtex", "bib"):
+        out_path = Path(args.out) if args.out else export_dir / "vault.bib"
+        bib_entries = []
+        for r in rows:
+            aid = r["id"]
+            kind = r["kind"]
+            title = r["atom_title"].replace("{", "\\{").replace("}", "\\}")
+            author = (r["author"] or "WideWeb Vault").replace("{", "\\{").replace("}", "\\}")
+            url = r["destination_url"] or r["source_url"] or ""
+            year = r["created_at"][:4]
+            tags_list = json.loads(r["tags"]) if r["tags"] else []
+            keywords = ", ".join(tags_list)
+
+            if kind == "article":
+                entry = f"""@article{{{aid},
+  title = {{{title}}},
+  author = {{{author}}},
+  year = {{{year}}},
+  url = {{{url}}},
+  keywords = {{{keywords}}}
+}}"""
+            elif kind == "video":
+                entry = f"""@misc{{{aid},
+  title = {{{title}}},
+  author = {{{author}}},
+  howpublished = {{Video Stream}},
+  year = {{{year}}},
+  url = {{{url}}},
+  keywords = {{{keywords}}}
+}}"""
+            else:
+                entry = f"""@misc{{{aid},
+  title = {{{title}}},
+  author = {{{author}}},
+  year = {{{year}}},
+  url = {{{url}}},
+  note = {{{r['notes'] or ''}}},
+  keywords = {{{keywords}}}
+}}"""
+            bib_entries.append(entry)
+
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write("\n\n".join(bib_entries) + "\n")
+        print(f"✅ Exported {len(rows)} BibTeX citations to: {out_path}")
+
+    elif args.target == "jsonl":
+        out_path = Path(args.out) if args.out else export_dir / "vault.jsonl"
+        with open(out_path, "w", encoding="utf-8") as f:
+            for r in rows:
+                atom_doc = json.loads(r["raw_json"])
+                f.write(json.dumps(atom_doc) + "\n")
+        print(f"✅ Exported {len(rows)} atoms to JSONL: {out_path}")
+
     elif args.target == "json":
+        out_path = Path(args.out) if args.out else export_dir / "vault_backup.json"
         atoms_list = [json.loads(r["raw_json"]) for r in rows]
         content = json.dumps(atoms_list, indent=2)
-        if args.out:
-            with open(args.out, "w", encoding="utf-8") as f:
-                f.write(content)
-            print(f"✅ Exported {len(rows)} atoms to JSON: {args.out}")
-        else:
-            print(content)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"✅ Exported {len(rows)} atoms to JSON: {out_path}")
 
 
 def cmd_reindex(args):
@@ -1602,7 +1816,22 @@ def main():
 
     # 6. Export command
     p_export = subparsers.add_parser("export", help="Export atoms to platform formats")
-    p_export.add_argument("--target", choices=["digest", "llms", "llms-txt", "arena-csv", "json"], default="digest", help="Export target (digest for NotebookLM/Claude, llms-txt, arena-csv, json)")
+    p_export.add_argument(
+        "--target",
+        choices=[
+            "digest", "llms", "notebooklm", "llms-txt",
+            "obsidian", "logseq",
+            "bookmarks-html", "bookmarks", "netscape",
+            "readwise",
+            "arena-csv", "csv",
+            "rss", "feed",
+            "bibtex", "bib",
+            "jsonl",
+            "json"
+        ],
+        default="digest",
+        help="Export target format (digest, llms-txt, obsidian, bookmarks-html, readwise, arena-csv, rss, bibtex, jsonl, json)"
+    )
     p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file", "link"], help="Filter by kind")
     p_export.add_argument("--tag", help="Filter by tag")
     p_export.add_argument("--out", help="Output file path (default: stdout or vault/export/vault_digest.md)")

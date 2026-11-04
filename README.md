@@ -75,16 +75,25 @@ python3 curate.py list --kind link
 python3 curate.py list --tag systems
 ```
 
-### 6. Visual Masonry Cards & Local Web Capture (`curate.py view`)
-Generate and open the self-contained HTML gallery with 4-tier schema inspector, responsive video player, and distraction-free reader mode:
+### 6. Visual Gallery & Live Capture Studio (`curate.py view`)
+Browse your vault with high-aesthetic typography, 4-tier schema inspection, responsive video player, and distraction-free reader mode:
 
 ```bash
-# Static file mode
-python3 curate.py view
+# Zero-Terminal macOS Launcher:
+# Simply double-click "Launch WideWeb.command" in Finder!
 
-# Or run live local server with 1-click in-browser capture & bookmarklet:
+# Or launch via terminal:
 python3 curate.py view --server
 ```
+
+**In-Browser Studio Features:**
+- **`+ Capture` Modal (`c`)**: 1-click capture tabs for **Articles** (scraped Markdown), **Bookmarks** (lightweight pointers), **Videos** (auto-transcription & posters), **Quotes**, **Notes** (Markdown), and **Images** (blurhash & color extraction).
+- **`📥 Export ▾` Menu**: 1-click browser downloads for:
+  - 🤖 **NotebookLM Digest (`.md`)**: Unified longform document with articles, notes, quotes, and full video transcripts.
+  - 📑 **`llms.txt` Index (`.txt`)**: Compact, LLM-friendly index standard.
+  - 🧱 **Are.na CSV (`.csv`)**: Import-ready file for Are.na channels.
+  - 💾 **Full Vault Backup (`.json`)**: Complete raw schemas & metadata.
+- **⚡ Bookmarklet**: Drag the "Save to WideWeb" bookmarklet to your browser's favorites bar for 1-click capture from any web page.
 
 ---
 
@@ -119,20 +128,24 @@ Once connected, your AI assistant can invoke:
 
 ---
 
-## Knowledge Exports (NotebookLM & Claude Projects)
+## Knowledge Exports & Data Portability
 
-Export your entire curated library into unified formats optimized for synthesis:
+WideWeb guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 10 open standards via the **Export Hub** (`/export.html`) or the CLI:
 
-```bash
-# Export single consolidated Markdown digest for NotebookLM or Claude Projects:
-python3 curate.py export --target digest
+| Target | Command | Primary Ecosystem | Output File |
+| :--- | :--- | :--- | :--- |
+| **NotebookLM Digest** | `curate.py export --target digest` | NotebookLM, Claude Projects | `vault_digest.md` |
+| **Obsidian Vault** | `curate.py export --target obsidian` | Obsidian, Logseq, Foam | `vault_obsidian.zip` |
+| **HTML Bookmarks** | `curate.py export --target bookmarks-html` | Chrome, Safari, Firefox, Arc | `bookmarks.html` |
+| **Readwise Highlights**| `curate.py export --target readwise` | Readwise, Reader | `readwise.csv` |
+| **`llms.txt` Index** | `curate.py export --target llms-txt` | LLM Agents, Context Optimization | `llms.txt` |
+| **Are.na CSV** | `curate.py export --target arena-csv` | Are.na Channels | `arena_export.csv` |
+| **RSS 2.0 Feed** | `curate.py export --target rss` | Feedly, NetNewsWire, RSS Readers | `feed.xml` |
+| **BibTeX Citations** | `curate.py export --target bibtex` | Zotero, LaTeX, Mendeley | `vault.bib` |
+| **JSONL Dataset** | `curate.py export --target jsonl` | Vector Embeddings, LangChain, RAG | `vault.jsonl` |
+| **Full Raw Backup** | `curate.py export --target json` | Disaster Recovery, Migration | `vault_backup.json` |
 
-# Export standard /llms.txt index:
-python3 curate.py export --target llms-txt
-
-# Export Are.na bulk CSV:
-python3 curate.py export --target arena-csv --out arena.csv
-```
+To browse, search, and download all exports in your browser, click **📦 Export Center** in the top navigation bar of the web gallery (`/export.html`).
 
 ---
 

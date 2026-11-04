@@ -156,6 +156,94 @@ def generate_viewer(vault_dir: Path) -> Path:
       align-items: center;
       gap: 12px;
     }}
+    .nav-hub-btn {{
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }}
+    .nav-hub-btn:hover {{
+      background: var(--tag-bg);
+      border-color: var(--muted);
+      transform: translateY(-1px);
+    }}
+    .export-dropdown {{
+      position: relative;
+      display: inline-block;
+    }}
+    .export-btn {{
+      background: var(--tag-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }}
+    .export-btn:hover {{
+      background: var(--border);
+      color: var(--text);
+      transform: translateY(-1px);
+    }}
+    .export-menu {{
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      width: 290px;
+      padding: 6px;
+      z-index: 200;
+    }}
+    .export-menu.show {{
+      display: block;
+    }}
+    .export-item {{
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--text);
+      transition: background 0.12s ease;
+      cursor: pointer;
+    }}
+    .export-item:hover {{
+      background: var(--tag-bg);
+    }}
+    .export-item-icon {{
+      font-size: 16px;
+      line-height: 1.2;
+    }}
+    .export-item-title {{
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.2;
+    }}
+    .export-item-desc {{
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+      line-height: 1.3;
+    }}
     .capture-btn {{
       background: var(--text);
       color: var(--bg);
@@ -903,6 +991,54 @@ def generate_viewer(vault_dir: Path) -> Path:
         </div>
         <div class="top-actions">
           <div class="stats-badge" id="statsBadge">{len(atoms_data)} items</div>
+          <a href="export.html" class="nav-hub-btn" title="Open full Knowledge Exports & Data Portability Hub">📦 Export Center</a>
+          <div class="export-dropdown" id="exportDropdown">
+            <button class="export-btn" onclick="toggleExportMenu(event)">📥 Quick Export ▾</button>
+            <div class="export-menu" id="exportMenu">
+              <a href="/api/export?target=digest" download="vault_digest.md" class="export-item" onclick="handleExportClick(event, 'digest')">
+                <span class="export-item-icon">🤖</span>
+                <div>
+                  <div class="export-item-title">NotebookLM Digest (.md)</div>
+                  <div class="export-item-desc">All articles, notes, quotes & transcripts in 1 file</div>
+                </div>
+              </a>
+              <a href="/api/export?target=obsidian" download="vault_obsidian.zip" class="export-item" onclick="handleExportClick(event, 'obsidian')">
+                <span class="export-item-icon">🧠</span>
+                <div>
+                  <div class="export-item-title">Obsidian Archive (.zip)</div>
+                  <div class="export-item-desc">Discrete notes with YAML frontmatter for PKM</div>
+                </div>
+              </a>
+              <a href="/api/export?target=bookmarks-html" download="bookmarks.html" class="export-item" onclick="handleExportClick(event, 'bookmarks-html')">
+                <span class="export-item-icon">🌐</span>
+                <div>
+                  <div class="export-item-title">Universal HTML Bookmarks (.html)</div>
+                  <div class="export-item-desc">Netscape format for Chrome, Safari, Firefox, Arc</div>
+                </div>
+              </a>
+              <a href="/api/export?target=readwise" download="readwise.csv" class="export-item" onclick="handleExportClick(event, 'readwise')">
+                <span class="export-item-icon">⚡</span>
+                <div>
+                  <div class="export-item-title">Readwise CSV (.csv)</div>
+                  <div class="export-item-desc">Highlights format for active recall review</div>
+                </div>
+              </a>
+              <a href="/api/export?target=arena-csv" download="arena_export.csv" class="export-item" onclick="handleExportClick(event, 'arena-csv')">
+                <span class="export-item-icon">🧱</span>
+                <div>
+                  <div class="export-item-title">Are.na CSV (.csv)</div>
+                  <div class="export-item-desc">Format ready for Are.na channel import</div>
+                </div>
+              </a>
+              <a href="export.html" class="export-item" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;">
+                <span class="export-item-icon">✨</span>
+                <div>
+                  <div class="export-item-title" style="color: var(--accent);">View All 10 Formats →</div>
+                  <div class="export-item-desc">BibTeX, RSS Feed, JSONL, llms.txt & more</div>
+                </div>
+              </a>
+            </div>
+          </div>
           <button class="capture-btn" id="openCaptureBtn" onclick="openCaptureModal()">+ Capture</button>
         </div>
       </div>
@@ -936,8 +1072,10 @@ def generate_viewer(vault_dir: Path) -> Path:
       <div class="capture-tabs">
         <button class="cap-tab-btn active" data-tab="article" onclick="switchCaptureTab('article')">📖 Article</button>
         <button class="cap-tab-btn" data-tab="bookmark" onclick="switchCaptureTab('bookmark')">🔖 Bookmark</button>
+        <button class="cap-tab-btn" data-tab="video" onclick="switchCaptureTab('video')">🎬 Video</button>
         <button class="cap-tab-btn" data-tab="quote" onclick="switchCaptureTab('quote')">✍️ Quote</button>
         <button class="cap-tab-btn" data-tab="note" onclick="switchCaptureTab('note')">📝 Note</button>
+        <button class="cap-tab-btn" data-tab="image" onclick="switchCaptureTab('image')">🎨 Image</button>
       </div>
 
       <!-- Link / URL Form -->
@@ -959,6 +1097,28 @@ def generate_viewer(vault_dir: Path) -> Path:
             Bookmarklet: <a class="bookmarklet-link" href="javascript:(function(){{const u=location.href,t=document.title,s=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(s),'_blank');}})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WideWeb</a>
           </div>
           <button type="submit" class="submit-btn" id="capLinkSubmit">Save Link</button>
+        </div>
+      </form>
+
+      <!-- Video Form -->
+      <form id="videoForm" style="display: none;" onsubmit="handleCaptureSubmit(event, 'video')">
+        <div class="form-group">
+          <label>Video Stream URL (YouTube, Vimeo, etc.)</label>
+          <input type="url" id="capVideoUrl" placeholder="https://www.youtube.com/watch?v=..." required>
+        </div>
+        <div class="form-group">
+          <label>Custom Title (Optional)</label>
+          <input type="text" id="capVideoTitle" placeholder="Leave blank to auto-fetch video title">
+        </div>
+        <div class="form-group">
+          <label>Tags (Comma separated)</label>
+          <input type="text" id="capVideoTags" placeholder="interviews, music-gear, tech">
+        </div>
+        <div class="form-actions">
+          <div style="font-size: 11px; color: var(--muted); line-height: 1.3;">
+            ⚡ Auto-downloads poster thumbnail and fetches full spoken transcript subtitles for search & LLM digest.
+          </div>
+          <button type="submit" class="submit-btn" id="capVideoSubmit">Save Video</button>
         </div>
       </form>
 
@@ -1003,6 +1163,36 @@ def generate_viewer(vault_dir: Path) -> Path:
         <div class="form-actions">
           <div></div>
           <button type="submit" class="submit-btn" id="capNoteSubmit">Save Note</button>
+        </div>
+      </form>
+
+      <!-- Image Form -->
+      <form id="imageForm" style="display: none;" onsubmit="handleCaptureSubmit(event, 'image')">
+        <div class="form-group">
+          <label>Image URL or Local File Path</label>
+          <input type="text" id="capImageSrc" placeholder="https://.../photo.jpg or ~/Downloads/graphic.png" required>
+        </div>
+        <div class="form-group">
+          <label>Custom Title (Optional)</label>
+          <input type="text" id="capImageTitle" placeholder="Leave blank to use filename or auto-title">
+        </div>
+        <div class="form-group">
+          <label>Source Web URL (Optional)</label>
+          <input type="url" id="capImageSource" placeholder="https://example.com/original-article">
+        </div>
+        <div class="form-group">
+          <label>Author / Creator (Optional)</label>
+          <input type="text" id="capImageAuthor" placeholder="e.g. Graphic Designer, Photographer">
+        </div>
+        <div class="form-group">
+          <label>Tags (Comma separated)</label>
+          <input type="text" id="capImageTags" placeholder="design, architecture, art">
+        </div>
+        <div class="form-actions">
+          <div style="font-size: 11px; color: var(--muted); line-height: 1.3;">
+            ⚡ Generates visual blurhash preview, computes aspect ratio, and extracts 5-color palette.
+          </div>
+          <button type="submit" class="submit-btn" id="capImageSubmit">Save Image</button>
         </div>
       </form>
     </div>
@@ -1166,15 +1356,54 @@ def generate_viewer(vault_dir: Path) -> Path:
       document.getElementById('captureModal').showModal();
     }}
 
+    function toggleExportMenu(e) {{
+      e.stopPropagation();
+      const m = document.getElementById('exportMenu');
+      m.classList.toggle('show');
+    }}
+
+    function handleExportClick(e, target) {{
+      const isHttp = window.location.protocol.startsWith('http');
+      if (!isHttp) {{
+        if (target === 'json') {{
+          e.preventDefault();
+          const blob = new Blob([JSON.stringify(ATOMS, null, 2)], {{ type: 'application/json' }});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'vault_backup.json';
+          a.click();
+          URL.revokeObjectURL(url);
+          document.getElementById('exportMenu').classList.remove('show');
+          showToast('💾 Exported vault_backup.json');
+          return;
+        }}
+        alert('Digest, llms.txt, and CSV exports require running WideWeb with the local server:\\n\\nDouble-click "Launch WideWeb.command" or run:\\npython3 curate.py view --server');
+        return;
+      }}
+      document.getElementById('exportMenu').classList.remove('show');
+      showToast(`📥 Preparing ${{target}} download...`);
+    }}
+
+    window.addEventListener('click', (e) => {{
+      const m = document.getElementById('exportMenu');
+      if (m && !m.contains(e.target)) {{
+        m.classList.remove('show');
+      }}
+    }});
+
     let activeUrlKind = 'article';
     function switchCaptureTab(tab) {{
       document.querySelectorAll('.cap-tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector(`.cap-tab-btn[data-tab="${{tab}}"]`).classList.add('active');
+      const activeBtn = document.querySelector(`.cap-tab-btn[data-tab="${{tab}}"]`);
+      if (activeBtn) activeBtn.classList.add('active');
 
       const isUrl = (tab === 'article' || tab === 'bookmark');
       document.getElementById('linkForm').style.display = isUrl ? 'block' : 'none';
+      document.getElementById('videoForm').style.display = tab === 'video' ? 'block' : 'none';
       document.getElementById('quoteForm').style.display = tab === 'quote' ? 'block' : 'none';
       document.getElementById('noteForm').style.display = tab === 'note' ? 'block' : 'none';
+      document.getElementById('imageForm').style.display = tab === 'image' ? 'block' : 'none';
 
       if (isUrl) {{
         activeUrlKind = tab;
@@ -1203,6 +1432,11 @@ def generate_viewer(vault_dir: Path) -> Path:
         payload.url = document.getElementById('capUrl').value.trim();
         payload.title = document.getElementById('capLinkTitle').value.trim() || null;
         payload.tags = cleanTags(document.getElementById('capLinkTags').value);
+      }} else if (kind === 'video') {{
+        submitBtn = document.getElementById('capVideoSubmit');
+        payload.url = document.getElementById('capVideoUrl').value.trim();
+        payload.title = document.getElementById('capVideoTitle').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capVideoTags').value);
       }} else if (kind === 'quote') {{
         submitBtn = document.getElementById('capQuoteSubmit');
         payload.quote = document.getElementById('capQuoteText').value.trim();
@@ -1214,6 +1448,13 @@ def generate_viewer(vault_dir: Path) -> Path:
         payload.text = document.getElementById('capNoteText').value.trim();
         payload.title = document.getElementById('capNoteTitle').value.trim() || null;
         payload.tags = cleanTags(document.getElementById('capNoteTags').value);
+      }} else if (kind === 'image') {{
+        submitBtn = document.getElementById('capImageSubmit');
+        payload.src = document.getElementById('capImageSrc').value.trim();
+        payload.title = document.getElementById('capImageTitle').value.trim() || null;
+        payload.source = document.getElementById('capImageSource').value.trim() || null;
+        payload.author = document.getElementById('capImageAuthor').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capImageTags').value);
       }}
 
       if (!isHttp) {{
@@ -1797,16 +2038,845 @@ def generate_viewer(vault_dir: Path) -> Path:
     index_html_path = vault_dir / "index.html"
     with open(index_html_path, "w", encoding="utf-8") as f:
         f.write(html_template)
+    generate_export_page(vault_dir)
     return index_html_path
 
 
+def generate_export_page(vault_dir: Path) -> Path:
+    """Generate vault/export.html: the dedicated Knowledge Exports & Data Portability Hub."""
+    atoms_data, kind_counts = get_atoms_data(vault_dir)
+    total_items = len(atoms_data)
+    atoms_json_str = json.dumps(atoms_data)
+
+    export_html_path = vault_dir / "export.html"
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WideWeb — Data Portability & Knowledge Exports</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {{
+      --bg: #FAF8F5;
+      --card-bg: #FFFFFF;
+      --text: #1C1B19;
+      --muted: #797670;
+      --border: #E8E5DF;
+      --accent: #2B4C7E;
+      --tag-bg: #F0EDE6;
+      --tag-text: #4F4B43;
+      --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
+      --radius: 12px;
+    }}
+    @media (prefers-color-scheme: dark) {{
+      :root {{
+        --bg: #141413;
+        --card-bg: #1F1E1B;
+        --text: #F2EFE9;
+        --muted: #9E9A91;
+        --border: #2D2B27;
+        --accent: #7EA6E0;
+        --tag-bg: #2B2925;
+        --tag-text: #C4BFB5;
+        --shadow: 0 2px 6px rgba(0,0,0,0.25);
+      }}
+    }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 32px 24px 80px;
+      -webkit-font-smoothing: antialiased;
+    }}
+    .container {{
+      max-width: 1240px;
+      margin: 0 auto;
+    }}
+    header {{
+      margin-bottom: 32px;
+    }}
+    .top-bar {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }}
+    .logo-area {{
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }}
+    .logo {{
+      font-family: 'Newsreader', serif;
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.5px;
+      text-decoration: none;
+      color: var(--text);
+    }}
+    .subtitle {{
+      font-size: 14px;
+      color: var(--muted);
+    }}
+    .top-actions {{
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }}
+    .back-btn {{
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }}
+    .back-btn:hover {{
+      background: var(--tag-bg);
+      border-color: var(--muted);
+      transform: translateY(-1px);
+    }}
+    .stats-badge {{
+      font-size: 13px;
+      color: var(--muted);
+      background: var(--tag-bg);
+      padding: 6px 14px;
+      border-radius: 20px;
+    }}
+
+    .hero-banner {{
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 40px;
+      margin-bottom: 32px;
+      box-shadow: var(--shadow);
+    }}
+    .hero-title {{
+      font-family: 'Newsreader', serif;
+      font-size: 34px;
+      font-weight: 500;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }}
+    .hero-desc {{
+      font-size: 15px;
+      color: var(--muted);
+      max-width: 880px;
+      line-height: 1.6;
+    }}
+    .hero-stats-row {{
+      display: flex;
+      gap: 24px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }}
+    .hero-stat {{
+      display: flex;
+      flex-direction: column;
+    }}
+    .hero-stat-val {{
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+    }}
+    .hero-stat-lbl {{
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }}
+
+    .controls {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }}
+    .filter-tabs {{
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }}
+    .tab-btn {{
+      background: transparent;
+      border: 1px solid var(--border);
+      padding: 7px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }}
+    .tab-btn:hover {{
+      color: var(--text);
+      background: var(--tag-bg);
+    }}
+    .tab-btn.active {{
+      background: var(--text);
+      color: var(--bg);
+      border-color: var(--text);
+    }}
+    .search-box {{
+      position: relative;
+      width: 320px;
+    }}
+    .search-icon {{
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      color: var(--muted);
+    }}
+    .search-box input {{
+      width: 100%;
+      padding: 9px 14px 9px 36px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }}
+    .search-box input:focus {{
+      border-color: var(--accent);
+    }}
+
+    .formats-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(370px, 1fr));
+      gap: 20px;
+    }}
+    .format-card {{
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }}
+    .format-card:hover {{
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+      border-color: var(--muted);
+    }}
+    .card-top {{
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }}
+    .card-icon-title {{
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }}
+    .format-icon {{
+      font-size: 26px;
+      line-height: 1;
+    }}
+    .format-title {{
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.2;
+    }}
+    .format-badges {{
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }}
+    .ext-badge {{
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      padding: 2px 7px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }}
+    .cat-badge {{
+      font-size: 11px;
+      color: var(--accent);
+      background: rgba(43, 76, 126, 0.08);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+    }}
+    @media (prefers-color-scheme: dark) {{
+      .cat-badge {{
+        background: rgba(126, 166, 224, 0.15);
+      }}
+    }}
+    .format-desc {{
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }}
+    .format-included {{
+      font-size: 12px;
+      background: var(--tag-bg);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+      color: var(--tag-text);
+      line-height: 1.4;
+    }}
+    .format-included strong {{
+      color: var(--text);
+    }}
+    .tool-pills {{
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }}
+    .tool-pill {{
+      font-size: 11px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 12px;
+    }}
+    .card-actions {{
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }}
+    .dl-btn {{
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      width: 100%;
+      text-decoration: none;
+    }}
+    .dl-btn:hover {{
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }}
+    .cli-box {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--tag-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px;
+    }}
+    .cli-text {{
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--tag-text);
+      margin-right: 8px;
+    }}
+    .cli-copy {{
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      flex-shrink: 0;
+    }}
+    .cli-copy:hover {{
+      background: var(--border);
+    }}
+
+    .toast {{
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--text);
+      color: var(--bg);
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 100;
+    }}
+    .toast.show {{
+      transform: translateY(0);
+      opacity: 1;
+    }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="top-bar">
+        <div class="logo-area">
+          <a href="index.html" class="logo">WideWeb</a>
+          <span class="subtitle">data portability hub</span>
+        </div>
+        <div class="top-actions">
+          <div class="stats-badge">{total_items} items in vault</div>
+          <a href="index.html" class="back-btn">← Back to Gallery</a>
+        </div>
+      </div>
+
+      <div class="hero-banner">
+        <h1 class="hero-title">Knowledge Exports & Data Portability</h1>
+        <p class="hero-desc">
+          WideWeb is built on the Payload Sidecar pattern: files on your local drive are the canonical source of truth. Your knowledge is never trapped inside proprietary cloud databases or walled gardens. Export your curated library into open standards for AI synthesis, personal knowledge management, browsers, and research.
+        </p>
+        <div class="hero-stats-row">
+          <div class="hero-stat">
+            <span class="hero-stat-val">10 Formats</span>
+            <span class="hero-stat-lbl">Active Export Targets</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-val">{kind_counts.get('article', 0)}</span>
+            <span class="hero-stat-lbl">Articles</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-val">{kind_counts.get('video', 0)}</span>
+            <span class="hero-stat-lbl">Videos & Transcripts</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-val">{kind_counts.get('note', 0) + kind_counts.get('quote', 0)}</span>
+            <span class="hero-stat-lbl">Notes & Quotes</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-val">{kind_counts.get('bookmark', 0)}</span>
+            <span class="hero-stat-lbl">Bookmarks</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-cat="all">All Formats (10)</button>
+          <button class="tab-btn" data-cat="ai">🤖 AI & LLM (3)</button>
+          <button class="tab-btn" data-cat="pkm">🧠 PKM & Obsidian (1)</button>
+          <button class="tab-btn" data-cat="browser">🌐 Browsers (1)</button>
+          <button class="tab-btn" data-cat="reading">⚡ Active Recall (2)</button>
+          <button class="tab-btn" data-cat="syndication">📚 Citations & Feeds (3)</button>
+        </div>
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Filter formats by tool (Obsidian, Readwise, Zotero)...">
+        </div>
+      </div>
+    </header>
+
+    <div class="formats-grid" id="formatsGrid"></div>
+  </div>
+
+  <div class="toast" id="toast">✨ Downloading export...</div>
+
+  <script>
+    const ATOMS = {atoms_json_str};
+
+    const FORMATS = [
+      {{
+        id: "digest",
+        category: "ai",
+        category_name: "AI & Synthesis",
+        title: "NotebookLM Knowledge Digest",
+        filename: "vault_digest.md",
+        ext: ".md",
+        icon: "🤖",
+        summary: "Unified longform Markdown compilation aggregating all articles, formatted notes, attributed quotes, and full spoken video transcripts into one cohesive document.",
+        included: "Offline article text, full dialogue transcripts, curator notes, timestamps, tags",
+        tools: ["NotebookLM", "Claude Projects", "Local LLMs", "ChatGPT"],
+        cli: "python3 curate.py export --target digest"
+      }},
+      {{
+        id: "obsidian",
+        category: "pkm",
+        category_name: "PKM",
+        title: "Obsidian & Logseq Vault Archive",
+        filename: "vault_obsidian.zip",
+        ext: ".zip",
+        icon: "🧠",
+        summary: "Packaged zip archive containing discrete Markdown notes for every atom, fully equipped with YAML frontmatter, tags, source URLs, curator notes, and offline bodies.",
+        included: "Individual .md files, YAML metadata frontmatter, curator notes, tags, body content",
+        tools: ["Obsidian", "Logseq", "Foam", "Dendron", "SilverBullet"],
+        cli: "python3 curate.py export --target obsidian"
+      }},
+      {{
+        id: "bookmarks-html",
+        category: "browser",
+        category_name: "Browsers",
+        title: "Universal HTML Bookmarks",
+        filename: "bookmarks.html",
+        ext: ".html",
+        icon: "🌐",
+        summary: "Standard Netscape bookmark specification (HTML). Imports seamlessly into any desktop browser or bookmark manager with full timestamp and tag preservation.",
+        included: "Destination & source URLs, titles, timestamps, comma-separated tags, curator notes",
+        tools: ["Chrome", "Safari", "Firefox", "Arc", "Raindrop.io", "Pinboard"],
+        cli: "python3 curate.py export --target bookmarks-html"
+      }},
+      {{
+        id: "readwise",
+        category: "reading",
+        category_name: "Active Recall",
+        title: "Readwise & Reader Highlights",
+        filename: "readwise.csv",
+        ext: ".csv",
+        icon: "⚡",
+        summary: "Spec-compliant CSV formatted for Readwise highlight import. Pipes your curated quotes, highlights, and article reflections into daily active recall reviews.",
+        included: "Highlight text, atom title, author attribution, source URL, notes, atom ID",
+        tools: ["Readwise", "Readwise Reader", "Daily Review"],
+        cli: "python3 curate.py export --target readwise"
+      }},
+      {{
+        id: "llms-txt",
+        category: "ai",
+        category_name: "AI & Synthesis",
+        title: "llms.txt Index Standard",
+        filename: "llms.txt",
+        ext: ".txt",
+        icon: "📑",
+        summary: "Compact, standardized index adhering to the emerging llms.txt standard. Provides LLMs with a clean, low-token sitemap of your vault's knowledge.",
+        included: "Atom titles, canonical URLs, concise curator descriptions and excerpts",
+        tools: ["RAG Ingestion", "Agent Context", "Context Window Optimizer"],
+        cli: "python3 curate.py export --target llms-txt"
+      }},
+      {{
+        id: "arena-csv",
+        category: "reading",
+        category_name: "Active Recall",
+        title: "Are.na Channel Import",
+        filename: "arena_export.csv",
+        ext: ".csv",
+        icon: "🧱",
+        summary: "Bulk import CSV structured specifically for Are.na channel imports, mapping atom titles, URLs, curator notes, and hashtag arrays into channel blocks.",
+        included: "Title, Source URL, Description with notes and hashtags",
+        tools: ["Are.na Channels", "Curation Research"],
+        cli: "python3 curate.py export --target arena-csv"
+      }},
+      {{
+        id: "rss",
+        category: "syndication",
+        category_name: "Syndication",
+        title: "RSS 2.0 Syndication Feed",
+        filename: "feed.xml",
+        ext: ".xml",
+        icon: "📡",
+        summary: "Standard XML RSS feed generated from your curated library. Allows you to subscribe to your own vault via feed readers or syndicate your curation publicly.",
+        included: "RSS items, RFC 822 pubDates, CDATA html descriptions, author tags, categories",
+        tools: ["Feedly", "NetNewsWire", "Inoreader", "Static Web"],
+        cli: "python3 curate.py export --target rss"
+      }},
+      {{
+        id: "bibtex",
+        category: "syndication",
+        category_name: "Citations",
+        title: "BibTeX Academic Citations",
+        filename: "vault.bib",
+        ext: ".bib",
+        icon: "📚",
+        summary: "Formal BibTeX bibliography file with @article and @misc citation blocks. Designed for essayists, researchers, and academics managing bibliographies in Zotero or LaTeX.",
+        included: "Citation keys (atom IDs), titles, authors, years, URLs, keywords/tags, notes",
+        tools: ["Zotero", "Mendeley", "LaTeX / Overleaf", "BibDesk"],
+        cli: "python3 curate.py export --target bibtex"
+      }},
+      {{
+        id: "jsonl",
+        category: "ai",
+        category_name: "AI & Synthesis",
+        title: "JSONL Dataset (Vector & RAG)",
+        filename: "vault.jsonl",
+        ext: ".jsonl",
+        icon: "🔍",
+        summary: "Newline-delimited JSON with one full atom envelope per line. Optimized for batch vector embedding pipelines, LangChain, LlamaIndex, and local fine-tuning.",
+        included: "Complete raw atom envelope JSON per line (one document per row)",
+        tools: ["ChromaDB", "Pinecone", "LangChain", "LlamaIndex", "Embeddings"],
+        cli: "python3 curate.py export --target jsonl"
+      }},
+      {{
+        id: "json",
+        category: "syndication",
+        category_name: "Backup",
+        title: "Complete Vault Backup (JSON)",
+        filename: "vault_backup.json",
+        ext: ".json",
+        icon: "💾",
+        summary: "Complete, loss-free dump of your entire vault's atom envelopes, including sidecar file references, color palettes, blurhashes, and provenance.",
+        included: "Complete raw JSON array of all atom schemas and sidecar metadata",
+        tools: ["Disaster Recovery", "Vault Migration", "Automated Backups"],
+        cli: "python3 curate.py export --target json"
+      }}
+    ];
+
+    let activeCategory = 'all';
+    let searchQuery = '';
+
+    function showToast(msg) {{
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
+    }}
+
+    function copyCli(cmd, btn) {{
+      navigator.clipboard.writeText(cmd).then(() => {{
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copied!';
+        setTimeout(() => btn.textContent = orig, 2000);
+        showToast('📋 Copied CLI command to clipboard!');
+      }}).catch(err => {{
+        alert('Could not copy command: ' + err);
+      }});
+    }}
+
+    function triggerDownload(target, filename) {{
+      const isHttp = window.location.protocol.startsWith('http');
+      if (!isHttp) {{
+        if (target === 'json') {{
+          const blob = new Blob([JSON.stringify(ATOMS, null, 2)], {{ type: 'application/json' }});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast('💾 Exported ' + filename);
+          return;
+        }}
+        alert('Server generation is required for this format:\\n\\nDouble-click "Launch WideWeb.command" or run:\\npython3 curate.py view --server\\n\\nOr run via CLI:\\npython3 curate.py export --target ' + target);
+        return;
+      }}
+      showToast('📥 Preparing ' + filename + ' download...');
+      window.location.href = '/api/export?target=' + target;
+    }}
+
+    function renderFormats() {{
+      const grid = document.getElementById('formatsGrid');
+      grid.innerHTML = '';
+
+      const q = searchQuery.toLowerCase();
+      const filtered = FORMATS.filter(fmt => {{
+        const matchCat = (activeCategory === 'all' || fmt.category === activeCategory);
+        const matchQuery = !q ||
+          fmt.title.toLowerCase().includes(q) ||
+          fmt.summary.toLowerCase().includes(q) ||
+          fmt.ext.toLowerCase().includes(q) ||
+          fmt.tools.some(t => t.toLowerCase().includes(q));
+        return matchCat && matchQuery;
+      }});
+
+      if (filtered.length === 0) {{
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 60px 0; color: var(--muted);">No matching export formats found.</div>';
+        return;
+      }}
+
+      filtered.forEach(fmt => {{
+        const card = document.createElement('div');
+        card.className = 'format-card';
+        card.innerHTML = `
+          <div>
+            <div class="card-top">
+              <div class="card-icon-title">
+                <span class="format-icon">${{fmt.icon}}</span>
+                <div>
+                  <div class="format-title">${{fmt.title}}</div>
+                </div>
+              </div>
+              <div class="format-badges">
+                <span class="cat-badge">${{fmt.category_name}}</span>
+                <span class="ext-badge">${{fmt.ext}}</span>
+              </div>
+            </div>
+
+            <div class="format-desc">${{fmt.summary}}</div>
+
+            <div class="format-included">
+              <strong>Includes:</strong> ${{fmt.included}}
+            </div>
+
+            <div class="tool-pills">
+              ${{fmt.tools.map(t => `<span class="tool-pill">${{t}}</span>`).join('')}}
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button class="dl-btn" onclick="triggerDownload('${{fmt.id}}', '${{fmt.filename}}')">
+              📥 Download ${{fmt.filename}}
+            </button>
+            <div class="cli-box">
+              <span class="cli-text">${{fmt.cli}}</span>
+              <button class="cli-copy" onclick="copyCli('${{fmt.cli}}', this)">📋 Copy</button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      }});
+    }}
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {{
+      btn.addEventListener('click', () => {{
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeCategory = btn.dataset.cat;
+        renderFormats();
+      }});
+    }});
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {{
+      searchQuery = e.target.value.trim();
+      renderFormats();
+    }});
+
+    renderFormats();
+  </script>
+</body>
+</html>
+"""
+
+    with open(export_html_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    return export_html_path
+
+
 class WideWebCaptureHandler(SimpleHTTPRequestHandler):
-    """Local HTTP Server that serves static vault files and handles /api/capture requests."""
+    """Local HTTP Server that serves static vault files and handles /api/capture & /api/export requests."""
     vault_dir = None
 
     def __init__(self, *args, **kwargs):
         directory = str(self.vault_dir) if self.vault_dir else None
         super().__init__(*args, directory=directory, **kwargs)
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/api/export":
+            query = urllib.parse.parse_qs(parsed.query)
+            target = query.get("target", ["digest"])[0]
+            script_dir = str(Path(__file__).resolve().parent)
+            if script_dir not in sys.path:
+                sys.path.insert(0, script_dir)
+            import curate
+
+            export_dir = self.vault_dir / "export"
+            export_dir.mkdir(parents=True, exist_ok=True)
+
+            try:
+                if target in ("digest", "notebooklm", "llms"):
+                    out_path = export_dir / "vault_digest.md"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="digest", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "text/markdown; charset=utf-8"
+                    filename = "vault_digest.md"
+                elif target == "llms-txt":
+                    out_path = export_dir / "llms.txt"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="llms-txt", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "text/plain; charset=utf-8"
+                    filename = "llms.txt"
+                elif target in ("obsidian", "logseq"):
+                    out_path = export_dir / "vault_obsidian.zip"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="obsidian", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "application/zip"
+                    filename = "vault_obsidian.zip"
+                elif target in ("bookmarks-html", "bookmarks", "netscape"):
+                    out_path = export_dir / "bookmarks.html"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="bookmarks-html", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "text/html; charset=utf-8"
+                    filename = "bookmarks.html"
+                elif target == "readwise":
+                    out_path = export_dir / "readwise.csv"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="readwise", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "text/csv; charset=utf-8"
+                    filename = "readwise.csv"
+                elif target in ("arena-csv", "csv"):
+                    out_path = export_dir / "arena_export.csv"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="arena-csv", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "text/csv; charset=utf-8"
+                    filename = "arena_export.csv"
+                elif target in ("rss", "feed"):
+                    out_path = export_dir / "feed.xml"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="rss", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "application/rss+xml; charset=utf-8"
+                    filename = "feed.xml"
+                elif target in ("bibtex", "bib"):
+                    out_path = export_dir / "vault.bib"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="bibtex", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "text/plain; charset=utf-8"
+                    filename = "vault.bib"
+                elif target == "jsonl":
+                    out_path = export_dir / "vault.jsonl"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="jsonl", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "application/x-ndjson; charset=utf-8"
+                    filename = "vault.jsonl"
+                elif target == "json":
+                    out_path = export_dir / "vault_backup.json"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="json", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "application/json; charset=utf-8"
+                    filename = "vault_backup.json"
+                else:
+                    self.send_error(400, f"Unsupported export target: {target}")
+                    return
+
+                with open(out_path, "rb") as f:
+                    content_bytes = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                self.send_header("Content-Length", str(len(content_bytes)))
+                self.end_headers()
+                self.wfile.write(content_bytes)
+            except Exception as e:
+                self.send_error(500, f"Export generation error: {e}")
+        else:
+            super().do_GET()
 
     def do_POST(self):
         if self.path == "/api/capture":
@@ -1834,6 +2904,17 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                         target_kind="article" if kind == "article" else ("bookmark" if kind == "bookmark" else None)
                     )
                     atom_doc = curate.cmd_save_link(args)
+                elif kind == "video":
+                    args = types.SimpleNamespace(
+                        url=data["url"],
+                        title=data.get("title"),
+                        notes=None,
+                        tags=data.get("tags"),
+                        collection=None,
+                        favorite=False,
+                        vault=str(self.vault_dir)
+                    )
+                    atom_doc = curate.cmd_video(args)
                 elif kind == "quote":
                     args = types.SimpleNamespace(
                         quote=data["quote"],
@@ -1858,6 +2939,19 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                         vault=str(self.vault_dir)
                     )
                     atom_doc = curate.cmd_note(args)
+                elif kind == "image":
+                    args = types.SimpleNamespace(
+                        src=data["src"],
+                        title=data.get("title"),
+                        source=data.get("source"),
+                        author=data.get("author"),
+                        notes=None,
+                        tags=data.get("tags"),
+                        collection=None,
+                        favorite=False,
+                        vault=str(self.vault_dir)
+                    )
+                    atom_doc = curate.cmd_image(args)
                 else:
                     raise ValueError(f"Unsupported kind: {kind}")
 
@@ -1877,6 +2971,20 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                         except Exception:
                             pass
 
+                excerpt_text = None
+                if atom_doc.get("kind") == "video":
+                    trans_file = folder / "transcript.txt"
+                    if trans_file.exists():
+                        try:
+                            with open(trans_file, "r", encoding="utf-8") as tf:
+                                excerpt_text = tf.read()
+                        except Exception:
+                            pass
+                elif atom_doc.get("payload", {}).get("text", {}):
+                    excerpt_text = atom_doc["payload"]["text"].get("excerpt")
+                elif atom_doc.get("payload", {}).get("quote", {}):
+                    excerpt_text = atom_doc["payload"]["quote"].get("text")
+
                 card_data = {
                     "id": atom_doc["id"],
                     "kind": atom_doc.get("kind") or atom_doc.get("curation", {}).get("kind"),
@@ -1885,13 +2993,13 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                     "tags": atom_doc["curation"]["tags"],
                     "date": created_at[:10],
                     "created_at": created_at,
-                    "destination_url": atom_doc["payload"]["destination_url"],
-                    "source_url": atom_doc["provenance"]["source_url"],
-                    "author": atom_doc["provenance"]["author"],
-                    "cover_path": atom_doc["payload"].get("cover_image", {}).get("relative_path") if atom_doc["payload"].get("cover_image") else None,
+                    "destination_url": atom_doc.get("payload", {}).get("destination_url"),
+                    "source_url": atom_doc.get("provenance", {}).get("source_url"),
+                    "author": atom_doc.get("provenance", {}).get("author"),
+                    "cover_path": atom_doc.get("payload", {}).get("cover_image", {}).get("relative_path") if atom_doc.get("payload", {}).get("cover_image") else None,
                     "metadata": atom_doc.get("metadata_json", {}),
                     "article_markdown": article_text,
-                    "excerpt": atom_doc["payload"].get("text", {}).get("excerpt") if atom_doc["payload"].get("text") else None,
+                    "excerpt": excerpt_text,
                     "folder_path": f"atoms/{created_at[:4]}/{created_at[5:7]}/{atom_doc['id']}",
                     "raw": atom_doc
                 }
