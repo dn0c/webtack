@@ -27,7 +27,8 @@ except ImportError as e:
     sys.exit(f"Missing dependency: {e}. Please run: python3 -m pip install requests beautifulsoup4 pillow trafilatura blurhash-python")
 
 # Default vault path: ./vault or from environment variable
-DEFAULT_VAULT = Path(os.environ.get("OPENCURATE_VAULT", Path(__file__).resolve().parent / "vault"))
+DEFAULT_VAULT = Path(os.environ.get("WIDEWEB_VAULT", os.environ.get("OPENCURATE_VAULT", Path(__file__).resolve().parent / "vault")))
+SCHEMA_URL = "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json"
 
 
 def get_db(vault_dir: Path) -> sqlite3.Connection:
@@ -351,7 +352,7 @@ def cmd_save_link(args):
     }
 
     atom_doc = {
-        "$schema": "https://opencurate.org/v1/atom.schema.json",
+        "$schema": SCHEMA_URL,
         "id": atom_id,
         "kind": "link",
         "version": 2,
@@ -448,7 +449,7 @@ def cmd_quote(args):
     }
 
     atom_doc = {
-        "$schema": "https://opencurate.org/v1/atom.schema.json",
+        "$schema": SCHEMA_URL,
         "id": atom_id,
         "kind": "quote",
         "version": 2,
@@ -544,7 +545,7 @@ def cmd_note(args):
     meta_bag = {"word_count": word_count}
 
     atom_doc = {
-        "$schema": "https://opencurate.org/v1/atom.schema.json",
+        "$schema": SCHEMA_URL,
         "id": atom_id,
         "kind": "note",
         "version": 2,
@@ -665,7 +666,7 @@ def cmd_image(args):
     }
 
     atom_doc = {
-        "$schema": "https://opencurate.org/v1/atom.schema.json",
+        "$schema": SCHEMA_URL,
         "id": atom_id,
         "kind": "image",
         "version": 2,
