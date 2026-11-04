@@ -59,6 +59,12 @@
           "items": { "type": "string" },
           "default": []
         },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "shared", "private"],
+          "default": "public",
+          "description": "Intrinsic egress classification (public: open web; shared: trusted circle/family; private: local machine only)"
+        },
         "favorite": { "type": "boolean", "default": false }
       }
     },
