@@ -1817,6 +1817,59 @@ def generate_viewer(vault_dir: Path) -> Path:
       return `<span class="${{isMono ? 'spec-mono' : ''}}">${{escapeHtml(s)}}</span>`;
     }}
 
+    function formatDynamicValue(val, depth = 0) {{
+      if (val === null || val === undefined) {{
+        return '<span class="tier-null">null</span>';
+      }}
+      if (typeof val === 'boolean') {{
+        return `<span class="spec-mono" style="color:${{val ? '#0D9488' : 'var(--muted)'}}; font-weight:600;">${{val}}</span>`;
+      }}
+      if (typeof val === 'number') {{
+        return `<span class="spec-mono">${{val}}</span>`;
+      }}
+      if (typeof val === 'string') {{
+        if (val.startsWith('http://') || val.startsWith('https://')) {{
+          const label = val.length > 52 ? val.slice(0, 49) + '...' : val;
+          return `<a href="${{escapeHtml(val)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:underline; word-break:break-all;">${{escapeHtml(label)}} ↗</a>`;
+        }}
+        return `<span style="word-break:break-word;">${{escapeHtml(val)}}</span>`;
+      }}
+      if (Array.isArray(val)) {{
+        if (!val.length) return '<span class="tier-null">[]</span>';
+        const isColorPalette = val.length && val.every(item => typeof item === 'string' && /^#[0-9A-Fa-f]{{3,8}}$/.test(item));
+        if (isColorPalette) {{
+          return `<div style="display:inline-flex; gap:5px; align-items:center; flex-wrap:wrap;">` +
+            val.map(c => `<span style="display:inline-flex; align-items:center; gap:3px; font-family:var(--font-mono); font-size:10.5px;"><span style="display:inline-block; width:11px; height:11px; border-radius:50%; background:${{c}}; border:1px solid rgba(0,0,0,0.15);"></span>${{c}}</span>`).join(' ') +
+            `</div>`;
+        }}
+        return `<div class="tags" style="display:inline-flex; flex-wrap:wrap; gap:4px;">${{val.map(v => `<span class="tag">#${{escapeHtml(String(v))}}</span>`).join('')}}</div>`;
+      }}
+      if (typeof val === 'object') {{
+        const keys = Object.keys(val);
+        if (!keys.length) return '<span class="tier-null">{{}}</span>';
+        return `<div style="display:flex; flex-direction:column; gap:4px; width:100%; margin-top:3px;">` +
+          keys.map(k => `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; padding:3px 8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; font-size:11px;">
+              <span class="spec-mono" style="opacity:0.75; font-size:10.5px;">${{escapeHtml(k)}}</span>
+              ${{formatDynamicValue(val[k], depth + 1)}}
+            </div>
+          `).join('') + `</div>`;
+      }}
+      return escapeHtml(String(val));
+    }}
+
+    function renderDynamicTier(tierObj) {{
+      if (!tierObj || typeof tierObj !== 'object' || !Object.keys(tierObj).length) {{
+        return '<div class="tier-prop"><span class="tier-null">(empty layer)</span></div>';
+      }}
+      return Object.entries(tierObj).map(([key, value]) => `
+        <div class="tier-prop" style="align-items:flex-start;">
+          <span class="tier-k spec-mono">${{escapeHtml(key)}}</span>
+          <div class="tier-v" style="width:100%;">${{formatDynamicValue(value)}}</div>
+        </div>
+      `).join('');
+    }}
+
     function openMetadataModal(atomId) {{
       const atom = ATOMS.find(a => a.id === atomId);
       if (!atom) return;
@@ -1945,21 +1998,12 @@ def generate_viewer(vault_dir: Path) -> Path:
       `;
 
       // TIER 1: CURATION LAYER
-      const collectionsVal = (curation.collections && curation.collections.length) ? escapeHtml(curation.collections.join(', ')) : renderVal(null);
-      const favoriteVal = curation.favorite ? '<span class="spec-mono" style="color:#D97706; font-weight:600;">★ true (favorited)</span>' : '<span class="spec-mono" style="color:var(--muted);">false</span>';
-      const tagsVal = (atom.tags && atom.tags.length) ? `<div class="tags" style="display:inline-flex; flex-wrap:wrap; gap:4px;">${{(atom.tags || []).map(t => `<span class="tag">#${{escapeHtml(t)}}</span>`).join('')}}</div>` : renderVal(null);
-
       const notesHtml = atom.notes ? `
         <div class="meta-notes-banner" style="margin-top: 14px; margin-bottom: 0;">
           <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">notes</div>
           <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{renderMarkdown(atom.notes)}}</div>
         </div>
-      ` : `
-        <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 4px;">
-          <span class="tier-k">notes</span>
-          <span class="tier-v">${{renderVal(null)}} <span style="font-size:11px; color:var(--muted);">(no notes attached)</span></span>
-        </div>
-      `;
+      ` : '';
 
       const tier1Html = `
         <div class="schema-tier-card tier-curation">
@@ -1969,59 +2013,13 @@ def generate_viewer(vault_dir: Path) -> Path:
             <span class="tier-tagline">Editorial perspective, taxonomy & annotations</span>
           </div>
           <div class="tier-content-grid">
-            <div class="tier-prop"><span class="tier-k">Curated Title</span><span class="tier-v" style="font-weight:600;">${{escapeHtml(atom.title || 'Untitled Atom')}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Visibility</span><span class="tier-v"><span class="vis-badge vis-${{atom.visibility || 'public'}}">${{atom.visibility === 'private' ? '🔒 ' : (atom.visibility === 'shared' ? '👥 ' : '🌐 ')}}${{atom.visibility || 'public'}}</span></span></div>
-            <div class="tier-prop"><span class="tier-k">Favorite</span><span class="tier-v">${{favoriteVal}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Collections</span><span class="tier-v">${{collectionsVal}}</span></div>
-            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Tags</span><span class="tier-v">${{tagsVal}}</span></div>
-            ${{!atom.notes ? notesHtml : ''}}
+            ${{renderDynamicTier(curation)}}
           </div>
-          ${{atom.notes ? notesHtml : ''}}
+          ${{notesHtml}}
         </div>
       `;
 
       // TIER 2: SOURCE LAYER
-      const fav = source.favicon || provenance.favicon;
-      const favDisplay = fav ? `<span style="display:inline-flex; align-items:center; gap:6px;"><img src="${{escapeHtml(fav)}}" alt="" style="width:14px;height:14px;border-radius:2px;vertical-align:middle;"><a href="${{escapeHtml(fav)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(fav, 32)}} ↗</a></span>` : renderVal(null);
-      const siteDisplay = (source.site_name || provenance.site_name) ? escapeHtml(source.site_name || provenance.site_name) : renderVal(null);
-      const authorDisplay = atom.author ? `<strong>${{escapeHtml(atom.author)}}</strong>` : renderVal(null);
-      const sourceTitleDisplay = (source.source_title || provenance.source_title) ? escapeHtml(source.source_title || provenance.source_title) : renderVal(null);
-      const srcUrl = source.source_url || provenance.source_url;
-      const sourceUrlDisplay = srcUrl ? `<a href="${{escapeHtml(srcUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(srcUrl, 52)}} ↗</a>` : renderVal(null);
-      const publishedDisplay = publishedDateStr ? escapeHtml(publishedDateStr) : renderVal(null);
-
-      const captureMethod = source.capture_method || provenance.capture_method || null;
-      const captureId = source.capture_id || provenance.capture_id || null;
-      const captureUrl = source.capture_url || provenance.capture_url || null;
-
-      let captureMethodDisplay = renderVal(null);
-      if (captureMethod) {{
-        let badgeColor = "var(--muted)";
-        let badgeBg = "rgba(100, 116, 139, 0.12)";
-        if (captureMethod === "arena") {{
-          badgeColor = "#10B981";
-          badgeBg = "rgba(16, 185, 129, 0.12)";
-        }} else if (captureMethod === "instapaper") {{
-          badgeColor = "#F59E0B";
-          badgeBg = "rgba(245, 158, 11, 0.12)";
-        }} else if (captureMethod === "cli") {{
-          badgeColor = "#3B82F6";
-          badgeBg = "rgba(59, 130, 246, 0.12)";
-        }} else if (captureMethod === "mcp") {{
-          badgeColor = "#8B5CF6";
-          badgeBg = "rgba(139, 92, 246, 0.12)";
-        }} else if (captureMethod === "extension") {{
-          badgeColor = "#EC4899";
-          badgeBg = "rgba(236, 72, 153, 0.12)";
-        }}
-        captureMethodDisplay = `<span class="spec-mono" style="color:${{badgeColor}}; background:${{badgeBg}}; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; text-transform:uppercase;">${{escapeHtml(captureMethod)}}</span>`;
-      }}
-
-      let captureUrlDisplay = renderVal(null);
-      if (captureUrl) {{
-        captureUrlDisplay = `<a href="${{escapeHtml(captureUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none; font-family:var(--font-mono); font-size:12px;">${{truncateUrl(captureUrl, 52)}} ↗</a>`;
-      }}
-
       const tier2Html = `
         <div class="schema-tier-card tier-source tier-provenance">
           <div class="tier-badge-header">
@@ -2030,15 +2028,7 @@ def generate_viewer(vault_dir: Path) -> Path:
             <span class="tier-tagline">Origin, attribution & publisher source</span>
           </div>
           <div class="tier-content-grid">
-            <div class="tier-prop"><span class="tier-k">Author</span><span class="tier-v">${{authorDisplay}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Publisher</span><span class="tier-v">${{siteDisplay}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Favicon</span><span class="tier-v">${{favDisplay}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Published Date</span><span class="tier-v">${{publishedDisplay}}</span></div>
-            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source Title</span><span class="tier-v">${{sourceTitleDisplay}}</span></div>
-            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source URL</span><span class="tier-v">${{sourceUrlDisplay}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Capture Method</span><span class="tier-v">${{captureMethodDisplay}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Capture ID</span><span class="tier-v spec-mono">${{captureId ? escapeHtml(String(captureId)) : renderVal(null)}}</span></div>
-            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Capture URL</span><span class="tier-v">${{captureUrlDisplay}}</span></div>
+            ${{renderDynamicTier(source)}}
           </div>
         </div>
       `;
@@ -2182,82 +2172,6 @@ def generate_viewer(vault_dir: Path) -> Path:
       // Tier 4 / metadata_json overflow
       const rawMeta = raw.metadata_json || atom.metadata || {{}};
       const metaKeys = Object.keys(rawMeta);
-      let metaJsonHtml = '';
-      if (metaKeys.length) {{
-        metaJsonHtml = `
-          <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 4px;">
-            <span class="tier-k">metadata_json</span>
-            <div class="tier-v" style="width: 100%;">
-              <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;">
-                ${{metaKeys.map(k => `
-                  <span class="spec-mono" style="background:var(--bg); border:1px solid var(--border); padding:2px 7px; border-radius:4px; font-size:11px;">
-                    <strong style="color:var(--text);">${{escapeHtml(k)}}:</strong> ${{escapeHtml(typeof rawMeta[k] === 'object' && rawMeta[k] !== null ? JSON.stringify(rawMeta[k]) : String(rawMeta[k]))}}
-                  </span>
-                `).join('')}}
-              </div>
-            </div>
-          </div>
-        `;
-      }} else {{
-        metaJsonHtml = `
-          <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 4px;">
-            <span class="tier-k">metadata_json</span>
-            <span class="tier-v">${{renderVal(null)}} <span style="font-size:11px; color:var(--muted);">(no overflow metadata)</span></span>
-          </div>
-        `;
-      }}
-
-      const payloadMetricsHtml = `
-        <div class="tier-content-grid" style="margin-top: 10px;">
-          <div class="tier-prop" style="grid-column: 1 / -1;">
-            <span class="tier-k">Alt Text</span>
-            <span class="tier-v">${{altText ? `“${{escapeHtml(altText)}}”` : renderVal(null)}}</span>
-          </div>
-          <div class="tier-prop">
-            <span class="tier-k">Total Words</span>
-            <span class="tier-v">${{wordCount ? `${{wordCount.toLocaleString()}} words ${{readTime ? `(${{readTime}})` : ''}}` : renderVal(null)}}</span>
-          </div>
-          <div class="tier-prop">
-            <span class="tier-k">Text File</span>
-            <span class="tier-v spec-mono">${{(payload.text && payload.text.file) ? renderVal(payload.text.file, true) : renderVal(null)}}</span>
-          </div>
-          ${{(payload.article && (payload.article.file || payload.article.byline)) ? `
-            <div class="tier-prop">
-              <span class="tier-k">Article File</span>
-              <span class="tier-v spec-mono">${{renderVal(payload.article.file || 'article.md', true)}}</span>
-            </div>
-            <div class="tier-prop">
-              <span class="tier-k">Article Byline</span>
-              <span class="tier-v">${{renderVal(payload.article.byline)}}</span>
-            </div>
-          ` : ''}}
-          ${{(payload.video && (payload.video.provider || payload.video.duration_seconds)) ? `
-            <div class="tier-prop">
-              <span class="tier-k">Video Duration</span>
-              <span class="tier-v">${{payload.video.duration_seconds ? `${{Math.floor(payload.video.duration_seconds / 60)}}m ${{payload.video.duration_seconds % 60}}s` : renderVal(null)}}</span>
-            </div>
-            <div class="tier-prop">
-              <span class="tier-k">Transcript Lang</span>
-              <span class="tier-v spec-mono">${{renderVal(payload.video.transcript_language || (payload.video.has_transcript ? 'en' : null))}}</span>
-            </div>
-          ` : ''}}
-          ${{payload.file ? `
-            <div class="tier-prop">
-              <span class="tier-k">Attachment File</span>
-              <span class="tier-v spec-mono">${{renderVal(payload.file.filename, true)}}</span>
-            </div>
-            <div class="tier-prop">
-              <span class="tier-k">File Size</span>
-              <span class="tier-v">${{payload.file.file_size_bytes ? `${{(payload.file.file_size_bytes / (1024 * 1024)).toFixed(2)}} MB` : renderVal(null)}}</span>
-            </div>
-            <div class="tier-prop">
-              <span class="tier-k">Page Count</span>
-              <span class="tier-v">${{renderVal(payload.file.page_count)}}</span>
-            </div>
-          ` : ''}}
-          ${{metaJsonHtml}}
-        </div>
-      `;
 
       const tier3Html = `
         <div class="schema-tier-card tier-content tier-payload">
@@ -2267,7 +2181,16 @@ def generate_viewer(vault_dir: Path) -> Path:
             <span class="tier-tagline">Offline assets, content body & extracted metrics</span>
           </div>
           ${{payloadContentHtml}}
-          ${{payloadMetricsHtml}}
+          <div class="tier-content-grid" style="margin-top: 10px;">
+            ${{renderDynamicTier(content)}}
+          </div>
+          ${{metaKeys.length ? `
+            <div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border);">
+              <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--muted); margin-bottom:6px; letter-spacing:0.05em;">Overflow Metadata (<code>metadata_json</code>)</div>
+              <div class="tier-content-grid">
+                ${{renderDynamicTier(rawMeta)}}
+              </div>
+            </div>` : ''}}
           ${{slotsShowcaseHtml}}
         </div>
       `;
