@@ -2668,6 +2668,8 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
         prov = raw.get("provenance", {})
         cur = raw.get("curation", {})
         collections = json.loads(r["collections"]) if r["collections"] else cur.get("collections", [])
+        cover_payload = raw.get("payload", {}).get("cover_image", {}) or {}
+        alt_text = cover_payload.get("alt_text")
 
         item = {
             "id": r["id"],
@@ -2676,6 +2678,7 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
             "notes": r["notes"],
             "tags": tags,
             "collections": collections,
+            "alt_text": alt_text,
             "date": r["created_at"][:10] if r["created_at"] else "",
             "author": r["author"],
             "site_name": prov.get("site_name"),
@@ -2684,7 +2687,8 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
             "cover_url": cover_url,
             "excerpt": (r["text_content"][:300] + "...") if r["text_content"] and len(r["text_content"]) > 300 else r["text_content"],
             "content": r["text_content"],
-            "metadata": meta
+            "metadata": meta,
+            "raw": raw
         }
         public_items.append(item)
 
