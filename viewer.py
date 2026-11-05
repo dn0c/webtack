@@ -40,6 +40,9 @@ def get_atoms_data(vault_dir: Path):
 
         visibility = r["visibility"] if "visibility" in r.keys() and r["visibility"] else raw.get("curation", {}).get("visibility", "public")
 
+        cover_image_data = raw.get("payload", {}).get("cover_image") or {}
+        alt_text = cover_image_data.get("alt_text")
+
         atoms_data.append({
             "id": r["id"],
             "kind": kind,
@@ -47,6 +50,7 @@ def get_atoms_data(vault_dir: Path):
             "title": r["atom_title"],
             "notes": r["notes"],
             "tags": tags,
+            "alt_text": alt_text,
             "date": r["created_at"][:10],
             "created_at": r["created_at"],
             "destination_url": r["destination_url"],
@@ -855,6 +859,47 @@ def generate_viewer(vault_dir: Path) -> Path:
       align-items: baseline;
       word-break: break-all;
     }}
+    .tier-prop.full-width {{
+      grid-column: 1 / -1;
+    }}
+    .tier-null {{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.7;
+      font-style: italic;
+      padding: 1px 6px;
+      background: var(--tag-bg);
+      border-radius: 4px;
+      display: inline-block;
+      letter-spacing: 0.02em;
+    }}
+    .payload-slots-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 6px;
+      margin-top: 10px;
+    }}
+    .payload-slot-badge {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 11px;
+    }}
+    .payload-slot-badge.active {{
+      border-color: #0D9488;
+      background: rgba(13, 148, 136, 0.08);
+      color: #0D9488;
+      font-weight: 600;
+    }}
+    .payload-slot-badge.inactive {{
+      opacity: 0.55;
+      color: var(--muted);
+    }}
     .tier-k {{
       width: 100px;
       flex-shrink: 0;
@@ -1248,6 +1293,14 @@ def generate_viewer(vault_dir: Path) -> Path:
           <input type="text" id="capImageAuthor" placeholder="e.g. Graphic Designer, Photographer">
         </div>
         <div class="form-group">
+          <label>Alt Text / Visual Description (Optional)</label>
+          <input type="text" id="capImageAlt" placeholder="Accessibility description of what the image depicts">
+        </div>
+        <div class="form-group">
+          <label>Curator Notes / Personal Reflection (Optional)</label>
+          <textarea id="capImageNotes" placeholder="Context or thoughts on why you saved this image..."></textarea>
+        </div>
+        <div class="form-group">
           <label>Tags (Comma separated)</label>
           <input type="text" id="capImageTags" placeholder="design, architecture, art">
         </div>
@@ -1339,7 +1392,8 @@ def generate_viewer(vault_dir: Path) -> Path:
         let coverHtml = '';
         if (atom.cover_path) {{
           const ratio = atom.metadata && atom.metadata.aspect_ratio ? `style="aspect-ratio: ${{atom.metadata.aspect_ratio}};"` : '';
-          coverHtml = `<img class="card-cover" src="${{atom.cover_path}}" ${{ratio}} loading="lazy" alt="${{atom.title}}">`;
+          const altLabel = escapeHtml(atom.alt_text || atom.title || 'Visual asset');
+          coverHtml = `<img class="card-cover" src="${{atom.cover_path}}" ${{ratio}} loading="lazy" alt="${{altLabel}}" title="${{altLabel}}">`;
         }}
 
         let bodyHtml = '';
@@ -1529,6 +1583,8 @@ def generate_viewer(vault_dir: Path) -> Path:
         payload.title = document.getElementById('capImageTitle').value.trim() || null;
         payload.source = document.getElementById('capImageSource').value.trim() || null;
         payload.author = document.getElementById('capImageAuthor').value.trim() || null;
+        payload.alt = document.getElementById('capImageAlt').value.trim() || null;
+        payload.notes = document.getElementById('capImageNotes').value.trim() || null;
         payload.tags = cleanTags(document.getElementById('capImageTags').value);
       }}
 
@@ -1712,6 +1768,24 @@ def generate_viewer(vault_dir: Path) -> Path:
       modal.showModal();
     }}
 
+    function renderVal(val, isMono = false, isUrl = false, truncateLen = 48) {{
+      if (val === null || val === undefined || val === '') {{
+        return '<span class="tier-null">null</span>';
+      }}
+      if (typeof val === 'boolean') {{
+        return `<span class="spec-mono" style="color:${{val ? '#0D9488' : 'var(--muted)'}}; font-weight:600;">${{val}}</span>`;
+      }}
+      if (Array.isArray(val)) {{
+        if (val.length === 0) return '<span class="tier-null">[] (empty)</span>';
+        return `<div class="tags" style="display:inline-flex; flex-wrap:wrap; gap:4px;">${{val.map(v => `<span class="tag">#${{escapeHtml(v)}}</span>`).join('')}}</div>`;
+      }}
+      if (isUrl) {{
+        return `<a href="${{escapeHtml(val)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(val, truncateLen)}} ↗</a>`;
+      }}
+      const s = String(val);
+      return `<span class="${{isMono ? 'spec-mono' : ''}}">${{escapeHtml(s)}}</span>`;
+    }}
+
     function openMetadataModal(atomId) {{
       const atom = ATOMS.find(a => a.id === atomId);
       if (!atom) return;
@@ -1733,7 +1807,7 @@ def generate_viewer(vault_dir: Path) -> Path:
 
       // Format dates
       const createdDateStr = atom.created_at || (raw.created_at ? raw.created_at.slice(0, 19).replace('T', ' ') + ' UTC' : atom.date);
-      const updatedDateStr = raw.updated_at ? raw.updated_at.slice(0, 19).replace('T', ' ') + ' UTC' : '—';
+      const updatedDateStr = raw.updated_at ? raw.updated_at.slice(0, 19).replace('T', ' ') + ' UTC' : null;
       const publishedDateStr = provenance.published_at || metadata.published_at || null;
 
       // Byline items
@@ -1771,42 +1845,57 @@ def generate_viewer(vault_dir: Path) -> Path:
       // Cover image asset section
       let assetHtml = '';
       const coverImg = payload.cover_image || payload.asset || {{}};
-      if (atom.cover_path || coverImg.relative_path || coverImg.file) {{
-        const cPath = atom.cover_path || coverImg.relative_path || coverImg.file;
-        const dims = coverImg.dimensions ? `${{coverImg.dimensions.width}} × ${{coverImg.dimensions.height}}` : (metadata.dimensions ? `${{metadata.dimensions.width}} × ${{metadata.dimensions.height}}` : null);
-        const ratio = coverImg.aspect_ratio || (metadata && metadata.aspect_ratio);
-        const blur = coverImg.blurhash || (metadata && metadata.blurhash);
-        const mime = coverImg.mime_type || 'image/jpeg';
-        const hash = coverImg.hash || null;
-        const palette = coverImg.color_palette || (metadata && metadata.color_palette) || [];
+      const hasCover = Boolean(atom.cover_path || coverImg.relative_path || coverImg.file);
+      const cPath = atom.cover_path || coverImg.relative_path || coverImg.file;
+      const dims = coverImg.dimensions ? `${{coverImg.dimensions.width}} × ${{coverImg.dimensions.height}}` : (metadata.dimensions ? `${{metadata.dimensions.width}} × ${{metadata.dimensions.height}}` : null);
+      const ratio = (coverImg.aspect_ratio !== undefined && coverImg.aspect_ratio !== null) ? coverImg.aspect_ratio : (metadata && metadata.aspect_ratio !== undefined ? metadata.aspect_ratio : null);
+      const blur = coverImg.blurhash || (metadata && metadata.blurhash) || null;
+      const mime = coverImg.mime_type || (hasCover ? 'image/jpeg' : null);
+      const hash = coverImg.hash || null;
+      const palette = coverImg.color_palette || (metadata && metadata.color_palette) || null;
+      const altText = coverImg.alt_text || atom.alt_text || null;
+      const origSrc = coverImg.original_src_url || null;
+      const pubUrl = coverImg.public_url || null;
 
-        let paletteDots = '';
-        if (palette && palette.length) {{
-          paletteDots = `<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">` +
-            palette.map(c => `<span style="display:inline-flex; align-items:center; gap:4px; font-family:ui-monospace, monospace; font-size:11px;"><span style="display:inline-block; width:13px; height:13px; border-radius:50%; background:${{c}}; border:1px solid rgba(0,0,0,0.15);"></span>${{c}}</span>`).join(' ') +
-            `</div>`;
-        }}
+      let paletteDots = '';
+      if (palette && palette.length) {{
+        paletteDots = `<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">` +
+          palette.map(c => `<span style="display:inline-flex; align-items:center; gap:4px; font-family:ui-monospace, monospace; font-size:11px;"><span style="display:inline-block; width:13px; height:13px; border-radius:50%; background:${{c}}; border:1px solid rgba(0,0,0,0.15);"></span>${{c}}</span>`).join(' ') +
+          `</div>`;
+      }}
 
-        const assetTitle = atom.kind === 'image' ? 'Image Asset Specification' : 'Cover Image Asset';
+      if (hasCover) {{
+        const assetTitle = atom.kind === 'image' ? 'Image Asset Specification' : 'Cover Image Asset Specification';
         assetHtml = `
-          <div class="meta-asset-box">
+          <div class="meta-asset-box" style="margin-bottom: 14px;">
             <a href="${{cPath}}" target="_blank" title="Click to view full image">
-              <img src="${{cPath}}" class="meta-asset-thumb" alt="${{escapeHtml(atom.title)}}">
+              <img src="${{cPath}}" class="meta-asset-thumb" alt="${{escapeHtml(altText || atom.title)}}">
             </a>
             <div class="meta-asset-fields">
-              <div style="font-weight:600; font-size:13px; margin-bottom:4px; color:var(--text);">${{assetTitle}}</div>
-              <div class="meta-field-row"><span class="meta-field-label">File Path:</span><span class="meta-field-value spec-mono">${{escapeHtml(cPath)}}</span></div>
-              ${{dims ? `<div class="meta-field-row"><span class="meta-field-label">Dimensions:</span><span class="meta-field-value">${{dims}} ${{ratio ? `(aspect: ${{ratio}})` : ''}}</span></div>` : ''}}
-              ${{mime ? `<div class="meta-field-row"><span class="meta-field-label">Format:</span><span class="meta-field-value spec-mono">${{mime}}</span></div>` : ''}}
-              ${{blur ? `<div class="meta-field-row"><span class="meta-field-label">Blurhash:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${{blur}}</span></div>` : ''}}
-              ${{paletteDots ? `<div class="meta-field-row"><span class="meta-field-label">Palette:</span><div class="meta-field-value">${{paletteDots}}</div></div>` : ''}}
-              ${{hash ? `<div class="meta-field-row"><span class="meta-field-label">SHA-256:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${{hash}}</span></div>` : ''}}
+              <div style="font-weight:600; font-size:13px; margin-bottom:6px; color:var(--text);">${{assetTitle}}</div>
+              <div class="meta-field-row"><span class="meta-field-label">File Path:</span><span class="meta-field-value spec-mono">${{renderVal(cPath, true)}}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Alt Text:</span><span class="meta-field-value">${{altText ? `“${{escapeHtml(altText)}}”` : renderVal(null)}}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Dimensions:</span><span class="meta-field-value">${{dims ? `${{dims}} (aspect: ${{ratio || '—'}})` : renderVal(null)}}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Format / MIME:</span><span class="meta-field-value">${{renderVal(mime, true)}}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Blurhash:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${{renderVal(blur, true)}}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Palette:</span><div class="meta-field-value">${{paletteDots || renderVal(null)}}</div></div>
+              <div class="meta-field-row"><span class="meta-field-label">SHA-256:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${{renderVal(hash, true)}}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Original URL:</span><span class="meta-field-value">${{renderVal(origSrc, true, true, 38)}}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Public URL:</span><span class="meta-field-value">${{renderVal(pubUrl, true, true, 38)}}</span></div>
             </div>
+          </div>
+        `;
+      }} else {{
+        assetHtml = `
+          <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:12px; font-weight:600;">Cover Image Asset</span>
+            <span class="tier-null">null (no visual asset attached)</span>
           </div>
         `;
       }}
 
       // TIER 1: SYSTEM ENVELOPE
+      const schemaUrl = raw['$schema'] || 'https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json';
       const tier1Html = `
         <div class="schema-tier-card tier-envelope">
           <div class="tier-badge-header">
@@ -1817,18 +1906,25 @@ def generate_viewer(vault_dir: Path) -> Path:
           <div class="tier-content-grid">
             <div class="tier-prop"><span class="tier-k">Atom ID</span><span class="tier-v spec-mono">${{escapeHtml(atom.id)}}</span></div>
             <div class="tier-prop"><span class="tier-k">Kind</span><span class="tier-v"><span class="kind-pill kind-${{atom.kind}}">${{atom.kind}}</span></span></div>
-            <div class="tier-prop"><span class="tier-k">Schema</span><span class="tier-v">v${{raw.version || 2}} (OpenCurate Spec)</span></div>
-            <div class="tier-prop"><span class="tier-k">Storage Path</span><span class="tier-v spec-mono">${{escapeHtml(atom.folder_path || `atoms/.../${{atom.id}}`)}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Captured At</span><span class="tier-v">${{createdDateStr}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Updated At</span><span class="tier-v">${{updatedDateStr}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Version</span><span class="tier-v spec-mono">v${{raw.version || 2}} (OpenCurate Spec)</span></div>
+            <div class="tier-prop"><span class="tier-k">Schema URL</span><span class="tier-v">${{renderVal(schemaUrl, true, true, 36)}}</span></div>
+            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Storage Path</span><span class="tier-v spec-mono">${{escapeHtml(atom.folder_path || `atoms/.../${{atom.id}}`)}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Captured At</span><span class="tier-v">${{renderVal(createdDateStr)}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Updated At</span><span class="tier-v">${{renderVal(updatedDateStr)}}</span></div>
           </div>
         </div>
       `;
 
       // TIER 2: PROVENANCE LAYER
-      const favHtml = provenance.favicon ? `<img src="${{provenance.favicon}}" alt="" style="width:14px;height:14px;border-radius:2px;vertical-align:middle;margin-right:6px;">` : '';
-      const sourceLink = provenance.source_url ? `<a href="${{provenance.source_url}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.source_url, 46)}} ↗</a>` : '—';
-      const canonLink = (provenance.canonical_url && provenance.canonical_url !== provenance.source_url) ? `<a href="${{provenance.canonical_url}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.canonical_url, 46)}} ↗</a>` : null;
+      const fav = provenance.favicon;
+      const favDisplay = fav ? `<span style="display:inline-flex; align-items:center; gap:6px;"><img src="${{escapeHtml(fav)}}" alt="" style="width:14px;height:14px;border-radius:2px;vertical-align:middle;"><a href="${{escapeHtml(fav)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(fav, 32)}} ↗</a></span>` : renderVal(null);
+      const siteDisplay = provenance.site_name ? escapeHtml(provenance.site_name) : renderVal(null);
+      const authorDisplay = atom.author ? `<strong>${{escapeHtml(atom.author)}}</strong>` : renderVal(null);
+      const authorUrlDisplay = provenance.author_url ? `<a href="${{escapeHtml(provenance.author_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.author_url, 40)}} ↗</a>` : renderVal(null);
+      const sourceTitleDisplay = provenance.source_title ? escapeHtml(provenance.source_title) : renderVal(null);
+      const sourceUrlDisplay = provenance.source_url ? `<a href="${{escapeHtml(provenance.source_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.source_url, 52)}} ↗</a>` : renderVal(null);
+      const canonUrlDisplay = provenance.canonical_url ? `<a href="${{escapeHtml(provenance.canonical_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.canonical_url, 52)}} ↗</a>` : renderVal(null);
+      const publishedDisplay = publishedDateStr ? escapeHtml(publishedDateStr) : renderVal(null);
 
       const tier2Html = `
         <div class="schema-tier-card tier-provenance">
@@ -1838,30 +1934,34 @@ def generate_viewer(vault_dir: Path) -> Path:
             <span class="tier-tagline">Origin, attribution & publisher source</span>
           </div>
           <div class="tier-content-grid">
-            <div class="tier-prop"><span class="tier-k">Author</span><span class="tier-v">${{atom.author ? `<strong>${{escapeHtml(atom.author)}}</strong>` : '—'}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Publisher</span><span class="tier-v">${{favHtml}}${{escapeHtml(provenance.site_name || '—')}}</span></div>
-            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source URL</span><span class="tier-v">${{sourceLink}}</span></div>
-            ${{canonLink ? `<div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Canonical URL</span><span class="tier-v">${{canonLink}}</span></div>` : ''}}
-            <div class="tier-prop"><span class="tier-k">Published Date</span><span class="tier-v">${{publishedDateStr || '—'}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Author</span><span class="tier-v">${{authorDisplay}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Author URL</span><span class="tier-v">${{authorUrlDisplay}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Publisher</span><span class="tier-v">${{siteDisplay}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Favicon</span><span class="tier-v">${{favDisplay}}</span></div>
+            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source Title</span><span class="tier-v">${{sourceTitleDisplay}}</span></div>
+            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source URL</span><span class="tier-v">${{sourceUrlDisplay}}</span></div>
+            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Canonical URL</span><span class="tier-v">${{canonUrlDisplay}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Published Date</span><span class="tier-v">${{publishedDisplay}}</span></div>
           </div>
         </div>
       `;
 
       // TIER 3: CURATION LAYER
-      const collectionsStr = (curation.collections && curation.collections.length) ? curation.collections.join(', ') : 'None (Inbox)';
-      const favoriteStr = curation.favorite ? '★ Favorited' : 'No';
-      const notesBlock = atom.notes ? `
+      const collectionsVal = (curation.collections && curation.collections.length) ? escapeHtml(curation.collections.join(', ')) : renderVal(null);
+      const favoriteVal = curation.favorite ? '<span class="spec-mono" style="color:#D97706; font-weight:600;">★ true (favorited)</span>' : '<span class="spec-mono" style="color:var(--muted);">false</span>';
+      const tagsVal = (atom.tags && atom.tags.length) ? `<div class="tags" style="display:inline-flex; flex-wrap:wrap; gap:4px;">${{(atom.tags || []).map(t => `<span class="tag">#${{escapeHtml(t)}}</span>`).join('')}}</div>` : renderVal(null);
+
+      const notesHtml = atom.notes ? `
         <div class="meta-notes-banner" style="margin-top: 12px; margin-bottom: 0;">
           <div class="meta-notes-title">Curator Notes</div>
           <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{renderMarkdown(atom.notes)}}</div>
         </div>
-      ` : '';
-      const tagsBlock = (atom.tags && atom.tags.length) ? `
-        <div style="margin-top: 12px; display:flex; gap:8px; align-items:center;">
-          <span style="font-size:10.5px; font-weight:600; text-transform:uppercase; color:var(--muted); width:100px; flex-shrink:0;">Tags</span>
-          <div class="tags">${{(atom.tags || []).map(t => `<span class="tag">#${{t}}</span>`).join(' ')}}</div>
+      ` : `
+        <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 6px;">
+          <span class="tier-k">Curator Notes</span>
+          <span class="tier-v">${{renderVal(null)}} <span style="font-size:11px; color:var(--muted);">(no personal commentary attached)</span></span>
         </div>
-      ` : '';
+      `;
 
       const tier3Html = `
         <div class="schema-tier-card tier-curation">
@@ -1873,11 +1973,11 @@ def generate_viewer(vault_dir: Path) -> Path:
           <div class="tier-content-grid">
             <div class="tier-prop"><span class="tier-k">Curated Title</span><span class="tier-v" style="font-weight:600;">${{escapeHtml(atom.title || 'Untitled Atom')}}</span></div>
             <div class="tier-prop"><span class="tier-k">Visibility</span><span class="tier-v"><span class="vis-badge vis-${{atom.visibility || 'public'}}">${{atom.visibility === 'private' ? '🔒 ' : (atom.visibility === 'shared' ? '👥 ' : '🌐 ')}}${{atom.visibility || 'public'}}</span></span></div>
-            <div class="tier-prop"><span class="tier-k">Favorite</span><span class="tier-v">${{favoriteStr}}</span></div>
-            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Collections</span><span class="tier-v">${{escapeHtml(collectionsStr)}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Favorite</span><span class="tier-v">${{favoriteVal}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Collections</span><span class="tier-v">${{collectionsVal}}</span></div>
+            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Tags</span><span class="tier-v">${{tagsVal}}</span></div>
+            ${{notesHtml}}
           </div>
-          ${{notesBlock}}
-          ${{tagsBlock}}
         </div>
       `;
 
@@ -1980,27 +2080,59 @@ def generate_viewer(vault_dir: Path) -> Path:
         payloadContentHtml += assetHtml;
       }}
 
-      const payloadGridItems = [];
-      if (targetUrl) {{
-        payloadGridItems.push({{ label: 'Destination URL', value: `<a href="${{targetUrl}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(targetUrl, 46)}} ↗</a>` }});
-      }}
-      if (wordCount) {{
-        payloadGridItems.push({{ label: 'Total Words', value: `${{wordCount.toLocaleString()}} words ${{readTime ? `(${{readTime}})` : ''}}` }});
-      }}
-      if (payload.text && payload.text.file) {{
-        payloadGridItems.push({{ label: 'Text Excerpt File', value: payload.text.file, mono: true }});
-      }}
+      // Universal 5-Slot Modular Showcase
+      const slotCoverActive = Boolean(hasCover);
+      const slotArticleActive = Boolean(payload.article || atom.article_markdown);
+      const slotTextActive = Boolean(payload.text || atom.kind === 'quote' || atom.kind === 'note');
+      const slotVideoActive = Boolean(payload.video || atom.kind === 'video');
+      const slotFileActive = Boolean(payload.file);
 
-      const payloadMetricsHtml = payloadGridItems.length ? `
-        <div class="tier-content-grid" style="margin-top: 10px;">
-          ${{payloadGridItems.map(item => `
-            <div class="tier-prop">
-              <span class="tier-k">${{item.label}}</span>
-              <span class="tier-v ${{item.mono ? 'spec-mono' : ''}}">${{item.value}}</span>
+      const slotsShowcaseHtml = `
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border);">
+          <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.05em;">
+            Universal Modular Payload Slots
+          </div>
+          <div class="payload-slots-grid">
+            <div class="payload-slot-badge ${{slotCoverActive ? 'active' : 'inactive'}}">
+              <span>cover_image</span>
+              <span>${{slotCoverActive ? '✓ set' : 'null'}}</span>
             </div>
-          `).join('')}}
+            <div class="payload-slot-badge ${{slotArticleActive ? 'active' : 'inactive'}}">
+              <span>article</span>
+              <span>${{slotArticleActive ? '✓ set' : 'null'}}</span>
+            </div>
+            <div class="payload-slot-badge ${{slotTextActive ? 'active' : 'inactive'}}">
+              <span>text</span>
+              <span>${{slotTextActive ? '✓ set' : 'null'}}</span>
+            </div>
+            <div class="payload-slot-badge ${{slotVideoActive ? 'active' : 'inactive'}}">
+              <span>video</span>
+              <span>${{slotVideoActive ? '✓ set' : 'null'}}</span>
+            </div>
+            <div class="payload-slot-badge ${{slotFileActive ? 'active' : 'inactive'}}">
+              <span>file</span>
+              <span>${{slotFileActive ? '✓ set' : 'null'}}</span>
+            </div>
+          </div>
         </div>
-      ` : '';
+      `;
+
+      const payloadMetricsHtml = `
+        <div class="tier-content-grid" style="margin-top: 10px;">
+          <div class="tier-prop" style="grid-column: 1 / -1;">
+            <span class="tier-k">Destination URL</span>
+            <span class="tier-v">${{targetUrl ? renderVal(targetUrl, false, true, 52) : renderVal(null)}}</span>
+          </div>
+          <div class="tier-prop">
+            <span class="tier-k">Total Words</span>
+            <span class="tier-v">${{wordCount ? `${{wordCount.toLocaleString()}} words ${{readTime ? `(${{readTime}})` : ''}}` : renderVal(null)}}</span>
+          </div>
+          <div class="tier-prop">
+            <span class="tier-k">Text File</span>
+            <span class="tier-v spec-mono">${{(payload.text && payload.text.file) ? renderVal(payload.text.file, true) : renderVal(null)}}</span>
+          </div>
+        </div>
+      `;
 
       const tier4Html = `
         <div class="schema-tier-card tier-payload">
@@ -2011,6 +2143,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           </div>
           ${{payloadContentHtml}}
           ${{payloadMetricsHtml}}
+          ${{slotsShowcaseHtml}}
         </div>
       `;
 
@@ -3069,7 +3202,8 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                         title=data.get("title"),
                         source=data.get("source"),
                         author=data.get("author"),
-                        notes=None,
+                        alt=data.get("alt"),
+                        notes=data.get("notes"),
                         tags=data.get("tags"),
                         collection=None,
                         favorite=False,
