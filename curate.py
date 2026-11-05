@@ -164,6 +164,34 @@ def normalize_tags(tags_input) -> list[str]:
     return cleaned
 
 
+def resolve_capture_provenance(args, default_method: str = "cli") -> dict:
+    """Resolve capture_method, capture_id, and capture_url from command arguments or defaults."""
+    method = getattr(args, "capture_method", None)
+    cid = getattr(args, "capture_id", None)
+    curl = getattr(args, "capture_url", None)
+
+    # Backwards compatibility for arena_block_id
+    if not cid and getattr(args, "arena_block_id", None):
+        cid = str(args.arena_block_id)
+        if not method:
+            method = "arena"
+
+    if not method:
+        method = default_method
+
+    if cid and not curl:
+        if method == "arena":
+            curl = f"https://www.are.na/block/{cid}"
+        elif method == "instapaper":
+            curl = f"https://www.instapaper.com/read/{cid}"
+
+    return {
+        "capture_method": method,
+        "capture_id": str(cid) if cid is not None else None,
+        "capture_url": curl
+    }
+
+
 def extract_dominant_colors(image_path: Path, num_colors: int = 3) -> list[str]:
     """Extract top dominant hex colors from an image using Pillow with safe mode normalization."""
     try:
@@ -628,6 +656,8 @@ def cmd_video(args):
     if visibility not in ("public", "shared", "private"):
         visibility = "public"
 
+    cap_prov = resolve_capture_provenance(args, default_method="cli")
+
     atom_doc = {
         "$schema": SCHEMA_URL,
         "id": atom_id,
@@ -641,7 +671,10 @@ def cmd_video(args):
             "site_name": video_info["provider"],
             "author": video_info["author"],
             "published_at": None,
-            "favicon": video_info["favicon"]
+            "favicon": video_info["favicon"],
+            "capture_method": cap_prov["capture_method"],
+            "capture_id": cap_prov["capture_id"],
+            "capture_url": cap_prov["capture_url"]
         },
         "curation": {
             "atom_title": atom_title,
@@ -846,6 +879,8 @@ def cmd_save_link(args):
         "favicon": scraped.get("favicon")
     }
 
+    cap_prov = resolve_capture_provenance(args, default_method="cli")
+
     atom_doc = {
         "$schema": SCHEMA_URL,
         "id": atom_id,
@@ -859,7 +894,10 @@ def cmd_save_link(args):
             "site_name": scraped["site_name"],
             "author": scraped["author"],
             "published_at": scraped.get("published_at"),
-            "favicon": scraped.get("favicon")
+            "favicon": scraped.get("favicon"),
+            "capture_method": cap_prov["capture_method"],
+            "capture_id": cap_prov["capture_id"],
+            "capture_url": cap_prov["capture_url"]
         },
         "curation": {
             "atom_title": atom_title,
@@ -946,6 +984,8 @@ def cmd_quote(args):
         "author": args.author
     }
 
+    cap_prov = resolve_capture_provenance(args, default_method="cli")
+
     atom_doc = {
         "$schema": SCHEMA_URL,
         "id": atom_id,
@@ -959,7 +999,10 @@ def cmd_quote(args):
             "site_name": urlparse(args.source).netloc if args.source else None,
             "author": args.author,
             "published_at": None,
-            "favicon": None
+            "favicon": None,
+            "capture_method": cap_prov["capture_method"],
+            "capture_id": cap_prov["capture_id"],
+            "capture_url": cap_prov["capture_url"]
         },
         "curation": {
             "atom_title": atom_title,
@@ -1043,6 +1086,8 @@ def cmd_note(args):
 
     meta_bag = {"word_count": word_count}
 
+    cap_prov = resolve_capture_provenance(args, default_method="cli")
+
     atom_doc = {
         "$schema": SCHEMA_URL,
         "id": atom_id,
@@ -1056,7 +1101,10 @@ def cmd_note(args):
             "site_name": None,
             "author": None,
             "published_at": None,
-            "favicon": None
+            "favicon": None,
+            "capture_method": cap_prov["capture_method"],
+            "capture_id": cap_prov["capture_id"],
+            "capture_url": cap_prov["capture_url"]
         },
         "curation": {
             "atom_title": atom_title,
@@ -1188,6 +1236,8 @@ def cmd_image(args):
     if not alt_text:
         alt_text = atom_title
 
+    cap_prov = resolve_capture_provenance(args, default_method="cli")
+
     atom_doc = {
         "$schema": SCHEMA_URL,
         "id": atom_id,
@@ -1201,7 +1251,10 @@ def cmd_image(args):
             "site_name": author,
             "author": author,
             "published_at": None,
-            "favicon": None
+            "favicon": None,
+            "capture_method": cap_prov["capture_method"],
+            "capture_id": cap_prov["capture_id"],
+            "capture_url": cap_prov["capture_url"]
         },
         "curation": {
             "atom_title": atom_title,
@@ -2124,6 +2177,8 @@ def cmd_import_arena(args):
         b_class = b.get("class") or b.get("type") or "Block"
         b_title = b.get("title") or b.get("name")
         b_desc = sanitize_text(b.get("description") or b.get("description_html"))
+        b_id = str(b["id"]) if b.get("id") else None
+        b_url = f"https://www.are.na/block/{b_id}" if b_id else None
 
         # Determine block visibility (inherit channel visibility or override if block is private)
         block_vis = channel_vis
@@ -2177,7 +2232,10 @@ def cmd_import_arena(args):
                     vault=str(vault_dir),
                     image_url=None,
                     quote=None,
-                    target_kind=None
+                    target_kind=None,
+                    capture_method="arena",
+                    capture_id=b_id,
+                    capture_url=b_url
                 )
                 try:
                     cmd_video(v_args)
@@ -2215,7 +2273,10 @@ def cmd_import_arena(args):
                     visibility=block_vis,
                     favorite=False,
                     vault=str(vault_dir),
-                    arena_block_id=b.get("id")
+                    arena_block_id=b.get("id"),
+                    capture_method="arena",
+                    capture_id=b_id,
+                    capture_url=b_url
                 )
                 try:
                     cmd_image(img_args)
@@ -2237,7 +2298,10 @@ def cmd_import_arena(args):
                     quote=None,
                     favorite=False,
                     vault=str(vault_dir),
-                    target_kind=None
+                    target_kind=None,
+                    capture_method="arena",
+                    capture_id=b_id,
+                    capture_url=b_url
                 )
                 try:
                     cmd_save_link(l_args)
@@ -2270,7 +2334,10 @@ def cmd_import_arena(args):
                         collection=args.collection or channel_title,
                         visibility=block_vis,
                         favorite=False,
-                        vault=str(vault_dir)
+                        vault=str(vault_dir),
+                        capture_method="arena",
+                        capture_id=b_id,
+                        capture_url=b_url
                     )
                     cmd_quote(q_args)
                 else:
@@ -2281,7 +2348,10 @@ def cmd_import_arena(args):
                         collection=args.collection or channel_title,
                         visibility=block_vis,
                         favorite=False,
-                        vault=str(vault_dir)
+                        vault=str(vault_dir),
+                        capture_method="arena",
+                        capture_id=b_id,
+                        capture_url=b_url
                     )
                     cmd_note(n_args)
                 imported += 1
@@ -2913,6 +2983,11 @@ def main():
     parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to OpenCurate vault directory")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    def add_capture_args(p):
+        p.add_argument("--capture-method", help="Ingest tool/pipeline name (e.g. arena, instapaper, cli, mcp)")
+        p.add_argument("--capture-id", help="Upstream item ID on source platform")
+        p.add_argument("--capture-url", help="Upstream item URL on source platform")
+
     # 1. Article command
     p_art = subparsers.add_parser("article", help="Save a longform article/essay with full offline text and reader view")
     p_art.add_argument("url", help="Webpage URL of the article")
@@ -2924,6 +2999,7 @@ def main():
     p_art.add_argument("--image-url", help="Override primary image URL")
     p_art.add_argument("--quote", help="Accompanying text quote or excerpt")
     p_art.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    add_capture_args(p_art)
     p_art.set_defaults(func=cmd_article)
 
     # 2. Bookmark command
@@ -2937,6 +3013,7 @@ def main():
     p_bm.add_argument("--image-url", help="Override primary image URL")
     p_bm.add_argument("--quote", help="Accompanying text quote or excerpt")
     p_bm.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    add_capture_args(p_bm)
     p_bm.set_defaults(func=cmd_bookmark)
 
     # 3. Save / Link command (smart auto-detect)
@@ -2950,6 +3027,7 @@ def main():
     p_link.add_argument("--image-url", help="Override primary image URL")
     p_link.add_argument("--quote", help="Accompanying text quote or excerpt")
     p_link.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    add_capture_args(p_link)
     p_link.set_defaults(func=cmd_save_link)
 
     p_save = subparsers.add_parser("save", help="Alias for 'link' (smart auto-detect)")
@@ -2962,6 +3040,7 @@ def main():
     p_save.add_argument("--image-url", help="Override primary image URL")
     p_save.add_argument("--quote", help="Accompanying text quote or excerpt")
     p_save.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    add_capture_args(p_save)
     p_save.set_defaults(func=cmd_save_link)
 
     # 2. Quote command
@@ -2976,6 +3055,7 @@ def main():
     p_quote.add_argument("--collection", help="Collection name")
     p_quote.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_quote.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    add_capture_args(p_quote)
     p_quote.set_defaults(func=cmd_quote)
 
     # 3. Note command
@@ -2986,6 +3066,7 @@ def main():
     p_note.add_argument("--collection", help="Collection name")
     p_note.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_note.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    add_capture_args(p_note)
     p_note.set_defaults(func=cmd_note)
 
     # 4. Image command
@@ -3000,6 +3081,7 @@ def main():
     p_image.add_argument("--collection", help="Collection name")
     p_image.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_image.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    add_capture_args(p_image)
     p_image.set_defaults(func=cmd_image)
 
     # 5. Video command
@@ -3011,6 +3093,7 @@ def main():
     p_video.add_argument("--collection", help="Collection name")
     p_video.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_video.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    add_capture_args(p_video)
     p_video.set_defaults(func=cmd_video)
 
     # 6. List command

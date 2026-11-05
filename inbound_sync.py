@@ -268,7 +268,10 @@ def pull_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"
             favorite=False,
             vault=str(vault_dir),
             visibility=visibility,
-            target_kind=target_kind
+            target_kind=target_kind,
+            capture_method="instapaper",
+            capture_id=str(bm_id) if bm_id else None,
+            capture_url=f"https://www.instapaper.com/read/{bm_id}" if bm_id else None
         )
         try:
             curate.cmd_save_link(args)
@@ -377,11 +380,21 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                         if not meta.get("arena_block_id"):
                             meta["arena_block_id"] = str(block_id)
                             doc["metadata_json"] = meta
-                            doc["updated_at"] = datetime.now(timezone.utc).isoformat()
-                            with open(atom_json_path, "w", encoding="utf-8") as f:
-                                json.dump(doc, f, indent=2, ensure_ascii=False)
-                            with conn:
-                                conn.execute("UPDATE atoms SET metadata = ?, raw_json = ? WHERE id = ?", (json.dumps(meta), json.dumps(doc, ensure_ascii=False), aid))
+
+                        prov = doc.setdefault("provenance", {})
+                        if not prov.get("capture_method"):
+                            prov["capture_method"] = "arena"
+                            prov["capture_id"] = str(block_id)
+                            prov["capture_url"] = f"https://www.are.na/block/{block_id}"
+                        elif not prov.get("capture_id") and prov.get("capture_method") == "arena":
+                            prov["capture_id"] = str(block_id)
+                            prov["capture_url"] = f"https://www.are.na/block/{block_id}"
+
+                        doc["updated_at"] = datetime.now(timezone.utc).isoformat()
+                        with open(atom_json_path, "w", encoding="utf-8") as f:
+                            json.dump(doc, f, indent=2, ensure_ascii=False)
+                        with conn:
+                            conn.execute("UPDATE atoms SET metadata = ?, raw_json = ? WHERE id = ?", (json.dumps(meta), json.dumps(doc, ensure_ascii=False), aid))
                 except Exception:
                     pass
             continue
@@ -406,6 +419,9 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
             content_obj = it.get("content")
             text_content = (content_obj.get("plain") or content_obj.get("markdown")) if isinstance(content_obj, dict) else (content_obj or notes)
 
+            arena_bid = str(block_id) if block_id else None
+            arena_burl = f"https://www.are.na/block/{arena_bid}" if arena_bid else None
+
             if is_reading_highlights and text_content:
                 print(f"   ✨ Ingesting Quote: {(source_title or title)[:50]}...")
                 args = types.SimpleNamespace(
@@ -419,7 +435,10 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                     collection="Reading Highlights",
                     favorite=False,
                     vault=str(vault_dir),
-                    visibility=visibility
+                    visibility=visibility,
+                    capture_method="arena",
+                    capture_id=arena_bid,
+                    capture_url=arena_burl
                 )
                 curate.cmd_quote(args)
                 imported += 1
@@ -437,7 +456,10 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                     favorite=False,
                     vault=str(vault_dir),
                     visibility=visibility,
-                    target_kind=None
+                    target_kind=None,
+                    capture_method="arena",
+                    capture_id=arena_bid,
+                    capture_url=arena_burl
                 )
                 curate.cmd_save_link(args)
                 imported += 1
@@ -459,7 +481,10 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                         favorite=False,
                         vault=str(vault_dir),
                         visibility=visibility,
-                        arena_block_id=block_id
+                        arena_block_id=block_id,
+                        capture_method="arena",
+                        capture_id=arena_bid,
+                        capture_url=arena_burl
                     )
                     curate.cmd_image(args)
                     imported += 1
@@ -474,7 +499,10 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                         collection=collection_name,
                         favorite=False,
                         vault=str(vault_dir),
-                        visibility=visibility
+                        visibility=visibility,
+                        capture_method="arena",
+                        capture_id=arena_bid,
+                        capture_url=arena_burl
                     )
                     curate.cmd_note(args)
                     imported += 1

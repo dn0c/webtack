@@ -152,7 +152,8 @@ def save_note(text: str, title: str = "", tags: str = "") -> dict:
         tags=tags or None,
         collection=None,
         favorite=False,
-        vault=str(vault_dir)
+        vault=str(vault_dir),
+        capture_method="mcp"
     )
     doc = curate.cmd_note(args)
     return {"success": True, "atom_id": doc["id"], "title": doc["curation"]["atom_title"]}
@@ -177,7 +178,8 @@ def save_bookmark(url: str, title: str = "", tags: str = "") -> dict:
         quote=None,
         favorite=False,
         vault=str(vault_dir),
-        target_kind="bookmark"
+        target_kind="bookmark",
+        capture_method="mcp"
     )
     doc = curate.cmd_save_link(args)
     return {"success": True, "atom_id": doc["id"], "title": doc["curation"]["atom_title"]}

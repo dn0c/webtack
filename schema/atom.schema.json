@@ -34,7 +34,19 @@
         "site_name": { "type": ["string", "null"] },
         "author": { "type": ["string", "null"] },
         "published_at": { "type": ["string", "null"], "format": "date-time" },
-        "favicon": { "type": ["string", "null"] }
+        "favicon": { "type": ["string", "null"] },
+        "capture_method": {
+          "type": ["string", "null"],
+          "description": "Tool or pipeline used to ingest this atom (e.g., arena, instapaper, cli, mcp, extension)"
+        },
+        "capture_id": {
+          "type": ["string", "null"],
+          "description": "Upstream identifier on the capturing platform (e.g., Are.na block ID or Instapaper bookmark ID)"
+        },
+        "capture_url": {
+          "type": ["string", "null"],
+          "description": "Direct link to the captured item on the upstream platform"
+        }
       }
     },
     "curation": {

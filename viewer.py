@@ -1943,6 +1943,41 @@ def generate_viewer(vault_dir: Path) -> Path:
       const sourceUrlDisplay = provenance.source_url ? `<a href="${{escapeHtml(provenance.source_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.source_url, 52)}} ↗</a>` : renderVal(null);
       const publishedDisplay = publishedDateStr ? escapeHtml(publishedDateStr) : renderVal(null);
 
+      const captureMethod = provenance.capture_method || null;
+      const captureId = provenance.capture_id || null;
+      const captureUrl = provenance.capture_url || null;
+
+      let captureMethodDisplay = renderVal(null);
+      if (captureMethod) {{
+        let badgeColor = "var(--muted)";
+        let badgeBg = "rgba(100, 116, 139, 0.12)";
+        if (captureMethod === "arena") {{
+          badgeColor = "#10B981";
+          badgeBg = "rgba(16, 185, 129, 0.12)";
+        }} else if (captureMethod === "instapaper") {{
+          badgeColor = "#F59E0B";
+          badgeBg = "rgba(245, 158, 11, 0.12)";
+        }} else if (captureMethod === "cli") {{
+          badgeColor = "#3B82F6";
+          badgeBg = "rgba(59, 130, 246, 0.12)";
+        }} else if (captureMethod === "mcp") {{
+          badgeColor = "#8B5CF6";
+          badgeBg = "rgba(139, 92, 246, 0.12)";
+        }} else if (captureMethod === "extension") {{
+          badgeColor = "#EC4899";
+          badgeBg = "rgba(236, 72, 153, 0.12)";
+        }}
+        captureMethodDisplay = `<span class="spec-mono" style="color:${{badgeColor}}; background:${{badgeBg}}; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; text-transform:uppercase;">${{escapeHtml(captureMethod)}}</span>`;
+      }}
+
+      let captureRefDisplay = renderVal(null);
+      if (captureUrl) {{
+        const linkText = captureId ? `${{captureMethod ? captureMethod + ' #' : ''}}${{escapeHtml(String(captureId))}}` : truncateUrl(captureUrl, 40);
+        captureRefDisplay = `<a href="${{escapeHtml(captureUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none; font-family:var(--font-mono); font-size:12px;">${{linkText}} ↗</a>`;
+      }} else if (captureId) {{
+        captureRefDisplay = `<span class="spec-mono">${{escapeHtml(String(captureId))}}</span>`;
+      }}
+
       const tier2Html = `
         <div class="schema-tier-card tier-provenance">
           <div class="tier-badge-header">
@@ -1954,9 +1989,11 @@ def generate_viewer(vault_dir: Path) -> Path:
             <div class="tier-prop"><span class="tier-k">Author</span><span class="tier-v">${{authorDisplay}}</span></div>
             <div class="tier-prop"><span class="tier-k">Publisher</span><span class="tier-v">${{siteDisplay}}</span></div>
             <div class="tier-prop"><span class="tier-k">Favicon</span><span class="tier-v">${{favDisplay}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Published Date</span><span class="tier-v">${{publishedDisplay}}</span></div>
             <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source Title</span><span class="tier-v">${{sourceTitleDisplay}}</span></div>
             <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source URL</span><span class="tier-v">${{sourceUrlDisplay}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Published Date</span><span class="tier-v">${{publishedDisplay}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Capture Method</span><span class="tier-v">${{captureMethodDisplay}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Capture Ref</span><span class="tier-v">${{captureRefDisplay}}</span></div>
           </div>
         </div>
       `;
