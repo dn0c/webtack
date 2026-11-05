@@ -20,7 +20,7 @@ import types
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urljoin, urlparse, parse_qs, quote
+from urllib.parse import urljoin, urlparse, parse_qs, quote, unquote
 
 try:
     import requests
@@ -1916,6 +1916,8 @@ def cmd_import_arena(args):
         source_url = None
         if b.get("source") and isinstance(b["source"], dict):
             source_url = b["source"].get("url")
+            if source_url and "rdl.ink" in source_url and "/render/" in source_url:
+                source_url = unquote(source_url.split("/render/", 1)[1])
 
         # Extract content if Text block
         content = None
