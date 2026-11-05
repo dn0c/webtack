@@ -1952,14 +1952,14 @@ def generate_viewer(vault_dir: Path) -> Path:
       const tagsVal = (atom.tags && atom.tags.length) ? `<div class="tags" style="display:inline-flex; flex-wrap:wrap; gap:4px;">${{(atom.tags || []).map(t => `<span class="tag">#${{escapeHtml(t)}}</span>`).join('')}}</div>` : renderVal(null);
 
       const notesHtml = atom.notes ? `
-        <div class="meta-notes-banner" style="margin-top: 12px; margin-bottom: 0;">
-          <div class="meta-notes-title">Curator Notes</div>
+        <div class="meta-notes-banner" style="margin-top: 14px; margin-bottom: 0;">
+          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">notes</div>
           <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{renderMarkdown(atom.notes)}}</div>
         </div>
       ` : `
-        <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 6px;">
-          <span class="tier-k">Curator Notes</span>
-          <span class="tier-v">${{renderVal(null)}} <span style="font-size:11px; color:var(--muted);">(no personal commentary attached)</span></span>
+        <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 4px;">
+          <span class="tier-k">notes</span>
+          <span class="tier-v">${{renderVal(null)}} <span style="font-size:11px; color:var(--muted);">(no notes attached)</span></span>
         </div>
       `;
 
@@ -1976,8 +1976,9 @@ def generate_viewer(vault_dir: Path) -> Path:
             <div class="tier-prop"><span class="tier-k">Favorite</span><span class="tier-v">${{favoriteVal}}</span></div>
             <div class="tier-prop"><span class="tier-k">Collections</span><span class="tier-v">${{collectionsVal}}</span></div>
             <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Tags</span><span class="tier-v">${{tagsVal}}</span></div>
-            ${{notesHtml}}
+            ${{!atom.notes ? notesHtml : ''}}
           </div>
+          ${{atom.notes ? notesHtml : ''}}
         </div>
       `;
 
