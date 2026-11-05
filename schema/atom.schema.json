@@ -92,7 +92,6 @@
               "items": { "type": "string" }
             },
             "alt_text": { "type": ["string", "null"] },
-            "original_src_url": { "type": ["string", "null"] },
             "public_url": { "type": ["string", "null"] }
           }
         },

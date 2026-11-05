@@ -1870,7 +1870,6 @@ def generate_viewer(vault_dir: Path) -> Path:
       const hash = coverImg.hash || null;
       const palette = coverImg.color_palette || (metadata && metadata.color_palette) || null;
       const altText = coverImg.alt_text || atom.alt_text || null;
-      const origSrc = coverImg.original_src_url || null;
       const pubUrl = coverImg.public_url || null;
 
       let paletteDots = '';
@@ -1896,7 +1895,6 @@ def generate_viewer(vault_dir: Path) -> Path:
               <div class="meta-field-row"><span class="meta-field-label">Blurhash:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${{renderVal(blur, true)}}</span></div>
               <div class="meta-field-row"><span class="meta-field-label">Palette:</span><div class="meta-field-value">${{paletteDots || renderVal(null)}}</div></div>
               <div class="meta-field-row"><span class="meta-field-label">SHA-256:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${{renderVal(hash, true)}}</span></div>
-              <div class="meta-field-row"><span class="meta-field-label">Original URL:</span><span class="meta-field-value">${{renderVal(origSrc, true, true, 38)}}</span></div>
               <div class="meta-field-row"><span class="meta-field-label">Public URL:</span><span class="meta-field-value">${{renderVal(pubUrl, true, true, 38)}}</span></div>
             </div>
           </div>

@@ -588,8 +588,7 @@ def cmd_video(args):
                 "aspect_ratio": downloaded["aspect_ratio"],
                 "blurhash": downloaded["blurhash"],
                 "color_palette": downloaded["color_palette"],
-                "alt_text": atom_title,
-                "original_src_url": video_info["thumbnail_url"]
+                "alt_text": atom_title
             }
         except Exception as e:
             print(f"⚠️ Failed to download poster thumbnail ({e})")
@@ -807,8 +806,7 @@ def cmd_save_link(args):
                 "aspect_ratio": downloaded["aspect_ratio"],
                 "blurhash": downloaded["blurhash"],
                 "color_palette": downloaded["color_palette"],
-                "alt_text": scraped["source_title"],
-                "original_src_url": scraped["image_url"]
+                "alt_text": scraped["source_title"]
             }
             print(f"🎨 Palette: {' '.join(downloaded['color_palette'])} | Ratio: {downloaded['aspect_ratio']}")
         except Exception as e:
@@ -1222,8 +1220,7 @@ def cmd_image(args):
                 "aspect_ratio": downloaded["aspect_ratio"],
                 "blurhash": downloaded["blurhash"],
                 "color_palette": downloaded["color_palette"],
-                "alt_text": getattr(args, "alt", None) or atom_title,
-                "original_src_url": src if is_url else None
+                "alt_text": getattr(args, "alt", None) or atom_title
             },
             "text": None,
             "article": None,
@@ -2652,12 +2649,10 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
         meta = json.loads(r["metadata"]) if r["metadata"] else {}
         cover_rel = r["cover_file_path"]
 
-        # GCS public URL if cover exists, otherwise fallback to original src
+        # GCS public URL if cover exists
         cover_url = None
         if cover_rel:
             cover_url = f"{base_url}/{cover_rel}"
-        elif meta.get("cover_image", {}).get("original_src_url"):
-            cover_url = meta["cover_image"]["original_src_url"]
 
         raw = json.loads(r["raw_json"]) if r["raw_json"] else {}
         prov = raw.get("provenance", {})
@@ -2666,9 +2661,11 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
         cover_payload = raw.get("payload", {}).get("cover_image", {}) or {}
         alt_text = cover_payload.get("alt_text")
 
-        # Clean deprecated destination_url from raw payload
+        # Clean deprecated fields from raw payload
         if raw and isinstance(raw, dict) and "payload" in raw and isinstance(raw["payload"], dict):
             raw["payload"].pop("destination_url", None)
+            if "cover_image" in raw["payload"] and isinstance(raw["payload"]["cover_image"], dict):
+                raw["payload"]["cover_image"].pop("original_src_url", None)
 
         source_url_val = r["source_url"] or r["destination_url"]
         canonical_url_val = prov.get("canonical_url")
