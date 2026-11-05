@@ -7,6 +7,7 @@ into local WideWeb atoms with deduplication, payload enrichment, and automatic s
 
 import os
 import json
+import re
 import sqlite3
 import types
 from pathlib import Path
@@ -167,6 +168,23 @@ def pull_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"
     return imported
 
 
+def get_block_channel_info(block_id: str, headers: dict):
+    """Retrieve the primary channel title and slug for a given Are.na block."""
+    if not block_id:
+        return None, None
+    try:
+        url = f"https://api.are.na/v3/blocks/{block_id}/connections"
+        r = requests.get(url, headers=headers, timeout=5)
+        if r.status_code == 200:
+            channels = r.json().get("data", [])
+            if channels:
+                first = channels[0]
+                return first.get("title"), first.get("slug")
+    except Exception:
+        pass
+    return None, None
+
+
 def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
     """Pull recent blocks across all user channels from Are.na into WideWeb."""
     import curate
@@ -223,14 +241,51 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
             continue
 
         try:
-            if block_type in ("Link", "Embed") and source_url:
+            ch_title, ch_slug = get_block_channel_info(block_id, headers)
+            is_reading_highlights = (
+                ch_slug == "reading-highlights-quotes" or
+                (ch_title and "highlight" in ch_title.lower()) or
+                (notes and "highlight from:" in notes.lower())
+            )
+            collection_name = "Reading Highlights" if is_reading_highlights else (ch_title or "Are.na")
+            tag_slug = ch_slug or "are.na"
+            tags_list = f"are.na,{tag_slug}" if tag_slug != "are.na" else "are.na"
+
+            # Parse quote provenance if description contains 'Highlight from:' or 'Source:'
+            m_title = re.search(r'Highlight from:\s*(.+)', notes or '', re.IGNORECASE)
+            m_source = re.search(r'Source:\s*(https?://\S+)', notes or '', re.IGNORECASE)
+            source_title = m_title.group(1).strip() if m_title else None
+            source_url = m_source.group(1).strip() if m_source else source_url
+
+            content_obj = it.get("content")
+            text_content = (content_obj.get("plain") or content_obj.get("markdown")) if isinstance(content_obj, dict) else (content_obj or notes)
+
+            if is_reading_highlights and text_content:
+                print(f"   ✨ Ingesting Quote: {(source_title or title)[:50]}...")
+                args = types.SimpleNamespace(
+                    quote=text_content,
+                    title=source_title or title,
+                    source=source_url,
+                    source_title=source_title,
+                    author=it.get("user", {}).get("name") if not source_title else None,
+                    notes=None,
+                    tags=f"{tags_list},reading-highlights",
+                    collection="Reading Highlights",
+                    favorite=False,
+                    vault=str(vault_dir),
+                    visibility=visibility
+                )
+                curate.cmd_quote(args)
+                imported += 1
+
+            elif block_type in ("Link", "Embed") and source_url:
                 print(f"   ✨ Ingesting Link: {title[:50]}... ({source_url[:40]}...)")
                 args = types.SimpleNamespace(
                     url=source_url,
                     title=title,
                     notes=notes,
-                    tags="are.na",
-                    collection="Are.na",
+                    tags=tags_list,
+                    collection=collection_name,
                     image_url=it.get("image", {}).get("src") if isinstance(it.get("image"), dict) else None,
                     quote=None,
                     favorite=False,
@@ -250,8 +305,8 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                         src=img_src,
                         title=title,
                         notes=notes,
-                        tags="are.na",
-                        collection="Are.na",
+                        tags=tags_list,
+                        collection=collection_name,
                         author=it.get("user", {}).get("name") if isinstance(it.get("user"), dict) else None,
                         source=source_url or f"https://www.are.na/block/{block_id}",
                         favorite=False,
@@ -262,15 +317,13 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                     imported += 1
 
             elif block_type == "Text":
-                content_obj = it.get("content")
-                text_content = (content_obj.get("plain") or content_obj.get("markdown")) if isinstance(content_obj, dict) else (content_obj or notes)
                 if text_content:
                     print(f"   ✨ Ingesting Text: {title[:50]}...")
                     args = types.SimpleNamespace(
                         text=text_content,
                         title=title,
-                        tags="are.na",
-                        collection="Are.na",
+                        tags=tags_list,
+                        collection=collection_name,
                         favorite=False,
                         vault=str(vault_dir),
                         visibility=visibility
