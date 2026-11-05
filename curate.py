@@ -1186,6 +1186,11 @@ def cmd_image(args):
         "color_palette": downloaded["color_palette"]
     }
 
+    source_candidate = args.source or (src if is_url else None)
+    author = args.author
+    if not author and source_candidate:
+        author = extract_author_from_url(source_candidate)
+
     atom_doc = {
         "$schema": SCHEMA_URL,
         "id": atom_id,
@@ -1194,11 +1199,11 @@ def cmd_image(args):
         "created_at": now_iso,
         "updated_at": now_iso,
         "provenance": {
-            "source_url": args.source or (src if is_url else None),
+            "source_url": source_candidate,
             "source_title": None,
             "canonical_url": None,
-            "site_name": None,
-            "author": args.author,
+            "site_name": author,
+            "author": author,
             "author_url": None,
             "published_at": None,
             "favicon": None
@@ -1212,7 +1217,7 @@ def cmd_image(args):
             "favorite": args.favorite
         },
         "payload": {
-            "destination_url": args.source,
+            "destination_url": args.source or source_candidate,
             "cover_image": {
                 "file": cover_filename,
                 "relative_path": cover_rel_path,
@@ -1247,8 +1252,8 @@ def cmd_image(args):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, "image", now_iso, now_iso, atom_title, args.notes, json.dumps(tags),
-            json.dumps(collections), visibility, 1 if args.favorite else 0, args.source, cover_rel_path,
-            None, args.source, args.author, json.dumps(meta_bag), json.dumps(atom_doc)
+            json.dumps(collections), visibility, 1 if args.favorite else 0, args.source or source_candidate, cover_rel_path,
+            None, source_candidate, author, json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
     print(f"\n🖼️ Image atom saved successfully!")
@@ -1787,6 +1792,210 @@ def cmd_export(args):
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"✅ Exported {len(rows)} atoms to JSON: {out_path}")
+
+
+BRAND_MAP = {
+    "hypebeast.com": "Hypebeast",
+    "hypb.st": "Hypebeast",
+    "highsnobiety.com": "Highsnobiety",
+    "flickr.com": "Flickr",
+    "instagram.com": "Instagram",
+    "pinterest.com": "Pinterest",
+    "pinimg.com": "Pinterest",
+    "drakes.com": "Drake's",
+    "freundevonfreunden.com": "Freunde von Freunden",
+    "gq.com": "GQ",
+    "document-document.com": "Document Journal",
+    "dieworkwear.com": "Die, Workwear!",
+    "permanentstyle.com": "Permanent Style",
+    "hodinkee.com": "Hodinkee",
+    "sprezza.xyz": "Sprezza",
+    "blackbirdspyplane.com": "Blackbird Spyplane",
+    "themodernhouse.com": "The Modern House",
+    "3sixteen.com": "3sixteen",
+    "18east.co": "18 East",
+    "noahny.com": "Noah",
+    "dwell.com": "Dwell",
+    "reddit.com": "Reddit",
+    "imgur.com": "Imgur",
+    "500px.com": "500px",
+    "thecoolist.com": "The Coolist",
+    "theradavist.com": "The Radavist",
+    "acontinuouslean.com": "A Continuous Lean",
+    "americantrench.com": "American Trench",
+    "blessthisstuff.com": "Bless This Stuff",
+    "buckmason.com": "Buck Mason",
+    "evankinori.com": "Evan Kinori",
+    "grailed.com": "Grailed",
+    "heddels.com": "Heddels",
+    "hoka.com": "Hoka",
+    "mrporter.com": "MR PORTER",
+    "oakstreetbootmakers.com": "Oak Street Bootmakers",
+    "putthison.com": "Put This On",
+    "ribbonfarm.com": "Ribbonfarm",
+    "sneakernews.com": "Sneaker News",
+    "sneakerbardetroit.com": "Sneaker Bar Detroit",
+    "viberg.com": "Viberg",
+    "well-spent.com": "Well Spent",
+    "whitemountaineering.com": "White Mountaineering",
+    "wornandwound.com": "Worn & Wound",
+    "leica-camera.com": "Leica",
+    "metalabel.com": "Metalabel",
+    "maggieappleton.com": "Maggie Appleton",
+    "drewshannon.net": "Drew Shannon",
+    "chrisglass.com": "Chris Glass",
+    "jonaspeterson.com": "Jonas Peterson",
+    "bijansabet.com": "Bijan Sabet",
+    "ricknunn.com": "Rick Nunn",
+    "raindrop.io": "Raindrop",
+    "exposure.co": "Exposure",
+    "cargocollective.com": "Cargo",
+    "deviantart.com": "DeviantArt",
+    "youtube.com": "YouTube",
+    "youtu.be": "YouTube",
+    "esquire.com": "Esquire",
+    "revolution.watch": "Revolution Watch",
+    "orologidiclasse.com": "Orologi di Classe",
+    "watchesbysjx.com": "SJX Watches",
+    "sehkelly.com": "S.E.H Kelly",
+    "goodart.com": "Good Art HLYWD",
+    "thesecondbutton.com": "The Second Button",
+    "5280.com": "5280 Magazine",
+    "tapperietbrus.dk": "BRUS",
+    "conceptsurplus.com": "Concept Surplus",
+    "constant-practice.com": "Constant Practice",
+    "denimhunters.com": "Denimhunters",
+    "profoundmagazine.com": "Profound Magazine",
+    "rideyourbike.com": "Ride Your Bike",
+    "theclassyissue.com": "The Classy Issue",
+    "decolonialfutures.net": "Decolonial Futures",
+    "nowdeveloping.photos": "Now Developing",
+    "paynter.co.uk": "Paynter Jacket",
+    "asahishoes.jp": "Asahi Shoes",
+    "sattalivity.com": "Satta",
+    "strato.co.jp": "Strato",
+    "strato.jp": "Strato",
+    "streetnine.com": "Street Nine",
+    "nemcee.com": "Nemcee",
+    "maxwangerblog.com": "Max Wanger",
+    "baphotos.com": "BA Photos",
+    "francescapia.com": "Galerie Francesca Pia",
+    "shopnouveau.com": "Shop Nouveau",
+    "squarespace-cdn.com": "Squarespace",
+    "fashionsnap-assets.com": "Fashionsnap",
+    "venkateshrao.com": "Venkatesh Rao",
+    "shopify.com": "Shopify",
+    "substackcdn.com": "Substack",
+    "share.google": "Google",
+    "arena-images-temp.s3.amazonaws.com": "Are.na",
+    "35mmdoubles.blogspot.com": "35mm Doubles",
+    "adamgoldberg.tumblr.com": "Adam Goldberg",
+    "anastasiavolkova.blogspot.com": "Anastasia Volkova",
+    "anders-neuman.exposure.co": "Anders Neuman",
+    "brunopostigo.tumblr.com": "Bruno Postigo",
+    "chrisozer.tumblr.com": "Chris Ozer",
+    "craicandcharm.tumblr.com": "Craic & Charm",
+    "jacoblambert.blogspot.com": "Jacob Lambert",
+    "jcarrasquillo.blogspot.com": "J. Carrasquillo",
+    "jonyeston.tumblr.com": "Jon Yeston",
+    "marvaments.tumblr.com": "Marvaments",
+    "mrelllis.tumblr.com": "Mr. Ellis",
+    "nicoledeeblog.tumblr.com": "Nicole Dee",
+    "photobyeve.blogspot.com": "Photo by Eve",
+    "rogueterritory.tumblr.com": "Rogue Territory",
+    "shawnbrackbill.tumblr.com": "Shawn Brackbill",
+    "velvetnoise.substack.com": "Velvet Noise",
+    "wmbrown.substack.com": "WM Brown",
+    "yingangphoto.tumblr.com": "Ying Ang Photo",
+    "fuckyeahvansshoes.tumblr.com": "Fuck Yeah Vans Shoes",
+    "lingeredupon.blogspot.com": "Lingered Upon",
+    "withlittlesound.blogspot.com": "With Little Sound",
+    "m1kikey.deviantart.com": "m1kikey",
+    "mail.google.com": "Gmail",
+}
+
+
+def clean_subdomain_name(name: str) -> str:
+    name = re.sub(r"[-_]", " ", name)
+    return name.title()
+
+
+def extract_author_from_url(url: str | None) -> str | None:
+    """Extract clean author, creator, or publisher brand name from a URL domain."""
+    if not url:
+        return None
+    unquoted = urllib.parse.unquote(url)
+    m = re.search(r"https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s\"\'<>]*", unquoted[8:])
+    if m and not ("s3.amazonaws.com" in m.group(0) or "cloudfront.net" in m.group(0)):
+        target_url = m.group(0)
+    else:
+        target_url = url
+
+    try:
+        parsed = urllib.parse.urlparse(target_url)
+        host = parsed.netloc.lower()
+    except Exception:
+        return None
+
+    if not host:
+        return None
+
+    host = host.split(":")[0]
+
+    # Explicit lookup
+    if host in BRAND_MAP:
+        return BRAND_MAP[host]
+
+    # Subdomain platforms
+    if host.endswith(".tumblr.com"):
+        sub = host[:-11]
+        if sub and not sub.isdigit() and sub not in ("media", "24.media", "28.media", "68.media"):
+            return clean_subdomain_name(sub)
+        return "Tumblr"
+
+    if host.endswith(".blogspot.com"):
+        sub = host[:-13]
+        if sub and not sub.startswith("1.bp") and not sub.startswith("2.bp"):
+            return clean_subdomain_name(sub)
+        return "Blogspot"
+
+    if host.endswith(".wordpress.com"):
+        sub = host[:-14]
+        if not sub.endswith(".files"):
+            return clean_subdomain_name(sub)
+        return "WordPress"
+
+    if host.endswith(".substack.com"):
+        sub = host[:-13]
+        if sub and sub not in ("open", "cdn", "api"):
+            return clean_subdomain_name(sub)
+        return "Substack"
+
+    if host.endswith(".deviantart.com"):
+        sub = host[:-15]
+        return clean_subdomain_name(sub)
+
+    if host.endswith(".exposure.co"):
+        sub = host[:-12]
+        return clean_subdomain_name(sub)
+
+    # Clean prefixes
+    clean_host = re.sub(r"^(www|m|amp|cdn|images|media|static|assets|shop|blog|en|us|at|i|s-media-cache-ak0)\.", "", host)
+    if clean_host in BRAND_MAP:
+        return BRAND_MAP[clean_host]
+
+    parts = clean_host.split(".")
+    if len(parts) >= 2:
+        root_2 = ".".join(parts[-2:])
+        if root_2 in BRAND_MAP:
+            return BRAND_MAP[root_2]
+        if len(parts) >= 3:
+            root_3 = ".".join(parts[-3:])
+            if root_3 in BRAND_MAP:
+                return BRAND_MAP[root_3]
+
+    main_name = parts[0] if parts else clean_host
+    return re.sub(r"[-_]", " ", main_name).title()
 
 
 def extract_author_and_source_title(raw_title):
@@ -2584,6 +2793,16 @@ def cmd_sync(args):
         sync_assets_to_gcs(vault_dir, bucket=bucket)
 
 
+def cmd_pull(args):
+    """Pull newly captured items from Instapaper (unread) and Are.na (all channels)."""
+    import inbound_sync
+    vault_dir = Path(args.vault).resolve()
+    service = getattr(args, "service", "all")
+    limit = getattr(args, "limit", 25)
+    visibility = getattr(args, "visibility", "public")
+    inbound_sync.pull_all(vault_dir, service=service, limit=limit, visibility=visibility)
+
+
 def cmd_mcp(args):
     """Run the WideWeb Model Context Protocol (MCP) server for Claude Desktop / AI assistants."""
     import wideweb_mcp
@@ -2768,6 +2987,13 @@ def main():
     p_sync.add_argument("--bucket", default=DEFAULT_GCS_BUCKET, help=f"GCS bucket name (default: {DEFAULT_GCS_BUCKET})")
     p_sync.add_argument("--manifest-only", action="store_true", help="Only upload curation_public.json manifest without rsyncing images")
     p_sync.set_defaults(func=cmd_sync)
+
+    # 13. Pull command (Instapaper & Are.na inbound sync)
+    p_pull = subparsers.add_parser("pull", help="Pull new captures from Instapaper (unread) and Are.na (user feed)")
+    p_pull.add_argument("--service", choices=["all", "instapaper", "arena"], default="all", help="Service to pull from (default: all)")
+    p_pull.add_argument("--limit", type=int, default=25, help="Max items to fetch per service (default: 25)")
+    p_pull.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Default visibility tier (default: public)")
+    p_pull.set_defaults(func=cmd_pull)
 
     args = parser.parse_args()
     args.func(args)

@@ -151,6 +151,24 @@ To browse, search, and download all exports in your browser, click **📦 Export
 
 ---
 
+## Inbound Sync (`curate.py pull`)
+
+Pulls newly captured content from Instapaper and Are.na directly into your vault:
+- **Instapaper**: Ingests new unread bookmarks with titles, excerpts, tags, and cover images.
+- **Are.na**: Ingests new blocks added across your account (Links, Images, and Text notes).
+- **Deduplication**: Automatic matching by destination URL and external IDs prevents duplicates.
+
+```bash
+# Pull new items from both Instapaper and Are.na
+python3 curate.py pull
+
+# Pull from a specific service only
+python3 curate.py pull --service instapaper
+python3 curate.py pull --service arena
+```
+
+---
+
 ## Sync to Public Garden (`curate.py sync`)
 
 Publishes public atoms to your live digital garden (e.g., `drewshannon.net/garden`):
