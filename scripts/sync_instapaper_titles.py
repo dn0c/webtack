@@ -70,8 +70,10 @@ def main():
             clean = clean_url(u)
             bm_by_url[clean] = b
             p = urlparse(u)
-            host_path = f"{p.netloc}{p.path}".rstrip("/")
-            bm_by_url[host_path] = b
+            # Only index host_path if there are no query parameters (avoid colliding on /watch, etc.)
+            if not p.query:
+                host_path = f"{p.netloc}{p.path}".rstrip("/")
+                bm_by_url[host_path] = b
 
     conn = get_db(VAULT_DIR)
     rows = conn.execute("""
@@ -103,10 +105,11 @@ def main():
                 bm = bm_by_url[u]
                 break
             p = urlparse(u)
-            host_path = f"{p.netloc}{p.path}".rstrip("/")
-            if host_path in bm_by_url:
-                bm = bm_by_url[host_path]
-                break
+            if not p.query:
+                host_path = f"{p.netloc}{p.path}".rstrip("/")
+                if host_path in bm_by_url:
+                    bm = bm_by_url[host_path]
+                    break
 
         if not bm:
             continue
