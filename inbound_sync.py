@@ -77,17 +77,100 @@ def save_sync_state(vault_dir: Path, state: dict):
         print(f"⚠️ Warning saving sync state: {e}")
 
 
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+
+def normalize_url(url: str) -> str:
+    """Normalize URL by stripping tracking parameters, lowercase scheme/domain, and trailing slash."""
+    if not url:
+        return ""
+    u = url.strip()
+    try:
+        p = urlparse(u)
+        scheme = p.scheme.lower() or "https"
+        netloc = p.netloc.lower()
+        if netloc.startswith("www."):
+            netloc = netloc[4:]
+        tracking_params = {
+            "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+            "ref", "ref_src", "fbclid", "gclid", "mc_cid", "mc_eid"
+        }
+        filtered = [(k, v) for k, v in parse_qsl(p.query) if k.lower() not in tracking_params]
+        query_str = urlencode(filtered)
+        path = p.path.rstrip("/") if p.path != "/" else "/"
+        return urlunparse((scheme, netloc, path, p.params, query_str, ""))
+    except Exception:
+        return u.rstrip("/")
+
+
+def get_url_variants(url: str) -> list[str]:
+    """Generate canonical and protocol/slash variants of a URL for deduplication."""
+    if not url:
+        return []
+    u = url.strip()
+    variants = {u, u.rstrip("/"), u + "/"}
+
+    if u.startswith("http://"):
+        variants.add("https://" + u[7:])
+        variants.add("https://" + u[7:].rstrip("/"))
+    elif u.startswith("https://"):
+        variants.add("http://" + u[8:])
+        variants.add("http://" + u[8:].rstrip("/"))
+
+    for v in list(variants):
+        if "://" in v:
+            proto, rest = v.split("://", 1)
+            rest_clean = rest.rstrip("/")
+            if rest.startswith("www."):
+                variants.add(f"{proto}://{rest[4:]}")
+                variants.add(f"{proto}://{rest_clean[4:]}")
+            else:
+                variants.add(f"{proto}://www.{rest}")
+                variants.add(f"{proto}://www.{rest_clean}")
+
+    norm = normalize_url(u)
+    if norm:
+        variants.add(norm)
+        variants.add(norm.rstrip("/"))
+        variants.add(norm + "/")
+
+    return [v for v in variants if v]
+
+
+def find_existing_atom_for_url(conn: sqlite3.Connection, url: str) -> dict | None:
+    """Find an existing atom in the vault matching a URL or any of its normalized variants."""
+    if not url:
+        return None
+    variants = get_url_variants(url)
+    if not variants:
+        return None
+
+    placeholders = ",".join("?" for _ in variants)
+    q = f"""
+        SELECT id, kind, created_at, atom_title, author, destination_url, source_url, raw_json 
+        FROM atoms 
+        WHERE source_url IN ({placeholders}) OR destination_url IN ({placeholders}) 
+        ORDER BY (CASE WHEN kind = 'article' THEN 1 WHEN kind = 'bookmark' THEN 2 ELSE 3 END)
+        LIMIT 1
+    """
+    row = conn.execute(q, variants + variants).fetchone()
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "kind": row[1],
+        "created_at": row[2],
+        "atom_title": row[3],
+        "author": row[4],
+        "destination_url": row[5],
+        "source_url": row[6],
+        "raw_json": row[7]
+    }
+
+
 def url_exists_in_vault(conn: sqlite3.Connection, url: str) -> bool:
     """Check if a URL already exists as destination_url or source_url in SQLite."""
-    if not url:
-        return False
-    clean = url.strip()
-    alt_clean = clean.rstrip("/") if clean.endswith("/") else clean + "/"
-    row = conn.execute(
-        "SELECT id FROM atoms WHERE destination_url = ? OR destination_url = ? OR source_url = ? OR source_url = ? LIMIT 1",
-        (clean, alt_clean, clean, alt_clean)
-    ).fetchone()
-    return row is not None
+    return find_existing_atom_for_url(conn, url) is not None
 
 
 def pull_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"):
@@ -131,21 +214,20 @@ def pull_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"
         instapaper_synced = set(state.setdefault("instapaper", {}).setdefault("synced_ids", []))
         if bm_id and bm_id in instapaper_synced:
             continue
-        if url_exists_in_vault(conn, bm_url):
+        existing = find_existing_atom_for_url(conn, bm_url)
+        if existing:
             if bm_id:
-                # Check if existing atom needs full article text
-                row = conn.execute("SELECT id, kind, created_at, atom_title, author, destination_url, source_url, raw_json FROM atoms WHERE source_url = ? OR destination_url = ? LIMIT 1", (bm_url, bm_url)).fetchone()
-                if row:
-                    aid = row[0]
-                    created_at = row[2]
-                    art_file = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / aid / "article.md"
-                    if not art_file.exists():
-                        try:
-                            from scripts.backfill_instapaper_fulltext import backfill_atom_fulltext
-                            if backfill_atom_fulltext(requests.Session(), dict(row), b, vault_dir):
-                                print(f"   📖 Enriched existing atom {aid} with Instapaper full text ({title[:40]})")
-                        except Exception:
-                            pass
+                # Check if existing atom needs full article text from Instapaper
+                aid = existing["id"]
+                created_at = existing["created_at"]
+                art_file = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / aid / "article.md"
+                if not art_file.exists():
+                    try:
+                        from scripts.backfill_instapaper_fulltext import backfill_atom_fulltext
+                        if backfill_atom_fulltext(requests.Session(), existing, b, vault_dir):
+                            print(f"   📖 Enriched existing atom {aid} with Instapaper full text ({b.get('title', '')[:40]})")
+                    except Exception as ex:
+                        print(f"      ⚠️ Failed backfilling Instapaper full text: {ex}")
                 state["instapaper"]["synced_ids"].append(bm_id)
             continue
 
@@ -277,9 +359,31 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
         # Deduplication check
         if block_id and block_id in arena_synced:
             continue
-        if check_url and url_exists_in_vault(conn, check_url):
+        existing = find_existing_atom_for_url(conn, check_url)
+        if existing:
             if block_id:
                 state["arena"]["synced_ids"].append(block_id)
+                # Link Are.na metadata to existing atom (e.g. from Instapaper) without duplicating
+                try:
+                    aid = existing["id"]
+                    created_at = existing["created_at"]
+                    atom_json_path = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / aid / "atom.json"
+                    if atom_json_path.exists():
+                        with open(atom_json_path, "r", encoding="utf-8") as f:
+                            doc = json.load(f)
+                        meta = doc.get("metadata_json") or {}
+                        if not isinstance(meta, dict):
+                            meta = {}
+                        if not meta.get("arena_block_id"):
+                            meta["arena_block_id"] = str(block_id)
+                            doc["metadata_json"] = meta
+                            doc["updated_at"] = datetime.now(timezone.utc).isoformat()
+                            with open(atom_json_path, "w", encoding="utf-8") as f:
+                                json.dump(doc, f, indent=2, ensure_ascii=False)
+                            with conn:
+                                conn.execute("UPDATE atoms SET metadata = ?, raw_json = ? WHERE id = ?", (json.dumps(meta), json.dumps(doc, ensure_ascii=False), aid))
+                except Exception:
+                    pass
             continue
 
         try:
