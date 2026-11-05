@@ -2017,12 +2017,9 @@ def generate_viewer(vault_dir: Path) -> Path:
         captureMethodDisplay = `<span class="spec-mono" style="color:${{badgeColor}}; background:${{badgeBg}}; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; text-transform:uppercase;">${{escapeHtml(captureMethod)}}</span>`;
       }}
 
-      let captureRefDisplay = renderVal(null);
+      let captureUrlDisplay = renderVal(null);
       if (captureUrl) {{
-        const linkText = captureId ? `${{captureMethod ? captureMethod + ' #' : ''}}${{escapeHtml(String(captureId))}}` : truncateUrl(captureUrl, 40);
-        captureRefDisplay = `<a href="${{escapeHtml(captureUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none; font-family:var(--font-mono); font-size:12px;">${{linkText}} ↗</a>`;
-      }} else if (captureId) {{
-        captureRefDisplay = `<span class="spec-mono">${{escapeHtml(String(captureId))}}</span>`;
+        captureUrlDisplay = `<a href="${{escapeHtml(captureUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none; font-family:var(--font-mono); font-size:12px;">${{truncateUrl(captureUrl, 52)}} ↗</a>`;
       }}
 
       const tier2Html = `
@@ -2040,7 +2037,8 @@ def generate_viewer(vault_dir: Path) -> Path:
             <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source Title</span><span class="tier-v">${{sourceTitleDisplay}}</span></div>
             <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source URL</span><span class="tier-v">${{sourceUrlDisplay}}</span></div>
             <div class="tier-prop"><span class="tier-k">Capture Method</span><span class="tier-v">${{captureMethodDisplay}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Capture Ref</span><span class="tier-v">${{captureRefDisplay}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Capture ID</span><span class="tier-v spec-mono">${{captureId ? escapeHtml(String(captureId)) : renderVal(null)}}</span></div>
+            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Capture URL</span><span class="tier-v">${{captureUrlDisplay}}</span></div>
           </div>
         </div>
       `;
@@ -2223,6 +2221,40 @@ def generate_viewer(vault_dir: Path) -> Path:
             <span class="tier-k">Text File</span>
             <span class="tier-v spec-mono">${{(payload.text && payload.text.file) ? renderVal(payload.text.file, true) : renderVal(null)}}</span>
           </div>
+          ${{(payload.article && (payload.article.file || payload.article.byline)) ? `
+            <div class="tier-prop">
+              <span class="tier-k">Article File</span>
+              <span class="tier-v spec-mono">${{renderVal(payload.article.file || 'article.md', true)}}</span>
+            </div>
+            <div class="tier-prop">
+              <span class="tier-k">Article Byline</span>
+              <span class="tier-v">${{renderVal(payload.article.byline)}}</span>
+            </div>
+          ` : ''}}
+          ${{(payload.video && (payload.video.provider || payload.video.duration_seconds)) ? `
+            <div class="tier-prop">
+              <span class="tier-k">Video Duration</span>
+              <span class="tier-v">${{payload.video.duration_seconds ? `${{Math.floor(payload.video.duration_seconds / 60)}}m ${{payload.video.duration_seconds % 60}}s` : renderVal(null)}}</span>
+            </div>
+            <div class="tier-prop">
+              <span class="tier-k">Transcript Lang</span>
+              <span class="tier-v spec-mono">${{renderVal(payload.video.transcript_language || (payload.video.has_transcript ? 'en' : null))}}</span>
+            </div>
+          ` : ''}}
+          ${{payload.file ? `
+            <div class="tier-prop">
+              <span class="tier-k">Attachment File</span>
+              <span class="tier-v spec-mono">${{renderVal(payload.file.filename, true)}}</span>
+            </div>
+            <div class="tier-prop">
+              <span class="tier-k">File Size</span>
+              <span class="tier-v">${{payload.file.file_size_bytes ? `${{(payload.file.file_size_bytes / (1024 * 1024)).toFixed(2)}} MB` : renderVal(null)}}</span>
+            </div>
+            <div class="tier-prop">
+              <span class="tier-k">Page Count</span>
+              <span class="tier-v">${{renderVal(payload.file.page_count)}}</span>
+            </div>
+          ` : ''}}
           ${{metaJsonHtml}}
         </div>
       `;
