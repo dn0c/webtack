@@ -1978,10 +1978,16 @@ def cmd_import_arena(args):
 
             if img_url:
                 img_title = b_title or (b.get("image", {}).get("filename") if b.get("image") else f"{channel_title} Image")
+                effective_img_source = source_url
+                if not effective_img_source and b_desc:
+                    url_match = re.search(r"https?://[^\s<>\"'()\[\]]+", b_desc)
+                    if url_match:
+                        effective_img_source = html.unescape(re.sub(r"[\.,;:!?]+$", "", url_match.group(0)))
+
                 img_args = types.SimpleNamespace(
                     src=img_url,
                     title=img_title,
-                    source=source_url,
+                    source=effective_img_source,
                     author=b.get("user", {}).get("name") if b.get("user") else None,
                     notes=b_desc,
                     alt=b.get("image", {}).get("alt_text") if b.get("image") else None,
