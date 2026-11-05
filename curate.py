@@ -2652,6 +2652,23 @@ def get_public_atoms(vault_dir: Path):
     return rows
 
 
+def prune_empty_schema_fields(d):
+    """Recursively prune None values from dictionary to keep public manifest lightweight."""
+    if not isinstance(d, dict):
+        return d
+    out = {}
+    for k, v in d.items():
+        if v is None:
+            continue
+        if isinstance(v, dict):
+            sub = prune_empty_schema_fields(v)
+            if sub:
+                out[k] = sub
+        else:
+            out[k] = v
+    return out
+
+
 def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BUCKET):
     """Generate vault/export/curation_public.json for the public digital garden."""
     export_dir = vault_dir / "export"
@@ -2687,6 +2704,22 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
 
         source_url_val = r["source_url"] or r["destination_url"]
 
+        # For articles, do not inline the full text in the public manifest (prevents 120MB+ bloat).
+        # Supply article_url so client can lazy-load article.md on demand when opening reader modal.
+        article_url = None
+        content_val = None
+        if r["kind"] == "article":
+            created_at = r["created_at"] or ""
+            folder_rel = f"atoms/{created_at[:4]}/{created_at[5:7]}/{r['id']}"
+            if (vault_dir / folder_rel / "article.md").exists():
+                article_url = f"{base_url}/{folder_rel}/article.md"
+            content_val = None
+        else:
+            # For quotes, notes, bookmarks, videos, content is lightweight (< 1MB total across entire vault)
+            content_val = r["text_content"]
+
+        clean_raw = prune_empty_schema_fields(raw) if raw else {}
+
         item = {
             "id": r["id"],
             "kind": r["kind"],
@@ -2700,16 +2733,17 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
             "site_name": prov.get("site_name"),
             "source_url": source_url_val,
             "cover_url": cover_url,
+            "article_url": article_url,
             "excerpt": (r["text_content"][:300] + "...") if r["text_content"] and len(r["text_content"]) > 300 else r["text_content"],
-            "content": r["text_content"],
+            "content": content_val,
             "metadata": meta,
-            "raw": raw
+            "raw": clean_raw
         }
         public_items.append(item)
 
     out_file = export_dir / "curation_public.json"
     with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(public_items, f, indent=2, ensure_ascii=False)
+        json.dump(public_items, f, separators=(",", ":"), ensure_ascii=False)
 
     print(f"📄 Generated {out_file} ({len(public_items)} public atoms)")
     return out_file
@@ -2805,14 +2839,14 @@ def upload_manifest_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
 
 
 def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
-    """Sync public image assets to GCS atoms directory."""
-    print(f"🚀 Syncing public image assets to gs://{bucket}/atoms/ ...")
+    """Sync public image assets and article markdown to GCS atoms directory."""
+    print(f"🚀 Syncing public assets to gs://{bucket}/atoms/ ...")
     gcloud_bin = "/Users/drew/Documents/google-cloud-sdk/bin/gcloud"
     if not Path(gcloud_bin).exists():
         gcloud_bin = "gcloud"
 
-    # Exclude metadata, texts, notes, and private atoms
-    exclude_regex = ".*(\\.json|\\.txt|\\.md|\\.DS_Store|atm_20261104210906_a7152e|atm_20261104210908_e2ecc1|atm_20261104210910_f82447|atm_20261104210911_9c6058|atm_20261104210912_f6a4da).*"
+    # Exclude metadata, non-article texts/notes, and private atoms
+    exclude_regex = ".*(\\.json|\\.txt|note\\.md|quote\\.md|\\.DS_Store|atm_20261104210906_a7152e|atm_20261104210908_e2ecc1|atm_20261104210910_f82447|atm_20261104210911_9c6058|atm_20261104210912_f6a4da).*"
 
     cmd = [
         gcloud_bin, "storage", "rsync",
@@ -2822,13 +2856,13 @@ def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
         f"--exclude={exclude_regex}"
     ]
 
-    print("Running image sync...")
+    print("Running asset sync...")
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode == 0:
-        print("✅ Image assets sync complete!")
+        print("✅ Asset sync complete!")
         return True
     else:
-        print(f"⚠️ Image sync warning: {res.stderr}")
+        print(f"⚠️ Asset sync warning: {res.stderr}")
         return False
 
 
