@@ -636,9 +636,8 @@ def cmd_video(args):
         "created_at": now_iso,
         "updated_at": now_iso,
         "provenance": {
-            "source_url": args.url,
+            "source_url": video_info.get("canonical_url") or args.url,
             "source_title": video_info["title"],
-            "canonical_url": video_info["canonical_url"],
             "site_name": video_info["provider"],
             "author": video_info["author"],
             "published_at": None,
@@ -855,9 +854,8 @@ def cmd_save_link(args):
         "created_at": now_iso,
         "updated_at": now_iso,
         "provenance": {
-            "source_url": args.url,
+            "source_url": scraped.get("canonical_url") or args.url,
             "source_title": scraped["source_title"],
-            "canonical_url": scraped["canonical_url"],
             "site_name": scraped["site_name"],
             "author": scraped["author"],
             "published_at": scraped.get("published_at"),
@@ -958,7 +956,6 @@ def cmd_quote(args):
         "provenance": {
             "source_url": args.source,
             "source_title": args.source_title,
-            "canonical_url": args.source,
             "site_name": urlparse(args.source).netloc if args.source else None,
             "author": args.author,
             "published_at": None,
@@ -1056,7 +1053,6 @@ def cmd_note(args):
         "provenance": {
             "source_url": None,
             "source_title": None,
-            "canonical_url": None,
             "site_name": None,
             "author": None,
             "published_at": None,
@@ -1187,7 +1183,6 @@ def cmd_image(args):
         "provenance": {
             "source_url": source_candidate,
             "source_title": None,
-            "canonical_url": None,
             "site_name": author,
             "author": author,
             "published_at": None,
@@ -2659,9 +2654,9 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
                 raw["payload"]["cover_image"].pop("original_src_url", None)
         if raw and isinstance(raw, dict) and "provenance" in raw and isinstance(raw["provenance"], dict):
             raw["provenance"].pop("author_url", None)
+            raw["provenance"].pop("canonical_url", None)
 
         source_url_val = r["source_url"] or r["destination_url"]
-        canonical_url_val = prov.get("canonical_url")
 
         item = {
             "id": r["id"],
@@ -2675,7 +2670,6 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
             "author": r["author"],
             "site_name": prov.get("site_name"),
             "source_url": source_url_val,
-            "canonical_url": canonical_url_val,
             "cover_url": cover_url,
             "excerpt": (r["text_content"][:300] + "...") if r["text_content"] and len(r["text_content"]) > 300 else r["text_content"],
             "content": r["text_content"],

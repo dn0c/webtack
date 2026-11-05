@@ -54,7 +54,6 @@ def get_atoms_data(vault_dir: Path):
             "date": r["created_at"][:10],
             "created_at": r["created_at"],
             "source_url": r["source_url"] or r["destination_url"],
-            "canonical_url": (raw.get("provenance", {}) or {}).get("canonical_url"),
             "author": r["author"],
             "cover_path": r["cover_file_path"],
             "metadata": meta,
@@ -1414,7 +1413,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           `;
         }} else if (atom.kind === 'image') {{
           const altDisplay = atom.alt_text ? `<div style="font-size:11.5px; color:var(--muted); margin-top:4px;"><span style="font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.04em;">alt:</span> “${{escapeHtml(atom.alt_text)}}”</div>` : `<div style="font-size:11.5px; color:var(--muted); margin-top:4px;"><span style="font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.04em;">alt:</span> <span class="tier-null">null</span></div>`;
-          const targetLink = atom.source_url || atom.canonical_url;
+          const targetLink = atom.source_url;
           bodyHtml = `
             <div class="card-body">
               <div class="card-title">
@@ -1426,7 +1425,7 @@ def generate_viewer(vault_dir: Path) -> Path:
             </div>
           `;
         }} else {{
-          const targetLink = atom.source_url || atom.canonical_url;
+          const targetLink = atom.source_url;
           bodyHtml = `
             <div class="card-body">
               <div class="card-title">
@@ -1446,8 +1445,8 @@ def generate_viewer(vault_dir: Path) -> Path:
           extrasHtml = `<button class="read-btn" onclick="openReader('${{atom.id}}')">📖 Read</button>`;
         }} else if (atom.kind === 'note') {{
           extrasHtml = `<button class="read-btn" style="background:#4A5568;" onclick="openReader('${{atom.id}}')">📝 Open</button>`;
-        }} else if (atom.kind === 'bookmark' && (atom.source_url || atom.canonical_url)) {{
-          const visitUrl = atom.source_url || atom.canonical_url;
+        }} else if (atom.kind === 'bookmark' && atom.source_url) {{
+          const visitUrl = atom.source_url;
           extrasHtml = `<a class="read-btn" style="background:transparent; border:1px solid var(--border); color:var(--text); text-decoration:none;" href="${{visitUrl}}" target="_blank" rel="noopener">↗ Visit</a>`;
         }} else if (atom.metadata && atom.metadata.color_palette && atom.metadata.color_palette.length) {{
           extrasHtml = `<div class="palette-dots">` + atom.metadata.color_palette.map(c => `<div class="palette-dot" style="background:${{c}}" title="${{c}}"></div>`).join('') + `</div>`;
@@ -1708,7 +1707,7 @@ def generate_viewer(vault_dir: Path) -> Path:
       if (!atom) return;
 
       const video = (atom.raw && atom.raw.payload && atom.raw.payload.video) || {{}};
-      const videoSrc = atom.source_url || atom.canonical_url || '';
+      const videoSrc = atom.source_url || '';
       let embedUrl = video.embed_url || (videoSrc.includes('watch?v=') ? videoSrc.replace("watch?v=", "embed/") : null);
       if (!embedUrl) return;
 
@@ -1852,7 +1851,7 @@ def generate_viewer(vault_dir: Path) -> Path:
       if (atom.article_markdown) {{
         actions.push(`<button class="meta-btn primary" onclick="openReaderFromMeta('${{atom.id}}')">📖 Read Full Article ${{wordCountLabel ? `(${{wordCountLabel}})` : ''}}</button>`);
       }}
-      const targetUrl = atom.source_url || provenance.canonical_url || provenance.source_url;
+      const targetUrl = atom.source_url || provenance.source_url;
       if (targetUrl) {{
         actions.push(`<a class="meta-btn" href="${{targetUrl}}" target="_blank" rel="noopener">🔗 Visit Original URL ↗</a>`);
       }}
@@ -1936,7 +1935,6 @@ def generate_viewer(vault_dir: Path) -> Path:
       const authorDisplay = atom.author ? `<strong>${{escapeHtml(atom.author)}}</strong>` : renderVal(null);
       const sourceTitleDisplay = provenance.source_title ? escapeHtml(provenance.source_title) : renderVal(null);
       const sourceUrlDisplay = provenance.source_url ? `<a href="${{escapeHtml(provenance.source_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.source_url, 52)}} ↗</a>` : renderVal(null);
-      const canonUrlDisplay = provenance.canonical_url ? `<a href="${{escapeHtml(provenance.canonical_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.canonical_url, 52)}} ↗</a>` : renderVal(null);
       const publishedDisplay = publishedDateStr ? escapeHtml(publishedDateStr) : renderVal(null);
 
       const tier2Html = `
@@ -1952,7 +1950,6 @@ def generate_viewer(vault_dir: Path) -> Path:
             <div class="tier-prop"><span class="tier-k">Favicon</span><span class="tier-v">${{favDisplay}}</span></div>
             <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source Title</span><span class="tier-v">${{sourceTitleDisplay}}</span></div>
             <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source URL</span><span class="tier-v">${{sourceUrlDisplay}}</span></div>
-            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Canonical URL</span><span class="tier-v">${{canonUrlDisplay}}</span></div>
             <div class="tier-prop"><span class="tier-k">Published Date</span><span class="tier-v">${{publishedDisplay}}</span></div>
           </div>
         </div>
@@ -3294,7 +3291,6 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                     "date": created_at[:10],
                     "created_at": created_at,
                     "source_url": atom_doc.get("provenance", {}).get("source_url") or atom_doc.get("payload", {}).get("destination_url"),
-                    "canonical_url": atom_doc.get("provenance", {}).get("canonical_url"),
                     "author": atom_doc.get("provenance", {}).get("author"),
                     "cover_path": atom_doc.get("payload", {}).get("cover_image", {}).get("relative_path") if atom_doc.get("payload", {}).get("cover_image") else None,
                     "metadata": atom_doc.get("metadata_json", {}),

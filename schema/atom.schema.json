@@ -31,7 +31,6 @@
       "properties": {
         "source_url": { "type": ["string", "null"] },
         "source_title": { "type": ["string", "null"] },
-        "canonical_url": { "type": ["string", "null"] },
         "site_name": { "type": ["string", "null"] },
         "author": { "type": ["string", "null"] },
         "published_at": { "type": ["string", "null"], "format": "date-time" },
