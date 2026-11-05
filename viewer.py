@@ -1412,6 +1412,18 @@ def generate_viewer(vault_dir: Path) -> Path:
               <div class="card-notes markdown-body" style="-webkit-line-clamp: 8;">${{renderMarkdown(atom.excerpt || '')}}</div>
             </div>
           `;
+        }} else if (atom.kind === 'image') {{
+          const altDisplay = atom.alt_text ? `<div style="font-size:11.5px; color:var(--muted); margin-top:4px;"><span style="font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.04em;">alt:</span> “${{escapeHtml(atom.alt_text)}}”</div>` : `<div style="font-size:11.5px; color:var(--muted); margin-top:4px;"><span style="font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.04em;">alt:</span> <span class="tier-null">null</span></div>`;
+          bodyHtml = `
+            <div class="card-body">
+              <div class="card-title">
+                ${{atom.destination_url ? `<a href="${{atom.destination_url}}" target="_blank" rel="noopener">${{escapeHtml(atom.title)}}</a>` : escapeHtml(atom.title)}}
+              </div>
+              ${{atom.author ? `<div class="author-byline">${{escapeHtml(atom.author)}}</div>` : ''}}
+              ${{altDisplay}}
+              ${{atom.notes ? `<div class="card-notes markdown-body">${{renderMarkdown(atom.notes)}}</div>` : ''}}
+            </div>
+          `;
         }} else {{
           bodyHtml = `
             <div class="card-body">
@@ -2148,6 +2160,10 @@ def generate_viewer(vault_dir: Path) -> Path:
 
       const payloadMetricsHtml = `
         <div class="tier-content-grid" style="margin-top: 10px;">
+          <div class="tier-prop" style="grid-column: 1 / -1;">
+            <span class="tier-k">Alt Text</span>
+            <span class="tier-v">${{altText ? `“${{escapeHtml(altText)}}”` : renderVal(null)}}</span>
+          </div>
           <div class="tier-prop" style="grid-column: 1 / -1;">
             <span class="tier-k">Destination URL</span>
             <span class="tier-v">${{targetUrl ? renderVal(targetUrl, false, true, 52) : renderVal(null)}}</span>
