@@ -1297,7 +1297,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           <input type="text" id="capImageAlt" placeholder="Accessibility description of what the image depicts">
         </div>
         <div class="form-group">
-          <label>Curator Notes / Personal Reflection (Optional)</label>
+          <label>Notes (Optional)</label>
           <textarea id="capImageNotes" placeholder="Context or thoughts on why you saved this image..."></textarea>
         </div>
         <div class="form-group">
@@ -2117,6 +2117,34 @@ def generate_viewer(vault_dir: Path) -> Path:
         </div>
       `;
 
+      // Tier 4 / metadata_json overflow
+      const rawMeta = raw.metadata_json || atom.metadata || {{}};
+      const metaKeys = Object.keys(rawMeta);
+      let metaJsonHtml = '';
+      if (metaKeys.length) {{
+        metaJsonHtml = `
+          <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 4px;">
+            <span class="tier-k">metadata_json</span>
+            <div class="tier-v" style="width: 100%;">
+              <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;">
+                ${{metaKeys.map(k => `
+                  <span class="spec-mono" style="background:var(--bg); border:1px solid var(--border); padding:2px 7px; border-radius:4px; font-size:11px;">
+                    <strong style="color:var(--text);">${{escapeHtml(k)}}:</strong> ${{escapeHtml(typeof rawMeta[k] === 'object' && rawMeta[k] !== null ? JSON.stringify(rawMeta[k]) : String(rawMeta[k]))}}
+                  </span>
+                `).join('')}}
+              </div>
+            </div>
+          </div>
+        `;
+      }} else {{
+        metaJsonHtml = `
+          <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 4px;">
+            <span class="tier-k">metadata_json</span>
+            <span class="tier-v">${{renderVal(null)}} <span style="font-size:11px; color:var(--muted);">(no overflow metadata)</span></span>
+          </div>
+        `;
+      }}
+
       const payloadMetricsHtml = `
         <div class="tier-content-grid" style="margin-top: 10px;">
           <div class="tier-prop" style="grid-column: 1 / -1;">
@@ -2131,6 +2159,7 @@ def generate_viewer(vault_dir: Path) -> Path:
             <span class="tier-k">Text File</span>
             <span class="tier-v spec-mono">${{(payload.text && payload.text.file) ? renderVal(payload.text.file, true) : renderVal(null)}}</span>
           </div>
+          ${{metaJsonHtml}}
         </div>
       `;
 
