@@ -1934,7 +1934,6 @@ def generate_viewer(vault_dir: Path) -> Path:
       const favDisplay = fav ? `<span style="display:inline-flex; align-items:center; gap:6px;"><img src="${{escapeHtml(fav)}}" alt="" style="width:14px;height:14px;border-radius:2px;vertical-align:middle;"><a href="${{escapeHtml(fav)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(fav, 32)}} ↗</a></span>` : renderVal(null);
       const siteDisplay = provenance.site_name ? escapeHtml(provenance.site_name) : renderVal(null);
       const authorDisplay = atom.author ? `<strong>${{escapeHtml(atom.author)}}</strong>` : renderVal(null);
-      const authorUrlDisplay = provenance.author_url ? `<a href="${{escapeHtml(provenance.author_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.author_url, 40)}} ↗</a>` : renderVal(null);
       const sourceTitleDisplay = provenance.source_title ? escapeHtml(provenance.source_title) : renderVal(null);
       const sourceUrlDisplay = provenance.source_url ? `<a href="${{escapeHtml(provenance.source_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.source_url, 52)}} ↗</a>` : renderVal(null);
       const canonUrlDisplay = provenance.canonical_url ? `<a href="${{escapeHtml(provenance.canonical_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.canonical_url, 52)}} ↗</a>` : renderVal(null);
@@ -1949,7 +1948,6 @@ def generate_viewer(vault_dir: Path) -> Path:
           </div>
           <div class="tier-content-grid">
             <div class="tier-prop"><span class="tier-k">Author</span><span class="tier-v">${{authorDisplay}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Author URL</span><span class="tier-v">${{authorUrlDisplay}}</span></div>
             <div class="tier-prop"><span class="tier-k">Publisher</span><span class="tier-v">${{siteDisplay}}</span></div>
             <div class="tier-prop"><span class="tier-k">Favicon</span><span class="tier-v">${{favDisplay}}</span></div>
             <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Source Title</span><span class="tier-v">${{sourceTitleDisplay}}</span></div>

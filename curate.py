@@ -376,7 +376,6 @@ def extract_video_info(url: str) -> dict | None:
             "embed_url": embed_url,
             "title": "YouTube Video",
             "author": None,
-            "author_url": None,
             "thumbnail_url": f"https://i.ytimg.com/vi/{video_id}/sddefault.jpg",
             "favicon": "https://www.youtube.com/s/desktop/12d6b690/img/favicon_144x144.png"
         }
@@ -388,7 +387,6 @@ def extract_video_info(url: str) -> dict | None:
                 d = resp.json()
                 meta["title"] = d.get("title", meta["title"])
                 meta["author"] = d.get("author_name")
-                meta["author_url"] = d.get("author_url")
                 if d.get("thumbnail_url"):
                     meta["thumbnail_url"] = d["thumbnail_url"]
         except Exception as e:
@@ -410,7 +408,6 @@ def extract_video_info(url: str) -> dict | None:
             "embed_url": f"https://player.vimeo.com/video/{video_id}" if video_id else None,
             "title": "Vimeo Video",
             "author": None,
-            "author_url": None,
             "thumbnail_url": None,
             "favicon": "https://f.vimeocdn.com/images_v6/favicon_32.png"
         }
@@ -422,7 +419,6 @@ def extract_video_info(url: str) -> dict | None:
                 d = resp.json()
                 meta["title"] = d.get("title", meta["title"])
                 meta["author"] = d.get("author_name")
-                meta["author_url"] = d.get("author_url")
                 meta["thumbnail_url"] = d.get("thumbnail_url")
         except Exception:
             pass
@@ -645,7 +641,6 @@ def cmd_video(args):
             "canonical_url": video_info["canonical_url"],
             "site_name": video_info["provider"],
             "author": video_info["author"],
-            "author_url": video_info["author_url"],
             "published_at": None,
             "favicon": video_info["favicon"]
         },
@@ -865,7 +860,6 @@ def cmd_save_link(args):
             "canonical_url": scraped["canonical_url"],
             "site_name": scraped["site_name"],
             "author": scraped["author"],
-            "author_url": None,
             "published_at": scraped.get("published_at"),
             "favicon": scraped.get("favicon")
         },
@@ -967,7 +961,6 @@ def cmd_quote(args):
             "canonical_url": args.source,
             "site_name": urlparse(args.source).netloc if args.source else None,
             "author": args.author,
-            "author_url": None,
             "published_at": None,
             "favicon": None
         },
@@ -1066,7 +1059,6 @@ def cmd_note(args):
             "canonical_url": None,
             "site_name": None,
             "author": None,
-            "author_url": None,
             "published_at": None,
             "favicon": None
         },
@@ -1198,7 +1190,6 @@ def cmd_image(args):
             "canonical_url": None,
             "site_name": author,
             "author": author,
-            "author_url": None,
             "published_at": None,
             "favicon": None
         },
@@ -2661,11 +2652,13 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
         cover_payload = raw.get("payload", {}).get("cover_image", {}) or {}
         alt_text = cover_payload.get("alt_text")
 
-        # Clean deprecated fields from raw payload
+        # Clean deprecated fields from raw payload and provenance
         if raw and isinstance(raw, dict) and "payload" in raw and isinstance(raw["payload"], dict):
             raw["payload"].pop("destination_url", None)
             if "cover_image" in raw["payload"] and isinstance(raw["payload"]["cover_image"], dict):
                 raw["payload"]["cover_image"].pop("original_src_url", None)
+        if raw and isinstance(raw, dict) and "provenance" in raw and isinstance(raw["provenance"], dict):
+            raw["provenance"].pop("author_url", None)
 
         source_url_val = r["source_url"] or r["destination_url"]
         canonical_url_val = prov.get("canonical_url")

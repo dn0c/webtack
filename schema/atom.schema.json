@@ -34,7 +34,6 @@
         "canonical_url": { "type": ["string", "null"] },
         "site_name": { "type": ["string", "null"] },
         "author": { "type": ["string", "null"] },
-        "author_url": { "type": ["string", "null"] },
         "published_at": { "type": ["string", "null"], "format": "date-time" },
         "favicon": { "type": ["string", "null"] }
       }
