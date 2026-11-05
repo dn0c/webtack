@@ -133,13 +133,48 @@ def pull_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"
             continue
         if url_exists_in_vault(conn, bm_url):
             if bm_id:
+                # Check if existing atom needs full article text
+                row = conn.execute("SELECT id, kind, created_at, atom_title, author, destination_url, source_url, raw_json FROM atoms WHERE source_url = ? OR destination_url = ? LIMIT 1", (bm_url, bm_url)).fetchone()
+                if row:
+                    aid = row[0]
+                    created_at = row[2]
+                    art_file = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / aid / "article.md"
+                    if not art_file.exists():
+                        try:
+                            from scripts.backfill_instapaper_fulltext import backfill_atom_fulltext
+                            if backfill_atom_fulltext(requests.Session(), dict(row), b, vault_dir):
+                                print(f"   📖 Enriched existing atom {aid} with Instapaper full text ({title[:40]})")
+                        except Exception:
+                            pass
                 state["instapaper"]["synced_ids"].append(bm_id)
             continue
 
         title = b.get("title") or "Untitled Bookmark"
         desc = b.get("description") or None
 
+        # Fetch parsed full text directly from Instapaper API
+        article_md = None
+        article_wc = 0
+        article_author = None
+        if bm_id:
+            try:
+                parse_url = f"https://www.instapaper.com/api/2/bookmarks/{bm_id}/parse"
+                p_resp = requests.get(parse_url, headers=headers, timeout=20)
+                if p_resp.status_code == 200:
+                    p_data = p_resp.json()
+                    c_body = p_data.get("content", {}).get("body") if isinstance(p_data.get("content"), dict) else p_data.get("content")
+                    if c_body:
+                        from scripts.backfill_instapaper_fulltext import html_to_clean_markdown
+                        article_md, article_wc = html_to_clean_markdown(c_body, url=bm_url)
+                    meta_obj = p_data.get("metadata", {})
+                    if isinstance(meta_obj, dict) and meta_obj.get("author"):
+                        auth_val = meta_obj["author"]
+                        article_author = auth_val.get("name") if isinstance(auth_val, dict) else str(auth_val)
+            except Exception as pe:
+                print(f"      ⚠️ Failed to fetch Instapaper parsed article text: {pe}")
+
         print(f"   ✨ Ingesting: {title[:50]}... ({bm_url[:40]}...)")
+        target_kind = "article" if article_md and article_wc >= 80 else "bookmark"
         args = types.SimpleNamespace(
             url=bm_url,
             title=title,
@@ -151,10 +186,17 @@ def pull_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"
             favorite=False,
             vault=str(vault_dir),
             visibility=visibility,
-            target_kind="article"
+            target_kind=target_kind
         )
         try:
             curate.cmd_save_link(args)
+            # If we extracted full article markdown from Instapaper, ensure article.md is saved
+            if article_md and target_kind == "article":
+                from scripts.backfill_instapaper_fulltext import backfill_atom_fulltext
+                row = conn.execute("SELECT id, kind, created_at, atom_title, author, destination_url, source_url, raw_json FROM atoms WHERE source_url = ? OR destination_url = ? ORDER BY created_at DESC LIMIT 1", (bm_url, bm_url)).fetchone()
+                if row:
+                    backfill_atom_fulltext(requests.Session(), dict(row), b, vault_dir)
+
             imported += 1
             if bm_id:
                 state["instapaper"]["synced_ids"].append(bm_id)
