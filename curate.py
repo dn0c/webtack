@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-OpenCurate CLI
-A local-first, durable web curation and bookmarking framework using the Payload Sidecar pattern.
+WideWeb Curate CLI (v3)
+A local-first, durable web curation and bookmarking framework using the Content Sidecar pattern.
 """
 
 import argparse
 import csv
 import email.utils
+import gzip
 import hashlib
 import html
 import json
@@ -38,6 +39,7 @@ except ImportError as e:
 DEFAULT_VAULT = Path(os.environ.get("WIDEWEB_VAULT", os.environ.get("OPENCURATE_VAULT", Path(__file__).resolve().parent / "vault")))
 DEFAULT_GCS_BUCKET = os.environ.get("WIDEWEB_GCS_BUCKET", "wideweb-assets-drew")
 SCHEMA_URL = "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json"
+SCHEMA_VERSION = 3
 
 _HTTP_SESSION = None
 
@@ -662,7 +664,7 @@ def cmd_video(args):
         "$schema": SCHEMA_URL,
         "id": atom_id,
         "kind": "video",
-        "version": 2,
+        "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
         "provenance": {
@@ -684,7 +686,7 @@ def cmd_video(args):
             "visibility": visibility,
             "favorite": getattr(args, "favorite", False)
         },
-        "payload": {
+        "content": {
             "cover_image": cover_meta,
             "text": None,
             "article": None,
@@ -885,7 +887,7 @@ def cmd_save_link(args):
         "$schema": SCHEMA_URL,
         "id": atom_id,
         "kind": kind,
-        "version": 2,
+        "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
         "provenance": {
@@ -907,7 +909,7 @@ def cmd_save_link(args):
             "visibility": visibility,
             "favorite": args.favorite
         },
-        "payload": {
+        "content": {
             "cover_image": cover_meta,
             "text": text_meta,
             "article": article_meta,
@@ -990,7 +992,7 @@ def cmd_quote(args):
         "$schema": SCHEMA_URL,
         "id": atom_id,
         "kind": "quote",
-        "version": 2,
+        "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
         "provenance": {
@@ -1012,7 +1014,7 @@ def cmd_quote(args):
             "visibility": visibility,
             "favorite": args.favorite
         },
-        "payload": {
+        "content": {
             "cover_image": None,
             "text": {
                 "file": quote_filename,
@@ -1092,7 +1094,7 @@ def cmd_note(args):
         "$schema": SCHEMA_URL,
         "id": atom_id,
         "kind": "note",
-        "version": 2,
+        "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
         "provenance": {
@@ -1114,7 +1116,7 @@ def cmd_note(args):
             "visibility": visibility,
             "favorite": args.favorite
         },
-        "payload": {
+        "content": {
             "cover_image": None,
             "text": {
                 "file": note_filename,
@@ -1242,7 +1244,7 @@ def cmd_image(args):
         "$schema": SCHEMA_URL,
         "id": atom_id,
         "kind": "image",
-        "version": 2,
+        "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
         "provenance": {
@@ -1264,7 +1266,7 @@ def cmd_image(args):
             "visibility": visibility,
             "favorite": args.favorite
         },
-        "payload": {
+        "content": {
             "cover_image": {
                 "file": cover_filename,
                 "relative_path": cover_rel_path,
@@ -1363,7 +1365,7 @@ def cmd_list(args):
         "file": "📄"
     }
 
-    print(f"\n📚 OpenCurate Vault ({len(rows)} items shown):")
+    print(f"\n📚 WideWeb Vault ({len(rows)} items shown):")
     print("─" * 80)
     for r in rows:
         icon = kind_icons.get(r["kind"], "📦")
@@ -2439,12 +2441,12 @@ def cmd_reindex(args):
                 now_iso = doc.get("created_at", datetime.now(timezone.utc).isoformat())
                 prov = doc.get("provenance", {})
                 cur = doc.get("curation", {})
-                payload = doc.get("payload", {})
+                content = doc.get("content") or doc.get("payload") or {}
                 
                 # Backwards compatibility: Read kind from root envelope (v2+), curation (v2-beta), or display_hint (v1)
                 kind = doc.get("kind") or cur.get("kind")
                 if not kind or kind == "link":
-                    if (Path(root) / "article.md").exists() or (payload.get("article") and payload["article"].get("file")):
+                    if (Path(root) / "article.md").exists() or (content.get("article") and content["article"].get("file")):
                         kind = "article"
                     elif cur.get("display_hint") == "text":
                         kind = "quote"
@@ -2453,20 +2455,20 @@ def cmd_reindex(args):
                     else:
                         kind = "bookmark"
 
-                # Cover image mapping (handles both v1 asset and v2 cover_image)
-                cover = payload.get("cover_image") or payload.get("asset") or {}
+                # Cover image mapping (handles v1 asset, v2 payload, v3 content)
+                cover = content.get("cover_image") or content.get("asset") or {}
                 if isinstance(cover, str):
                     cover = {"relative_path": cover}
                 cover_rel_path = cover.get("relative_path")
 
-                text = payload.get("text") or {}
+                text = content.get("text") or {}
                 if isinstance(text, str):
                     text_content = text
                     text = {"excerpt": text}
                 else:
                     text_content = text.get("excerpt")
 
-                article = payload.get("article") or {}
+                article = content.get("article") or {}
                 if not isinstance(article, dict):
                     article = {}
                 if not text_content:
@@ -2514,6 +2516,8 @@ def cmd_reindex(args):
                 if isinstance(atom_notes, dict):
                     atom_notes = atom_notes.get("plain") or atom_notes.get("markdown") or str(atom_notes)
 
+                source_url_val = prov.get("source_url") or content.get("destination_url")
+
                 with conn:
                     conn.execute("""
                         INSERT INTO atoms (
@@ -2526,8 +2530,8 @@ def cmd_reindex(args):
                         cur.get("atom_title", "Untitled"), atom_notes,
                         json.dumps(normalize_tags(cur.get("tags", []))), json.dumps(cur.get("collections", [])),
                         cur.get("visibility", "public"),
-                        1 if cur.get("favorite") else 0, payload.get("destination_url"),
-                        cover_rel_path, text_content, prov.get("source_url"),
+                        1 if cur.get("favorite") else 0, source_url_val,
+                        cover_rel_path, text_content, source_url_val,
                         prov.get("author"), json.dumps(meta_bag), json.dumps(doc)
                     ))
                 count += 1
@@ -2636,15 +2640,16 @@ def cmd_backfill_transcripts(args):
             meta["transcript_language"] = transcript_data["language"]
             meta["transcript_checked"] = True
 
-            if "payload" not in raw:
-                raw["payload"] = {}
-            if "video" not in raw["payload"]:
-                raw["payload"]["video"] = {}
-            raw["payload"]["video"]["has_transcript"] = True
-            raw["payload"]["video"]["transcript_file"] = rel_txt
-            raw["payload"]["video"]["transcript_json"] = rel_json
-            raw["payload"]["video"]["transcript_language"] = transcript_data["language"]
-            raw["payload"]["video"]["transcript_is_generated"] = transcript_data["is_generated"]
+            content_key = "content" if "content" in raw else ("payload" if "payload" in raw else "content")
+            if content_key not in raw:
+                raw[content_key] = {}
+            if "video" not in raw[content_key] or not isinstance(raw[content_key]["video"], dict):
+                raw[content_key]["video"] = {}
+            raw[content_key]["video"]["has_transcript"] = True
+            raw[content_key]["video"]["transcript_file"] = rel_txt
+            raw[content_key]["video"]["transcript_json"] = rel_json
+            raw[content_key]["video"]["transcript_language"] = transcript_data["language"]
+            raw[content_key]["video"]["transcript_is_generated"] = transcript_data["is_generated"]
 
             with open(atom_dir / "atom.json", "w", encoding="utf-8") as f:
                 json.dump(raw, f, indent=2, ensure_ascii=False)
@@ -2759,18 +2764,21 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
         raw = json.loads(r["raw_json"]) if r["raw_json"] else {}
         prov = raw.get("provenance", {})
         cur = raw.get("curation", {})
+        content_layer = raw.get("content") or raw.get("payload") or {}
         collections = json.loads(r["collections"]) if r["collections"] else cur.get("collections", [])
-        cover_payload = raw.get("payload", {}).get("cover_image", {}) or {}
-        alt_text = cover_payload.get("alt_text")
+        cover_content = content_layer.get("cover_image", {}) or {}
+        alt_text = cover_content.get("alt_text")
 
-        # Clean deprecated fields from raw payload and provenance
-        if raw and isinstance(raw, dict) and "payload" in raw and isinstance(raw["payload"], dict):
-            raw["payload"].pop("destination_url", None)
-            if "cover_image" in raw["payload"] and isinstance(raw["payload"]["cover_image"], dict):
-                raw["payload"]["cover_image"].pop("original_src_url", None)
-        if raw and isinstance(raw, dict) and "provenance" in raw and isinstance(raw["provenance"], dict):
-            raw["provenance"].pop("author_url", None)
-            raw["provenance"].pop("canonical_url", None)
+        # Clean deprecated fields from raw content and provenance
+        if raw and isinstance(raw, dict):
+            for layer_key in ("content", "payload"):
+                if layer_key in raw and isinstance(raw[layer_key], dict):
+                    raw[layer_key].pop("destination_url", None)
+                    if "cover_image" in raw[layer_key] and isinstance(raw[layer_key]["cover_image"], dict):
+                        raw[layer_key]["cover_image"].pop("original_src_url", None)
+            if "provenance" in raw and isinstance(raw["provenance"], dict):
+                raw["provenance"].pop("author_url", None)
+                raw["provenance"].pop("canonical_url", None)
 
         source_url_val = r["source_url"] or r["destination_url"]
 
@@ -2815,7 +2823,12 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(public_items, f, separators=(",", ":"), ensure_ascii=False)
 
+    recent_file = export_dir / "curation_recent.json"
+    with open(recent_file, "w", encoding="utf-8") as f:
+        json.dump(public_items[:72], f, separators=(",", ":"), ensure_ascii=False)
+
     print(f"📄 Generated {out_file} ({len(public_items)} public atoms)")
+    print(f"📄 Generated {recent_file} ({min(len(public_items), 72)} recent atoms for instant staged load)")
     return out_file
 
 
@@ -2864,48 +2877,81 @@ def get_gcs_access_token():
     return None
 
 
-def upload_manifest_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
-    """Upload curation_public.json directly to GCS using the high-speed REST API."""
-    json_path = vault_dir / "export" / "curation_public.json"
-    if not json_path.exists():
-        print(f"❌ {json_path} does not exist.")
-        return False
-
+def _upload_file_to_gcs(file_path: Path, bucket: str, token: str, gcloud_bin: str, max_age: int = 120):
+    name = file_path.name
     base_url = f"https://storage.googleapis.com/{bucket}"
-    print("🚀 Uploading curation_public.json to GCS root via REST API...")
-    token = get_gcs_access_token()
+    with open(file_path, "rb") as f:
+        raw_bytes = f.read()
+    gz_bytes = gzip.compress(raw_bytes, compresslevel=9)
+
     if token:
-        upload_url = f"https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o?uploadType=media&name=curation_public.json"
+        boundary = "===============7330832792=="
+        meta = {
+            "name": name,
+            "contentType": "application/json",
+            "contentEncoding": "gzip",
+            "cacheControl": f"public, max-age={max_age}"
+        }
+        body = (
+            f"--{boundary}\r\n"
+            "Content-Type: application/json; charset=UTF-8\r\n\r\n"
+            + json.dumps(meta) + "\r\n"
+            f"--{boundary}\r\n"
+            "Content-Type: application/json\r\n\r\n"
+        ).encode("utf-8") + gz_bytes + f"\r\n--{boundary}--\r\n".encode("utf-8")
+
         headers = {
             "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=60"
+            "Content-Type": f"multipart/related; boundary={boundary}"
         }
-        with open(json_path, "rb") as f:
-            resp = requests.post(upload_url, headers=headers, data=f, timeout=60)
+        upload_url = f"https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o?uploadType=multipart"
+        resp = requests.post(upload_url, headers=headers, data=body, timeout=120)
         if resp.status_code == 200:
-            print(f"✅ Published JSON manifest to {base_url}/curation_public.json")
+            print(f"✅ Published {name} to {base_url}/{name} (gzipped: {len(gz_bytes)/1024:.1f} KB, raw: {len(raw_bytes)/1024/1024:.2f} MB)")
             return True
         else:
-            print(f"⚠️ REST upload returned {resp.status_code}, falling back to gcloud CLI...")
+            print(f"⚠️ REST upload of {name} returned {resp.status_code}, falling back to gcloud CLI...")
 
     # Fallback to gcloud CLI
-    gcloud_bin = "/Users/drew/Documents/google-cloud-sdk/bin/gcloud"
-    if not Path(gcloud_bin).exists():
-        gcloud_bin = "gcloud"
     cp_cmd = [
         gcloud_bin, "--quiet", "storage", "cp",
-        str(json_path),
-        f"gs://{bucket}/curation_public.json",
-        "--cache-control=public, max-age=60"
+        str(file_path),
+        f"gs://{bucket}/{name}",
+        f"--cache-control=public, max-age={max_age}"
     ]
     res_json = subprocess.run(cp_cmd, capture_output=True, text=True)
     if res_json.returncode == 0:
-        print(f"✅ Published JSON manifest to {base_url}/curation_public.json")
+        print(f"✅ Published {name} to {base_url}/{name}")
         return True
     else:
-        print(f"⚠️ JSON upload warning: {res_json.stderr}")
+        print(f"⚠️ {name} upload warning: {res_json.stderr}")
         return False
+
+
+def upload_manifest_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
+    """Upload curation_recent.json and curation_public.json directly to GCS with gzip compression."""
+    export_dir = vault_dir / "export"
+    files_to_upload = [
+        export_dir / "curation_recent.json",
+        export_dir / "curation_public.json"
+    ]
+
+    token = get_gcs_access_token()
+    gcloud_bin = "/Users/drew/Documents/google-cloud-sdk/bin/gcloud"
+    if not Path(gcloud_bin).exists():
+        gcloud_bin = "gcloud"
+
+    all_ok = True
+    for f in files_to_upload:
+        if f.exists():
+            print(f"🚀 Uploading {f.name} to GCS root with gzip compression...")
+            ok = _upload_file_to_gcs(f, bucket, token, gcloud_bin)
+            if not ok:
+                all_ok = False
+        else:
+            print(f"⚠️ {f} does not exist, skipping.")
+
+    return all_ok
 
 
 def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
@@ -2979,8 +3025,8 @@ def cmd_mcp(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="OpenCurate CLI - Local-first web curation framework")
-    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to OpenCurate vault directory")
+    parser = argparse.ArgumentParser(description="WideWeb Curate CLI - Local-first web curation framework")
+    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to WideWeb vault directory")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     def add_capture_args(p):
