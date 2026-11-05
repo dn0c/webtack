@@ -412,9 +412,9 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
             tag_slug = ch_slug or "are.na"
             tags_list = f"are.na,{tag_slug}" if tag_slug != "are.na" else "are.na"
 
-            # Parse quote provenance if description contains 'Highlight from:' or 'Source:'
+            # Parse quote/source provenance if description contains 'Highlight from:', 'Source:', or 'Via:'
             m_title = re.search(r'Highlight from:\s*(.+)', notes or '', re.IGNORECASE)
-            m_source = re.search(r'Source:\s*(https?://\S+)', notes or '', re.IGNORECASE)
+            m_source = re.search(r'(?:Source|Via):\s*(https?://\S+)', notes or '', re.IGNORECASE)
             source_title = m_title.group(1).strip() if m_title else None
             source_url = m_source.group(1).strip() if m_source else source_url
 
@@ -479,7 +479,7 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                         tags=tags_list,
                         collection=collection_name,
                         author=it.get("user", {}).get("name") if isinstance(it.get("user"), dict) else None,
-                        source=source_url or f"https://www.are.na/block/{block_id}",
+                        source=source_url,
                         favorite=False,
                         vault=str(vault_dir),
                         visibility=visibility,
