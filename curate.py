@@ -1173,6 +1173,21 @@ def cmd_image(args):
     if not author and source_candidate:
         author = extract_author_from_url(source_candidate)
 
+    # 1. Resolve or Auto-Generate Alt Text
+    alt_text = getattr(args, "alt", None)
+    try:
+        import ai_enrich
+        if not alt_text or ai_enrich.is_placeholder_alt(alt_text):
+            generated_alt = ai_enrich.generate_image_alt_text(abs_cover_path)
+            if generated_alt:
+                alt_text = generated_alt
+                print(f"   ✨ Auto-generated alt text: {alt_text}")
+    except Exception as e:
+        pass
+
+    if not alt_text:
+        alt_text = atom_title
+
     atom_doc = {
         "$schema": SCHEMA_URL,
         "id": atom_id,
@@ -1206,7 +1221,7 @@ def cmd_image(args):
                 "aspect_ratio": downloaded["aspect_ratio"],
                 "blurhash": downloaded["blurhash"],
                 "color_palette": downloaded["color_palette"],
-                "alt_text": getattr(args, "alt", None) or atom_title
+                "alt_text": alt_text
             },
             "text": None,
             "article": None,
@@ -1233,6 +1248,19 @@ def cmd_image(args):
             json.dumps(collections), visibility, 1 if args.favorite else 0, args.source or source_candidate, cover_rel_path,
             None, source_candidate, author, json.dumps(meta_bag), json.dumps(atom_doc)
         ))
+
+    # 2. Sync to Are.na block if owned and connected
+    try:
+        import ai_enrich
+        arena_bid = getattr(args, "arena_block_id", None) or ai_enrich.extract_arena_block_id(source_candidate)
+        if arena_bid and alt_text:
+            ok, msg = ai_enrich.push_arena_alt_text(arena_bid, alt_text)
+            if ok:
+                print(f"   ☁️ Synced alt text to Are.na block {arena_bid}")
+            elif "cannot manage" not in msg:
+                print(f"   ℹ️ Are.na sync: {msg}")
+    except Exception:
+        pass
 
     print(f"\n🖼️ Image atom saved successfully!")
     print(f"   ID:      {atom_id}")
@@ -2186,7 +2214,8 @@ def cmd_import_arena(args):
                     collection=args.collection or channel_title,
                     visibility=block_vis,
                     favorite=False,
-                    vault=str(vault_dir)
+                    vault=str(vault_dir),
+                    arena_block_id=b.get("id")
                 )
                 try:
                     cmd_image(img_args)
@@ -2827,6 +2856,18 @@ def cmd_pull(args):
     inbound_sync.pull_all(vault_dir, service=service, limit=limit, visibility=visibility)
 
 
+def cmd_enrich(args):
+    """Enrich image atoms with AI-generated alt text and sync to Are.na."""
+    import ai_enrich
+    vault_dir = Path(args.vault).resolve()
+    ai_enrich.batch_enrich_vault(
+        vault_dir=vault_dir,
+        limit=getattr(args, "limit", None),
+        force=getattr(args, "force", False),
+        push_to_arena=not getattr(args, "no_arena", False)
+    )
+
+
 def cmd_mcp(args):
     """Run the WideWeb Model Context Protocol (MCP) server for Claude Desktop / AI assistants."""
     import wideweb_mcp
@@ -3018,6 +3059,13 @@ def main():
     p_pull.add_argument("--limit", type=int, default=25, help="Max items to fetch per service (default: 25)")
     p_pull.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Default visibility tier (default: public)")
     p_pull.set_defaults(func=cmd_pull)
+
+    # 14. Enrich command (AI Vision Alt Text & Are.na Sync)
+    p_enrich = subparsers.add_parser("enrich", help="Generate AI alt text for images using Gemini Flash and sync to Are.na")
+    p_enrich.add_argument("--limit", type=int, default=None, help="Max images to enrich in this run")
+    p_enrich.add_argument("--force", action="store_true", help="Re-generate alt text even if already present")
+    p_enrich.add_argument("--no-arena", action="store_true", help="Skip syncing alt text to Are.na")
+    p_enrich.set_defaults(func=cmd_enrich)
 
     args = parser.parse_args()
     args.func(args)

@@ -347,13 +347,15 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                         src=img_src,
                         title=title,
                         notes=notes,
+                        alt=img_data.get("alt_text"),
                         tags=tags_list,
                         collection=collection_name,
                         author=it.get("user", {}).get("name") if isinstance(it.get("user"), dict) else None,
                         source=source_url or f"https://www.are.na/block/{block_id}",
                         favorite=False,
                         vault=str(vault_dir),
-                        visibility=visibility
+                        visibility=visibility,
+                        arena_block_id=block_id
                     )
                     curate.cmd_image(args)
                     imported += 1

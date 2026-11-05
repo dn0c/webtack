@@ -14,6 +14,11 @@ venv/
 .venv/
 env/
 
+# Local Environment Variables & Secrets
+.env
+.env.*
+.sync_credentials.json
+
 # Operating System Files
 .DS_Store
 Thumbs.db
