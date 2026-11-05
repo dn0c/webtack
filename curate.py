@@ -834,7 +834,7 @@ def cmd_save_link(args):
     text_meta = None
     quote_rel_path = None
     if getattr(args, "quote", None):
-        quote_filename = "quote.txt"
+        quote_filename = "quote.md"
         abs_quote_path = abs_folder / quote_filename
         with open(abs_quote_path, "w", encoding="utf-8") as f:
             f.write(args.quote.strip())
@@ -946,8 +946,8 @@ def cmd_quote(args):
     abs_folder = vault_dir / rel_folder
     abs_folder.mkdir(parents=True, exist_ok=True)
 
-    # Write quote.txt
-    quote_filename = "quote.txt"
+    # Write quote.md
+    quote_filename = "quote.md"
     abs_quote_path = abs_folder / quote_filename
     with open(abs_quote_path, "w", encoding="utf-8") as f:
         f.write(args.quote.strip())
@@ -2378,16 +2378,38 @@ def cmd_reindex(args):
 
                 # Cover image mapping (handles both v1 asset and v2 cover_image)
                 cover = payload.get("cover_image") or payload.get("asset") or {}
+                if isinstance(cover, str):
+                    cover = {"relative_path": cover}
                 cover_rel_path = cover.get("relative_path")
+
                 text = payload.get("text") or {}
+                if isinstance(text, str):
+                    text_content = text
+                    text = {"excerpt": text}
+                else:
+                    text_content = text.get("excerpt")
+
                 article = payload.get("article") or {}
-                text_content = text.get("excerpt")
+                if not isinstance(article, dict):
+                    article = {}
                 if not text_content:
                     atom_dir = Path(root)
                     if (atom_dir / "transcript.txt").exists():
                         try:
                             with open(atom_dir / "transcript.txt", "r", encoding="utf-8") as tf:
                                 text_content = tf.read()
+                        except Exception:
+                            pass
+                    elif (atom_dir / "quote.md").exists():
+                        try:
+                            with open(atom_dir / "quote.md", "r", encoding="utf-8") as qf:
+                                text_content = qf.read()
+                        except Exception:
+                            pass
+                    elif (atom_dir / "quote.txt").exists():
+                        try:
+                            with open(atom_dir / "quote.txt", "r", encoding="utf-8") as qf:
+                                text_content = qf.read()
                         except Exception:
                             pass
                     elif (atom_dir / "note.md").exists():
@@ -2411,6 +2433,10 @@ def cmd_reindex(args):
                 if "blurhash" not in meta_bag and cover.get("blurhash"):
                     meta_bag["blurhash"] = cover.get("blurhash")
 
+                atom_notes = cur.get("notes")
+                if isinstance(atom_notes, dict):
+                    atom_notes = atom_notes.get("plain") or atom_notes.get("markdown") or str(atom_notes)
+
                 with conn:
                     conn.execute("""
                         INSERT INTO atoms (
@@ -2420,7 +2446,7 @@ def cmd_reindex(args):
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         atom_id, kind, now_iso, doc.get("updated_at", now_iso),
-                        cur.get("atom_title", "Untitled"), cur.get("notes"),
+                        cur.get("atom_title", "Untitled"), atom_notes,
                         json.dumps(normalize_tags(cur.get("tags", []))), json.dumps(cur.get("collections", [])),
                         cur.get("visibility", "public"),
                         1 if cur.get("favorite") else 0, payload.get("destination_url"),

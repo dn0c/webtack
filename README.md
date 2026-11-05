@@ -15,7 +15,7 @@ WideWeb categorizes every curated piece of content into an explicit semantic `ki
 | **`article`** | Longform essay, newsletter, or post | `cover.jpg` + `article.md` | `published_at`, `favicon`, `word_count`, `read_time`, `blurhash` |
 | **`bookmark`** | Lightweight web pointer (tool, repo, site) | `cover.jpg` (OG card) | `destination_url`, `favicon`, `blurhash`, `palette` |
 | **`video`** | YouTube, Vimeo, or video stream | `cover.jpg` + `transcript.txt` | `provider`, `embed_url`, `captions_count`, `language` |
-| **`quote`** | Attributed verbatim excerpt | `quote.txt` | `author`, `source_url`, `word_count` |
+| **`quote`** | Attributed verbatim excerpt | `quote.md` | `author`, `source_url`, `word_count` |
 | **`note`** | Personal thought, memo, or reflection | `note.md` | `word_count` (zero external URL required) |
 | **`image`** | Photo, artwork, diagram, or scan | `cover.jpg` | `dimensions`, `aspect_ratio`, `blurhash`, `color_palette`, `alt_text` |
 | **`file`** | Document, PDF, or attachment | `document.pdf` + `cover.png` | `file_size_bytes`, `file_extension`, `page_count` |
@@ -220,5 +220,5 @@ wideweb/
                     ├── transcript.txt # Timestamped spoken dialogue (for videos)
                     ├── transcript.json# Machine-readable dialogue offsets
                     ├── note.md        # Formatted markdown thoughts (for notes)
-                    └── quote.txt      # Text excerpt (for quotes)
+                    └── quote.md       # Formatted markdown quote/excerpt (for quotes)
 ```
