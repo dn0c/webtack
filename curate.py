@@ -2751,6 +2751,7 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
     base_url = f"https://storage.googleapis.com/{bucket}"
 
     public_items = []
+    raw_recent = []
     for r in rows:
         tags = json.loads(r["tags"]) if r["tags"] else []
         meta = json.loads(r["metadata"]) if r["metadata"] else {}
@@ -2782,13 +2783,19 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
 
         source_url_val = r["source_url"] or r["destination_url"]
 
+        created_at = r["created_at"] or ""
+        folder_rel = f"atoms/{created_at[:4]}/{created_at[5:7]}/{r['id']}"
+
+        # atom.json public URL for on-demand lazy loading in schema explorer
+        atom_url = None
+        if (vault_dir / folder_rel / "atom.json").exists():
+            atom_url = f"{base_url}/{folder_rel}/atom.json"
+
         # For articles, do not inline the full text in the public manifest (prevents 120MB+ bloat).
         # Supply article_url so client can lazy-load article.md on demand when opening reader modal.
         article_url = None
         content_val = None
         if r["kind"] == "article":
-            created_at = r["created_at"] or ""
-            folder_rel = f"atoms/{created_at[:4]}/{created_at[5:7]}/{r['id']}"
             if (vault_dir / folder_rel / "article.md").exists():
                 article_url = f"{base_url}/{folder_rel}/article.md"
             content_val = None
@@ -2798,6 +2805,7 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
 
         clean_raw = prune_empty_schema_fields(raw) if raw else {}
 
+        # Streamlined item for high-performance public manifest
         item = {
             "id": r["id"],
             "kind": r["kind"],
@@ -2812,23 +2820,32 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
             "source_url": source_url_val,
             "cover_url": cover_url,
             "article_url": article_url,
+            "atom_url": atom_url,
             "excerpt": (r["text_content"][:300] + "...") if r["text_content"] and len(r["text_content"]) > 300 else r["text_content"],
             "content": content_val,
-            "metadata": meta,
-            "raw": clean_raw
+            "metadata": meta
         }
         public_items.append(item)
+        if len(raw_recent) < 72:
+            raw_recent.append(clean_raw)
 
     out_file = export_dir / "curation_public.json"
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(public_items, f, separators=(",", ":"), ensure_ascii=False)
 
+    # For curation_recent.json, embed raw on the top 72 items for instant zero-fetch inspection
+    recent_items = []
+    for it, raw_obj in zip(public_items[:72], raw_recent):
+        cp = dict(it)
+        cp["raw"] = raw_obj
+        recent_items.append(cp)
+
     recent_file = export_dir / "curation_recent.json"
     with open(recent_file, "w", encoding="utf-8") as f:
-        json.dump(public_items[:72], f, separators=(",", ":"), ensure_ascii=False)
+        json.dump(recent_items, f, separators=(",", ":"), ensure_ascii=False)
 
     print(f"📄 Generated {out_file} ({len(public_items)} public atoms)")
-    print(f"📄 Generated {recent_file} ({min(len(public_items), 72)} recent atoms for instant staged load)")
+    print(f"📄 Generated {recent_file} ({len(recent_items)} recent atoms with embedded raw schema)")
     return out_file
 
 
@@ -2961,8 +2978,8 @@ def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
     if not Path(gcloud_bin).exists():
         gcloud_bin = "gcloud"
 
-    # Exclude metadata, non-article texts/notes, and private atoms
-    exclude_regex = ".*(\\.json|\\.txt|note\\.md|quote\\.md|\\.DS_Store|atm_20261104210906_a7152e|atm_20261104210908_e2ecc1|atm_20261104210910_f82447|atm_20261104210911_9c6058|atm_20261104210912_f6a4da).*"
+    # Exclude non-article texts/notes, transcripts, and private atoms (syncs images, article.md, and atom.json)
+    exclude_regex = ".*(transcript\\.json|\\.txt|note\\.md|quote\\.md|\\.DS_Store|atm_20261104210906_a7152e|atm_20261104210908_e2ecc1|atm_20261104210910_f82447|atm_20261104210911_9c6058|atm_20261104210912_f6a4da).*"
 
     cmd = [
         gcloud_bin, "storage", "rsync",
