@@ -151,6 +151,23 @@ To browse, search, and download all exports in your browser, click **📦 Export
 
 ---
 
+## Sync to Public Garden (`curate.py sync`)
+
+Publishes public atoms to your live digital garden (e.g., `drewshannon.net/garden`):
+1. Exports `curation_public.json` containing metadata, tags, and excerpts for atoms where `visibility = 'public'` (keeps private atoms local-only).
+2. Uploads the manifest to Google Cloud Storage (`gs://wideweb-assets-drew/curation_public.json`).
+3. Rsyncs public cover images to `gs://wideweb-assets-drew/atoms/`.
+
+```bash
+# Full sync: manifest + image assets
+python3 curate.py sync
+
+# Fast sync: manifest only (instant updates for tags/titles/notes)
+python3 curate.py sync --manifest-only
+```
+
+---
+
 ## Disaster Recovery (`reindex`)
 
 Deletes `vault.db`, walks your local `atoms/` directory, and reconstructs the entire SQLite search database from the `atom.json` sidecars in seconds:
