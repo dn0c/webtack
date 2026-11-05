@@ -659,7 +659,6 @@ def cmd_video(args):
             "favorite": getattr(args, "favorite", False)
         },
         "payload": {
-            "destination_url": video_info["canonical_url"],
             "cover_image": cover_meta,
             "text": None,
             "article": None,
@@ -881,7 +880,6 @@ def cmd_save_link(args):
             "favorite": args.favorite
         },
         "payload": {
-            "destination_url": args.url,
             "cover_image": cover_meta,
             "text": text_meta,
             "article": article_meta,
@@ -984,7 +982,6 @@ def cmd_quote(args):
             "favorite": args.favorite
         },
         "payload": {
-            "destination_url": args.source,
             "cover_image": None,
             "text": {
                 "file": quote_filename,
@@ -1084,7 +1081,6 @@ def cmd_note(args):
             "favorite": args.favorite
         },
         "payload": {
-            "destination_url": None,
             "cover_image": None,
             "text": {
                 "file": note_filename,
@@ -1217,7 +1213,6 @@ def cmd_image(args):
             "favorite": args.favorite
         },
         "payload": {
-            "destination_url": args.source or source_candidate,
             "cover_image": {
                 "file": cover_filename,
                 "relative_path": cover_rel_path,
@@ -2671,6 +2666,13 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
         cover_payload = raw.get("payload", {}).get("cover_image", {}) or {}
         alt_text = cover_payload.get("alt_text")
 
+        # Clean deprecated destination_url from raw payload
+        if raw and isinstance(raw, dict) and "payload" in raw and isinstance(raw["payload"], dict):
+            raw["payload"].pop("destination_url", None)
+
+        source_url_val = r["source_url"] or r["destination_url"]
+        canonical_url_val = prov.get("canonical_url")
+
         item = {
             "id": r["id"],
             "kind": r["kind"],
@@ -2682,8 +2684,8 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
             "date": r["created_at"][:10] if r["created_at"] else "",
             "author": r["author"],
             "site_name": prov.get("site_name"),
-            "destination_url": r["destination_url"],
-            "source_url": r["source_url"],
+            "source_url": source_url_val,
+            "canonical_url": canonical_url_val,
             "cover_url": cover_url,
             "excerpt": (r["text_content"][:300] + "...") if r["text_content"] and len(r["text_content"]) > 300 else r["text_content"],
             "content": r["text_content"],

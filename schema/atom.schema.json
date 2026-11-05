@@ -71,7 +71,6 @@
     "payload": {
       "type": "object",
       "properties": {
-        "destination_url": { "type": ["string", "null"] },
         "cover_image": {
           "type": "object",
           "description": "Universal visual anchor: photo, article OG card, video poster, or PDF preview",

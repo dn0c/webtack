@@ -35,7 +35,7 @@ def get_db():
 def search_vault(query: str = "", kind: str = "", tag: str = "", limit: int = 15) -> list[dict]:
     """Search the WideWeb curation vault by keyword, semantic title, spoken dialogue, article text, notes, or tags."""
     conn, vault_dir = get_db()
-    sql = "SELECT id, kind, created_at, atom_title, author, destination_url, tags, notes, text_content FROM atoms WHERE 1=1"
+    sql = "SELECT id, kind, created_at, atom_title, author, source_url, destination_url, tags, notes, text_content FROM atoms WHERE 1=1"
     params = []
     if query:
         sql += " AND (atom_title LIKE ? OR text_content LIKE ? OR notes LIKE ? OR tags LIKE ?)"
@@ -58,7 +58,7 @@ def search_vault(query: str = "", kind: str = "", tag: str = "", limit: int = 15
             "kind": r["kind"],
             "title": r["atom_title"],
             "author": r["author"],
-            "url": r["destination_url"],
+            "url": r["source_url"] or r["destination_url"],
             "date": r["created_at"][:10],
             "tags": json.loads(r["tags"]) if r["tags"] else [],
             "notes": r["notes"],
