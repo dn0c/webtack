@@ -175,8 +175,8 @@ def extract_arena_block_id(source_url: str = None, doc: dict = None, vault_dir: 
         meta = doc.get("metadata_json") or {}
         if isinstance(meta, dict) and meta.get("arena_block_id"):
             return str(meta["arena_block_id"])
-        # Check provenance
-        prov_src = doc.get("provenance", {}).get("source_url")
+        # Check source / provenance
+        prov_src = (doc.get("source") or doc.get("provenance") or {}).get("source_url")
         if prov_src:
             m = re.search(r"are\.na/block/(\d+)", prov_src)
             if m:
@@ -239,7 +239,9 @@ def enrich_atom_image(doc: dict, vault_dir: Path, push_to_arena: bool = True) ->
     Returns (updated, new_alt_text, arena_sync_status).
     """
     vault_dir = Path(vault_dir).resolve()
-    cover_img = doc.get("payload", {}).get("cover_image", {})
+    layer_key = "content" if "content" in doc else ("payload" if "payload" in doc else "content")
+    content_obj = doc.get(layer_key, {})
+    cover_img = content_obj.get("cover_image", {}) if isinstance(content_obj, dict) else {}
     if not isinstance(cover_img, dict):
         return False, None, None
 
@@ -262,12 +264,15 @@ def enrich_atom_image(doc: dict, vault_dir: Path, push_to_arena: bool = True) ->
 
     # Update doc
     cover_img["alt_text"] = new_alt
-    doc["payload"]["cover_image"] = cover_img
+    if layer_key not in doc:
+        doc[layer_key] = {}
+    doc[layer_key]["cover_image"] = cover_img
     doc["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     arena_status = None
     if push_to_arena:
-        bid = extract_arena_block_id(doc.get("provenance", {}).get("source_url"), doc)
+        src_url = (doc.get("source") or doc.get("provenance") or {}).get("source_url")
+        bid = extract_arena_block_id(src_url, doc)
         if bid:
             ok, msg = push_arena_alt_text(bid, new_alt)
             arena_status = msg
@@ -294,7 +299,8 @@ def batch_enrich_vault(vault_dir: Path, limit: int = None, force: bool = False, 
     for r in rows:
         raw = r["raw_json"]
         doc = json.loads(raw)
-        cover_img = doc.get("payload", {}).get("cover_image", {})
+        layer_key = "content" if "content" in doc else ("payload" if "payload" in doc else "content")
+        cover_img = doc.get(layer_key, {}).get("cover_image", {}) if isinstance(doc.get(layer_key), dict) else {}
         alt = cover_img.get("alt_text") if isinstance(cover_img, dict) else None
         if force or is_placeholder_alt(alt):
             targets.append((r["id"], doc, r["cover_file_path"]))
@@ -319,7 +325,12 @@ def batch_enrich_vault(vault_dir: Path, limit: int = None, force: bool = False, 
             print("❌ Failed or skipped")
             continue
 
-        doc["payload"]["cover_image"]["alt_text"] = new_alt
+        layer_key = "content" if "content" in doc else ("payload" if "payload" in doc else "content")
+        if layer_key not in doc:
+            doc[layer_key] = {}
+        if "cover_image" not in doc[layer_key] or not isinstance(doc[layer_key]["cover_image"], dict):
+            doc[layer_key]["cover_image"] = {}
+        doc[layer_key]["cover_image"]["alt_text"] = new_alt
         doc["updated_at"] = now_iso
 
         # Write atom.json
@@ -340,7 +351,8 @@ def batch_enrich_vault(vault_dir: Path, limit: int = None, force: bool = False, 
 
         arena_info = ""
         if push_to_arena:
-            bid = extract_arena_block_id(doc.get("provenance", {}).get("source_url"), doc)
+            src_url = (doc.get("source") or doc.get("provenance") or {}).get("source_url")
+            bid = extract_arena_block_id(src_url, doc)
             if bid:
                 ok, msg = push_arena_alt_text(bid, new_alt)
                 if ok:

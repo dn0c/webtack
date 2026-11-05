@@ -46,7 +46,7 @@ def get_atoms_data(vault_dir: Path):
 
         visibility = r["visibility"] if "visibility" in r.keys() and r["visibility"] else raw.get("curation", {}).get("visibility", "public")
 
-        cover_image_data = raw.get("payload", {}).get("cover_image") or {}
+        cover_image_data = (raw.get("content") or raw.get("payload") or {}).get("cover_image") or {}
         alt_text = cover_image_data.get("alt_text")
 
         atoms_data.append({
@@ -819,21 +819,25 @@ def generate_viewer(vault_dir: Path) -> Path:
       color: var(--muted);
       border: 1px solid var(--border);
     }}
-    .tier-provenance .tier-number-pill {{
-      background: rgba(180, 83, 9, 0.12);
-      color: #B45309;
-    }}
     .tier-curation .tier-number-pill {{
       background: rgba(43, 76, 126, 0.12);
       color: var(--accent);
     }}
+    .tier-source .tier-number-pill,
+    .tier-provenance .tier-number-pill {{
+      background: rgba(180, 83, 9, 0.12);
+      color: #B45309;
+    }}
+    .tier-content .tier-number-pill,
     .tier-payload .tier-number-pill {{
       background: rgba(13, 148, 136, 0.12);
       color: #0D9488;
     }}
     @media (prefers-color-scheme: dark) {{
-      .tier-provenance .tier-number-pill {{ color: #F59E0B; background: rgba(245, 158, 11, 0.18); }}
       .tier-curation .tier-number-pill {{ color: #93C5FD; background: rgba(147, 197, 253, 0.18); }}
+      .tier-source .tier-number-pill,
+      .tier-provenance .tier-number-pill {{ color: #F59E0B; background: rgba(245, 158, 11, 0.18); }}
+      .tier-content .tier-number-pill,
       .tier-payload .tier-number-pill {{ color: #2DD4BF; background: rgba(45, 212, 191, 0.18); }}
     }}
     .tier-title {{
@@ -879,13 +883,15 @@ def generate_viewer(vault_dir: Path) -> Path:
       display: inline-block;
       letter-spacing: 0.02em;
     }}
-    .payload-slots-grid {{
+    .payload-slots-grid,
+    .content-slots-grid {{
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
       gap: 6px;
       margin-top: 10px;
     }}
-    .payload-slot-badge {{
+    .payload-slot-badge,
+    .content-slot-badge {{
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -895,13 +901,15 @@ def generate_viewer(vault_dir: Path) -> Path:
       border-radius: 6px;
       font-size: 11px;
     }}
-    .payload-slot-badge.active {{
+    .payload-slot-badge.active,
+    .content-slot-badge.active {{
       border-color: #0D9488;
       background: rgba(13, 148, 136, 0.08);
       color: #0D9488;
       font-weight: 600;
     }}
-    .payload-slot-badge.inactive {{
+    .payload-slot-badge.inactive,
+    .content-slot-badge.inactive {{
       opacity: 0.55;
       color: var(--muted);
     }}
@@ -1445,7 +1453,8 @@ def generate_viewer(vault_dir: Path) -> Path:
 
         let tagsHtml = (atom.tags || []).map(t => `<span class="tag">#${{t}}</span>`).join('');
         let extrasHtml = '';
-        if (atom.kind === 'video' || (atom.raw && atom.raw.payload && atom.raw.payload.video && atom.raw.payload.video.embed_url)) {{
+        const rawContent = (atom.raw && (atom.raw.content || atom.raw.payload)) || {{}};
+        if (atom.kind === 'video' || (rawContent.video && rawContent.video.embed_url)) {{
           extrasHtml = `<button class="read-btn" style="background:#6B46C1;" onclick="openVideoPlayer('${{atom.id}}')">▶ Play</button>`;
         }} else if (atom.kind === 'article' || atom.article_markdown) {{
           extrasHtml = `<button class="read-btn" onclick="openReader('${{atom.id}}')">📖 Read</button>`;
@@ -1712,7 +1721,8 @@ def generate_viewer(vault_dir: Path) -> Path:
       const atom = ATOMS.find(a => a.id === atomId);
       if (!atom) return;
 
-      const video = (atom.raw && atom.raw.payload && atom.raw.payload.video) || {{}};
+      const rawContent = (atom.raw && (atom.raw.content || atom.raw.payload)) || {{}};
+      const video = rawContent.video || {{}};
       const videoSrc = atom.source_url || '';
       let embedUrl = video.embed_url || (videoSrc.includes('watch?v=') ? videoSrc.replace("watch?v=", "embed/") : null);
       if (!embedUrl) return;
@@ -1815,8 +1825,10 @@ def generate_viewer(vault_dir: Path) -> Path:
 
       const raw = atom.raw || {{}};
       const curation = raw.curation || {{}};
-      const provenance = raw.provenance || {{}};
-      const payload = raw.payload || {{}};
+      const source = raw.source || raw.provenance || {{}};
+      const provenance = source;
+      const payload = raw.content || raw.payload || {{}};
+      const content = payload;
       const metadata = atom.metadata || raw.metadata_json || {{}};
 
       const kindPill = document.getElementById('metaKindPill');
@@ -1913,39 +1925,74 @@ def generate_viewer(vault_dir: Path) -> Path:
         `;
       }}
 
-      // TIER 1: SYSTEM ENVELOPE
+      // SYSTEM ENVELOPE (Header Strip)
       const schemaUrl = raw['$schema'] || 'https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json';
-      const tier1Html = `
-        <div class="schema-tier-card tier-envelope">
-          <div class="tier-badge-header">
-            <span class="tier-number-pill">Tier 1</span>
-            <span class="tier-title">System Envelope</span>
-            <span class="tier-tagline">Storage, identity & immutability</span>
+      const envelopeHtml = `
+        <div class="system-envelope-bar" style="background:var(--bg); border:1px dashed var(--border); border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; font-size:12px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="kind-pill kind-${{atom.kind}}">${{atom.kind}}</span>
+            <span class="spec-mono" style="font-weight:600; color:var(--text);">${{escapeHtml(atom.id)}}</span>
+            <span class="spec-mono" style="color:var(--muted); font-size:11px;">v${{raw.version || 3}}</span>
+            <span style="color:var(--border);">•</span>
+            <span class="spec-mono" style="color:var(--muted); font-size:11px;">${{escapeHtml(atom.folder_path || `atoms/.../${{atom.id}}`)}}</span>
           </div>
-          <div class="tier-content-grid">
-            <div class="tier-prop"><span class="tier-k">Atom ID</span><span class="tier-v spec-mono">${{escapeHtml(atom.id)}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Kind</span><span class="tier-v"><span class="kind-pill kind-${{atom.kind}}">${{atom.kind}}</span></span></div>
-            <div class="tier-prop"><span class="tier-k">Version</span><span class="tier-v spec-mono">v${{raw.version || 2}} (OpenCurate Spec)</span></div>
-            <div class="tier-prop"><span class="tier-k">Schema URL</span><span class="tier-v">${{renderVal(schemaUrl, true, true, 36)}}</span></div>
-            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Storage Path</span><span class="tier-v spec-mono">${{escapeHtml(atom.folder_path || `atoms/.../${{atom.id}}`)}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Captured At</span><span class="tier-v">${{renderVal(createdDateStr)}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Updated At</span><span class="tier-v">${{renderVal(updatedDateStr)}}</span></div>
+          <div style="display:flex; align-items:center; gap:12px; font-size:11.5px; color:var(--muted);">
+            <span>Captured: <strong style="color:var(--text);">${{escapeHtml(createdDateStr || '—')}}</strong></span>
+            ${{updatedDateStr ? `<span>Updated: <strong style="color:var(--text);">${{escapeHtml(updatedDateStr)}}</strong></span>` : ''}}
+            <a href="${{escapeHtml(schemaUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;" title="WideWeb Atom Spec">Schema ↗</a>
           </div>
         </div>
       `;
 
-      // TIER 2: PROVENANCE LAYER
-      const fav = provenance.favicon;
+      // TIER 1: CURATION LAYER
+      const collectionsVal = (curation.collections && curation.collections.length) ? escapeHtml(curation.collections.join(', ')) : renderVal(null);
+      const favoriteVal = curation.favorite ? '<span class="spec-mono" style="color:#D97706; font-weight:600;">★ true (favorited)</span>' : '<span class="spec-mono" style="color:var(--muted);">false</span>';
+      const tagsVal = (atom.tags && atom.tags.length) ? `<div class="tags" style="display:inline-flex; flex-wrap:wrap; gap:4px;">${{(atom.tags || []).map(t => `<span class="tag">#${{escapeHtml(t)}}</span>`).join('')}}</div>` : renderVal(null);
+
+      const notesHtml = atom.notes ? `
+        <div class="meta-notes-banner" style="margin-top: 14px; margin-bottom: 0;">
+          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">notes</div>
+          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{renderMarkdown(atom.notes)}}</div>
+        </div>
+      ` : `
+        <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 4px;">
+          <span class="tier-k">notes</span>
+          <span class="tier-v">${{renderVal(null)}} <span style="font-size:11px; color:var(--muted);">(no notes attached)</span></span>
+        </div>
+      `;
+
+      const tier1Html = `
+        <div class="schema-tier-card tier-curation">
+          <div class="tier-badge-header">
+            <span class="tier-number-pill">Tier 1</span>
+            <span class="tier-title">Curation Layer</span>
+            <span class="tier-tagline">Editorial perspective, taxonomy & annotations</span>
+          </div>
+          <div class="tier-content-grid">
+            <div class="tier-prop"><span class="tier-k">Curated Title</span><span class="tier-v" style="font-weight:600;">${{escapeHtml(atom.title || 'Untitled Atom')}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Visibility</span><span class="tier-v"><span class="vis-badge vis-${{atom.visibility || 'public'}}">${{atom.visibility === 'private' ? '🔒 ' : (atom.visibility === 'shared' ? '👥 ' : '🌐 ')}}${{atom.visibility || 'public'}}</span></span></div>
+            <div class="tier-prop"><span class="tier-k">Favorite</span><span class="tier-v">${{favoriteVal}}</span></div>
+            <div class="tier-prop"><span class="tier-k">Collections</span><span class="tier-v">${{collectionsVal}}</span></div>
+            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Tags</span><span class="tier-v">${{tagsVal}}</span></div>
+            ${{!atom.notes ? notesHtml : ''}}
+          </div>
+          ${{atom.notes ? notesHtml : ''}}
+        </div>
+      `;
+
+      // TIER 2: SOURCE LAYER
+      const fav = source.favicon || provenance.favicon;
       const favDisplay = fav ? `<span style="display:inline-flex; align-items:center; gap:6px;"><img src="${{escapeHtml(fav)}}" alt="" style="width:14px;height:14px;border-radius:2px;vertical-align:middle;"><a href="${{escapeHtml(fav)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(fav, 32)}} ↗</a></span>` : renderVal(null);
-      const siteDisplay = provenance.site_name ? escapeHtml(provenance.site_name) : renderVal(null);
+      const siteDisplay = (source.site_name || provenance.site_name) ? escapeHtml(source.site_name || provenance.site_name) : renderVal(null);
       const authorDisplay = atom.author ? `<strong>${{escapeHtml(atom.author)}}</strong>` : renderVal(null);
-      const sourceTitleDisplay = provenance.source_title ? escapeHtml(provenance.source_title) : renderVal(null);
-      const sourceUrlDisplay = provenance.source_url ? `<a href="${{escapeHtml(provenance.source_url)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(provenance.source_url, 52)}} ↗</a>` : renderVal(null);
+      const sourceTitleDisplay = (source.source_title || provenance.source_title) ? escapeHtml(source.source_title || provenance.source_title) : renderVal(null);
+      const srcUrl = source.source_url || provenance.source_url;
+      const sourceUrlDisplay = srcUrl ? `<a href="${{escapeHtml(srcUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${{truncateUrl(srcUrl, 52)}} ↗</a>` : renderVal(null);
       const publishedDisplay = publishedDateStr ? escapeHtml(publishedDateStr) : renderVal(null);
 
-      const captureMethod = provenance.capture_method || null;
-      const captureId = provenance.capture_id || null;
-      const captureUrl = provenance.capture_url || null;
+      const captureMethod = source.capture_method || provenance.capture_method || null;
+      const captureId = source.capture_id || provenance.capture_id || null;
+      const captureUrl = source.capture_url || provenance.capture_url || null;
 
       let captureMethodDisplay = renderVal(null);
       if (captureMethod) {{
@@ -1979,10 +2026,10 @@ def generate_viewer(vault_dir: Path) -> Path:
       }}
 
       const tier2Html = `
-        <div class="schema-tier-card tier-provenance">
+        <div class="schema-tier-card tier-source tier-provenance">
           <div class="tier-badge-header">
             <span class="tier-number-pill">Tier 2</span>
-            <span class="tier-title">Provenance Layer</span>
+            <span class="tier-title">Source Layer</span>
             <span class="tier-tagline">Origin, attribution & publisher source</span>
           </div>
           <div class="tier-content-grid">
@@ -1998,43 +2045,7 @@ def generate_viewer(vault_dir: Path) -> Path:
         </div>
       `;
 
-      // TIER 3: CURATION LAYER
-      const collectionsVal = (curation.collections && curation.collections.length) ? escapeHtml(curation.collections.join(', ')) : renderVal(null);
-      const favoriteVal = curation.favorite ? '<span class="spec-mono" style="color:#D97706; font-weight:600;">★ true (favorited)</span>' : '<span class="spec-mono" style="color:var(--muted);">false</span>';
-      const tagsVal = (atom.tags && atom.tags.length) ? `<div class="tags" style="display:inline-flex; flex-wrap:wrap; gap:4px;">${{(atom.tags || []).map(t => `<span class="tag">#${{escapeHtml(t)}}</span>`).join('')}}</div>` : renderVal(null);
-
-      const notesHtml = atom.notes ? `
-        <div class="meta-notes-banner" style="margin-top: 14px; margin-bottom: 0;">
-          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">notes</div>
-          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{renderMarkdown(atom.notes)}}</div>
-        </div>
-      ` : `
-        <div class="tier-prop" style="grid-column: 1 / -1; margin-top: 4px;">
-          <span class="tier-k">notes</span>
-          <span class="tier-v">${{renderVal(null)}} <span style="font-size:11px; color:var(--muted);">(no notes attached)</span></span>
-        </div>
-      `;
-
-      const tier3Html = `
-        <div class="schema-tier-card tier-curation">
-          <div class="tier-badge-header">
-            <span class="tier-number-pill">Tier 3</span>
-            <span class="tier-title">Curation Layer</span>
-            <span class="tier-tagline">Editorial perspective, taxonomy & annotations</span>
-          </div>
-          <div class="tier-content-grid">
-            <div class="tier-prop"><span class="tier-k">Curated Title</span><span class="tier-v" style="font-weight:600;">${{escapeHtml(atom.title || 'Untitled Atom')}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Visibility</span><span class="tier-v"><span class="vis-badge vis-${{atom.visibility || 'public'}}">${{atom.visibility === 'private' ? '🔒 ' : (atom.visibility === 'shared' ? '👥 ' : '🌐 ')}}${{atom.visibility || 'public'}}</span></span></div>
-            <div class="tier-prop"><span class="tier-k">Favorite</span><span class="tier-v">${{favoriteVal}}</span></div>
-            <div class="tier-prop"><span class="tier-k">Collections</span><span class="tier-v">${{collectionsVal}}</span></div>
-            <div class="tier-prop" style="grid-column: 1 / -1;"><span class="tier-k">Tags</span><span class="tier-v">${{tagsVal}}</span></div>
-            ${{!atom.notes ? notesHtml : ''}}
-          </div>
-          ${{atom.notes ? notesHtml : ''}}
-        </div>
-      `;
-
-      // TIER 4: PAYLOAD LAYER
+      // TIER 3: CONTENT LAYER
       let payloadContentHtml = '';
 
       if (atom.kind === 'quote' && (atom.excerpt || atom.title)) {{
@@ -2143,26 +2154,26 @@ def generate_viewer(vault_dir: Path) -> Path:
       const slotsShowcaseHtml = `
         <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border);">
           <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.05em;">
-            Universal Modular Payload Slots
+            Universal Modular Content Slots
           </div>
-          <div class="payload-slots-grid">
-            <div class="payload-slot-badge ${{slotCoverActive ? 'active' : 'inactive'}}">
+          <div class="content-slots-grid payload-slots-grid">
+            <div class="content-slot-badge payload-slot-badge ${{slotCoverActive ? 'active' : 'inactive'}}">
               <span>cover_image</span>
               <span>${{slotCoverActive ? '✓ set' : 'null'}}</span>
             </div>
-            <div class="payload-slot-badge ${{slotArticleActive ? 'active' : 'inactive'}}">
+            <div class="content-slot-badge payload-slot-badge ${{slotArticleActive ? 'active' : 'inactive'}}">
               <span>article</span>
               <span>${{slotArticleActive ? '✓ set' : 'null'}}</span>
             </div>
-            <div class="payload-slot-badge ${{slotTextActive ? 'active' : 'inactive'}}">
+            <div class="content-slot-badge payload-slot-badge ${{slotTextActive ? 'active' : 'inactive'}}">
               <span>text</span>
               <span>${{slotTextActive ? '✓ set' : 'null'}}</span>
             </div>
-            <div class="payload-slot-badge ${{slotVideoActive ? 'active' : 'inactive'}}">
+            <div class="content-slot-badge payload-slot-badge ${{slotVideoActive ? 'active' : 'inactive'}}">
               <span>video</span>
               <span>${{slotVideoActive ? '✓ set' : 'null'}}</span>
             </div>
-            <div class="payload-slot-badge ${{slotFileActive ? 'active' : 'inactive'}}">
+            <div class="content-slot-badge payload-slot-badge ${{slotFileActive ? 'active' : 'inactive'}}">
               <span>file</span>
               <span>${{slotFileActive ? '✓ set' : 'null'}}</span>
             </div>
@@ -2216,11 +2227,11 @@ def generate_viewer(vault_dir: Path) -> Path:
         </div>
       `;
 
-      const tier4Html = `
-        <div class="schema-tier-card tier-payload">
+      const tier3Html = `
+        <div class="schema-tier-card tier-content tier-payload">
           <div class="tier-badge-header">
-            <span class="tier-number-pill">Tier 4</span>
-            <span class="tier-title">Payload Layer</span>
+            <span class="tier-number-pill">Tier 3</span>
+            <span class="tier-title">Content Layer</span>
             <span class="tier-tagline">Offline assets, content body & extracted metrics</span>
           </div>
           ${{payloadContentHtml}}
@@ -2243,10 +2254,10 @@ def generate_viewer(vault_dir: Path) -> Path:
         </div>
 
         <div class="schema-tiers-container">
+          ${{envelopeHtml}}
           ${{tier1Html}}
           ${{tier2Html}}
           ${{tier3Html}}
-          ${{tier4Html}}
         </div>
 
         <details class="meta-json-details">
@@ -2767,7 +2778,7 @@ def generate_export_page(vault_dir: Path) -> Path:
       <div class="hero-banner">
         <h1 class="hero-title">Knowledge Exports & Data Portability</h1>
         <p class="hero-desc">
-          WideWeb is built on the Payload Sidecar pattern: files on your local drive are the canonical source of truth. Your knowledge is never trapped inside proprietary cloud databases or walled gardens. Export your curated library into open standards for AI synthesis, personal knowledge management, browsers, and research.
+          WideWeb is built on the Content Sidecar pattern: files on your local drive are the canonical source of truth. Your knowledge is never trapped inside proprietary cloud databases or walled gardens. Export your curated library into open standards for AI synthesis, personal knowledge management, browsers, and research.
         </p>
         <div class="hero-stats-row">
           <div class="hero-stat">
@@ -3302,8 +3313,9 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                 created_at = atom_doc["created_at"]
                 folder = self.vault_dir / "atoms" / created_at[:4] / created_at[5:7] / atom_doc["id"]
                 article_text = None
-                if atom_doc.get("payload", {}).get("article", {}):
-                    art_file = atom_doc["payload"]["article"].get("file")
+                content_doc = atom_doc.get("content") or atom_doc.get("payload") or {}
+                if content_doc.get("article", {}):
+                    art_file = content_doc["article"].get("file")
                     if art_file and (folder / art_file).exists():
                         try:
                             with open(folder / art_file, "r", encoding="utf-8") as f:
@@ -3320,10 +3332,10 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                                 excerpt_text = tf.read()
                         except Exception:
                             pass
-                elif atom_doc.get("payload", {}).get("text", {}):
-                    excerpt_text = atom_doc["payload"]["text"].get("excerpt")
-                elif atom_doc.get("payload", {}).get("quote", {}):
-                    excerpt_text = atom_doc["payload"]["quote"].get("text")
+                elif content_doc.get("text", {}):
+                    excerpt_text = content_doc["text"].get("excerpt")
+                elif content_doc.get("quote", {}):
+                    excerpt_text = content_doc["quote"].get("text")
 
                 card_data = {
                     "id": atom_doc["id"],
@@ -3333,9 +3345,9 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                     "tags": atom_doc["curation"]["tags"],
                     "date": created_at[:10],
                     "created_at": created_at,
-                    "source_url": atom_doc.get("provenance", {}).get("source_url") or atom_doc.get("payload", {}).get("destination_url"),
-                    "author": atom_doc.get("provenance", {}).get("author"),
-                    "cover_path": atom_doc.get("payload", {}).get("cover_image", {}).get("relative_path") if atom_doc.get("payload", {}).get("cover_image") else None,
+                    "source_url": (atom_doc.get("source") or atom_doc.get("provenance") or {}).get("source_url") or content_doc.get("destination_url"),
+                    "author": (atom_doc.get("source") or atom_doc.get("provenance") or {}).get("author"),
+                    "cover_path": content_doc.get("cover_image", {}).get("relative_path") if content_doc.get("cover_image") else None,
                     "metadata": atom_doc.get("metadata_json", {}),
                     "article_markdown": article_text,
                     "excerpt": excerpt_text,

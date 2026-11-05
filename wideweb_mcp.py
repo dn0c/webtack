@@ -69,7 +69,7 @@ def search_vault(query: str = "", kind: str = "", tag: str = "", limit: int = 15
 
 @app.tool()
 def get_atom(atom_id: str) -> dict:
-    """Retrieve full details of an atom by ID, including its full payload body or transcript dialogue."""
+    """Retrieve full details of an atom by ID, including its full content body or transcript dialogue."""
     conn, vault_dir = get_db()
     row = conn.execute("SELECT * FROM atoms WHERE id = ?", (atom_id,)).fetchone()
     if not row:

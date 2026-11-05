@@ -313,15 +313,16 @@ def main():
         if note_md_path.exists():
             os.remove(note_md_path)
 
-        # Build payload & provenance
+        # Build content & source
         rel_quote_path = f"atoms/{row['created_at'][:4]}/{row['created_at'][5:7]}/{atom_id}/quote.txt"
         doc["kind"] = "quote"
         doc["updated_at"] = now_iso
         doc["curation"]["atom_title"] = q_cfg["title"]
-        doc["provenance"]["source_url"] = q_cfg["source_url"]
-        doc["provenance"]["source_title"] = q_cfg["source_title"]
-        doc["provenance"]["site_name"] = q_cfg["site_name"]
-        doc["provenance"]["author"] = q_cfg["author"]
+        src = doc.setdefault("source", doc.pop("provenance", {}))
+        src["source_url"] = q_cfg["source_url"]
+        src["source_title"] = q_cfg["source_title"]
+        src["site_name"] = q_cfg["site_name"]
+        src["author"] = q_cfg["author"]
 
         doc["payload"]["cover_image"] = None
         doc["payload"]["text"] = {
@@ -378,9 +379,10 @@ def main():
         doc["kind"] = "bookmark"
         doc["updated_at"] = now_iso
         doc["curation"]["atom_title"] = b_cfg["title"]
-        doc["provenance"]["source_url"] = url
-        doc["provenance"]["source_title"] = b_cfg["title"]
-        doc["provenance"]["site_name"] = b_cfg["site_name"]
+        src = doc.setdefault("source", doc.pop("provenance", {}))
+        src["source_url"] = url
+        src["source_title"] = b_cfg["title"]
+        src["site_name"] = b_cfg["site_name"]
 
         doc["payload"]["destination_url"] = url
         doc["payload"]["text"] = None
@@ -433,9 +435,10 @@ def main():
         doc["kind"] = "image"
         doc["updated_at"] = now_iso
         doc["curation"]["atom_title"] = img_cfg["title"]
-        doc["provenance"]["source_url"] = img_url
-        doc["provenance"]["site_name"] = img_cfg["site_name"]
-        doc["provenance"]["author"] = img_cfg["author"]
+        src = doc.setdefault("source", doc.pop("provenance", {}))
+        src["source_url"] = img_url
+        src["site_name"] = img_cfg["site_name"]
+        src["author"] = img_cfg["author"]
 
         doc["payload"]["destination_url"] = img_url
         doc["payload"]["cover_image"] = {
@@ -488,8 +491,8 @@ def main():
     viewer_file = generate_viewer(VAULT_DIR)
     print(f"   ✅ Regenerated viewer: {viewer_file}")
 
-    pub_rows = get_public_atoms()
-    export_file = generate_curation_export(pub_rows)
+    pub_rows = get_public_atoms(VAULT_DIR)
+    export_file = generate_curation_export(VAULT_DIR, pub_rows)
     print(f"   ✅ Exported curation manifest: {export_file} ({len(pub_rows)} public atoms)")
 
     print("\n🎉 All notes cleaned up successfully!")

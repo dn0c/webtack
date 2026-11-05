@@ -667,7 +667,7 @@ def cmd_video(args):
         "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
-        "provenance": {
+        "source": {
             "source_url": video_info.get("canonical_url") or args.url,
             "source_title": video_info["title"],
             "site_name": video_info["provider"],
@@ -890,7 +890,7 @@ def cmd_save_link(args):
         "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
-        "provenance": {
+        "source": {
             "source_url": scraped.get("canonical_url") or args.url,
             "source_title": scraped["source_title"],
             "site_name": scraped["site_name"],
@@ -995,7 +995,7 @@ def cmd_quote(args):
         "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
-        "provenance": {
+        "source": {
             "source_url": args.source,
             "source_title": args.source_title,
             "site_name": urlparse(args.source).netloc if args.source else None,
@@ -1097,7 +1097,7 @@ def cmd_note(args):
         "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
-        "provenance": {
+        "source": {
             "source_url": None,
             "source_title": None,
             "site_name": None,
@@ -1247,7 +1247,7 @@ def cmd_image(args):
         "version": SCHEMA_VERSION,
         "created_at": now_iso,
         "updated_at": now_iso,
-        "provenance": {
+        "source": {
             "source_url": source_candidate,
             "source_title": None,
             "site_name": author,
@@ -2439,7 +2439,7 @@ def cmd_reindex(args):
 
                 atom_id = doc["id"]
                 now_iso = doc.get("created_at", datetime.now(timezone.utc).isoformat())
-                prov = doc.get("provenance", {})
+                prov = doc.get("source") or doc.get("provenance") or {}
                 cur = doc.get("curation", {})
                 content = doc.get("content") or doc.get("payload") or {}
                 
@@ -2763,23 +2763,24 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
             cover_url = f"{base_url}/{cover_rel}"
 
         raw = json.loads(r["raw_json"]) if r["raw_json"] else {}
-        prov = raw.get("provenance", {})
+        prov = raw.get("source") or raw.get("provenance") or {}
         cur = raw.get("curation", {})
         content_layer = raw.get("content") or raw.get("payload") or {}
         collections = json.loads(r["collections"]) if r["collections"] else cur.get("collections", [])
         cover_content = content_layer.get("cover_image", {}) or {}
         alt_text = cover_content.get("alt_text")
 
-        # Clean deprecated fields from raw content and provenance
+        # Clean deprecated fields from raw content and source/provenance
         if raw and isinstance(raw, dict):
             for layer_key in ("content", "payload"):
                 if layer_key in raw and isinstance(raw[layer_key], dict):
                     raw[layer_key].pop("destination_url", None)
                     if "cover_image" in raw[layer_key] and isinstance(raw[layer_key]["cover_image"], dict):
                         raw[layer_key]["cover_image"].pop("original_src_url", None)
-            if "provenance" in raw and isinstance(raw["provenance"], dict):
-                raw["provenance"].pop("author_url", None)
-                raw["provenance"].pop("canonical_url", None)
+            for src_key in ("source", "provenance"):
+                if src_key in raw and isinstance(raw[src_key], dict):
+                    raw[src_key].pop("author_url", None)
+                    raw[src_key].pop("canonical_url", None)
 
         source_url_val = r["source_url"] or r["destination_url"]
 

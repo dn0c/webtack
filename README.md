@@ -1,6 +1,6 @@
 # WideWeb
 
-A local-first, durable web curation and bookmarking framework using the **Payload Sidecar** pattern.
+A local-first, durable web curation and bookmarking framework using the **Content Sidecar** pattern.
 
 Decouples capture and long-term storage from proprietary platforms. The filesystem is the canonical source of truth; SQLite is a disposable, fast index.
 
@@ -10,15 +10,154 @@ Decouples capture and long-term storage from proprietary platforms. The filesyst
 
 WideWeb categorizes every curated piece of content into an explicit semantic `kind`:
 
-| Kind | Role | Primary Payload | Key Metadata |
+| Kind | Role | Primary Content | Key Metadata |
 | :--- | :--- | :--- | :--- |
 | **`article`** | Longform essay, newsletter, or post | `cover.jpg` + `article.md` | `published_at`, `favicon`, `word_count`, `read_time`, `blurhash` |
-| **`bookmark`** | Lightweight web pointer (tool, repo, site) | `cover.jpg` (OG card) | `destination_url`, `favicon`, `blurhash`, `palette` |
+| **`bookmark`** | Lightweight web pointer (tool, repo, site) | `cover.jpg` (OG card) | `source_url`, `favicon`, `blurhash`, `palette` |
 | **`video`** | YouTube, Vimeo, or video stream | `cover.jpg` + `transcript.txt` | `provider`, `embed_url`, `captions_count`, `language` |
 | **`quote`** | Attributed verbatim excerpt | `quote.md` | `author`, `source_url`, `word_count` |
 | **`note`** | Personal thought, memo, or reflection | `note.md` | `word_count` (zero external URL required) |
 | **`image`** | Photo, artwork, diagram, or scan | `cover.jpg` | `dimensions`, `aspect_ratio`, `blurhash`, `color_palette`, `alt_text` |
 | **`file`** | Document, PDF, or attachment | `document.pdf` + `cover.png` | `file_size_bytes`, `file_extension`, `page_count` |
+
+---
+
+## WideWeb Schema Specification (v3)
+
+Every atom is anchored by a canonical `atom.json` metadata sidecar structured into three decoupled knowledge tiers wrapped in a lightweight system envelope:
+
+```
+┌────────────────────────────────────────────────────────┐
+│  System Envelope (Document Header)                     │
+│  (id, kind, version, created_at, updated_at, $schema)  │
+├────────────────────────────────────────────────────────┤
+│  Tier 1: Curation Layer                                │
+│  (atom_title, notes, tags, collections, visibility)    │
+├────────────────────────────────────────────────────────┤
+│  Tier 2: Source Layer                                  │
+│  (source_url, source_title, site_name, author, capture)│
+├────────────────────────────────────────────────────────┤
+│  Tier 3: Content Layer                                 │
+│  (cover_image, article, text, video, file attachments) │
+└────────────────────────────────────────────────────────┘
+```
+
+### System Envelope
+Document identity, machine routing, and specification versioning.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| **`id`** | `string` | Unique chronological identifier (e.g. `2026-11-05-d286-9ac7`). |
+| **`kind`** | `string` | Semantic discriminator: `article`, `bookmark`, `video`, `quote`, `note`, `image`, or `file`. |
+| **`version`** | `integer` | Schema specification version (`3`). |
+| **`created_at`** | `string (ISO 8601)` | Timestamp when the atom was first ingested into the vault. |
+| **`updated_at`** | `string (ISO 8601)` | Timestamp of most recent edit or enrichment. |
+| **`$schema`** | `string (URI)` | Canonical URL pointing to the JSON Schema validator. |
+
+---
+
+### Tier 1: Curation Layer (`curation`)
+Editorial perspective, personal taxonomy, annotations, and privacy controls.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| **`atom_title`** | `string` | Curated human-readable title (defaults to source title or user override). |
+| **`notes`** | `string \| null` | Personal Markdown thoughts, synthesis, or commentary. |
+| **`tags`** | `array[string]` | Normalized lowercase kebab-style slugs (e.g. `["systems-thinking", "design"]`). |
+| **`collections`** | `array[string]` | Named project, reading list, or channel collections (e.g. `["Reading List"]`). |
+| **`visibility`** | `string` | Egress classification: `public` (garden), `shared` (circle), or `private` (local machine only). |
+| **`favorite`** | `boolean` | Starred/favorited status for quick filtering. |
+
+---
+
+### Tier 2: Source Layer (`source`)
+Origin, attribution, publisher source, and upstream capture pipeline.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| **`source_url`** | `string \| null` | Canonical public web address of the original content. |
+| **`source_title`** | `string \| null` | Original HTML `<title>` or upstream publication headline. |
+| **`site_name`** | `string \| null` | Publisher or platform name (e.g. `The New Yorker`, `YouTube`, `Substack`). |
+| **`author`** | `string \| null` | Original author, artist, or channel creator. |
+| **`published_at`** | `string (ISO 8601) \| null` | Original publication date if detected via metadata/Open Graph. |
+| **`favicon`** | `string (URL) \| null` | Direct URL to the publisher's favicon. |
+| **`capture_method`**| `string \| null` | Ingestion tool or pipeline (`cli`, `arena`, `instapaper`, `mcp`, `extension`). |
+| **`capture_id`** | `string \| null` | Upstream item ID on source platform (e.g. Are.na block ID, Instapaper bookmark ID). |
+| **`capture_url`** | `string (URL) \| null` | Direct link to the item on the upstream capture service. |
+
+---
+
+### Tier 3: Content Layer (`content`)
+The immutable physical foundation: offline readable text, media streams, visual anchors, and attachments via a modular 5-slot architecture:
+
+| Slot / Field | Type | Description |
+| :--- | :--- | :--- |
+| **`cover_image`** | `object \| null` | **Universal Visual Anchor**: photo, article OG card, video poster, or PDF preview. Holds `file`, `relative_path`, `mime_type`, `dimensions`, `aspect_ratio`, `blurhash`, `color_palette`, `alt_text`, and `public_url`. |
+| **`text`** | `object \| null` | **Shortform Body**: quotes and notes. Holds `file` (`quote.md` or `note.md`), `excerpt` (inline markdown), and `word_count`. |
+| **`article`** | `object \| null` | **Offline Longform Body**: extracted full text. Holds `file` (`article.md`), `word_count`, and `byline`. |
+| **`video`** | `object \| null` | **Video & Transcripts**: stream player and audio captions. Holds `provider`, `embed_url`, `duration_seconds`, `transcript_file`, `transcript_json`, `transcript_language`, `transcript_is_generated`, and `has_transcript`. |
+| **`file`** | `object \| null` | **Document Attachment**: document or binary file. Holds `filename`, `file_size_bytes`, `file_extension`, and `page_count`. |
+
+---
+
+### Overflow Bag (`metadata_json`)
+A flexible JSON dictionary for niche, plugin, or experimental metadata without breaking canonical schema validation (e.g. detected reading speed, custom AI tags, color weights).
+
+### Example Canonical Atom (`atom.json`)
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json",
+  "id": "2026-11-05-b2e3-c4d5",
+  "kind": "article",
+  "version": 3,
+  "created_at": "2026-11-05T12:00:00Z",
+  "updated_at": "2026-11-05T12:00:00Z",
+  "curation": {
+    "atom_title": "On Information Routing",
+    "notes": "Essential thesis on treating productivity as a routing problem.",
+    "tags": ["systems", "productivity"],
+    "collections": ["Core Essays"],
+    "visibility": "public",
+    "favorite": true
+  },
+  "source": {
+    "source_url": "https://example.com/essay",
+    "source_title": "On Information Routing",
+    "site_name": "Digital Garden",
+    "author": "Drew Shannon",
+    "published_at": "2026-11-05T08:00:00Z",
+    "favicon": "https://example.com/favicon.ico",
+    "capture_method": "cli",
+    "capture_id": null,
+    "capture_url": null
+  },
+  "content": {
+    "cover_image": {
+      "file": "cover.jpg",
+      "relative_path": "atoms/2026/11/atm_20261105024437_b2e3c4/cover.jpg",
+      "mime_type": "image/jpeg",
+      "dimensions": { "width": 1200, "height": 630 },
+      "aspect_ratio": 1.905,
+      "blurhash": "L9RfkBxu~q-;-;j?IUt7afoeRQof",
+      "color_palette": ["#1A202C", "#EDF2F7"],
+      "alt_text": "Minimalist diagram of information nodes and network routing"
+    },
+    "text": "Productivity is an information routing problem, not an attention shortage problem.",
+    "article": {
+      "file": "article.md",
+      "relative_path": "atoms/2026/11/atm_20261105024437_b2e3c4/article.md",
+      "word_count": 2840,
+      "byline": "Drew Shannon"
+    },
+    "video": null,
+    "file": null
+  },
+  "metadata_json": {
+    "reading_time_minutes": 13
+  }
+}
+```
 
 ---
 
@@ -205,7 +344,7 @@ wideweb/
 ├── wideweb_mcp.py            # Model Context Protocol (MCP) server for AI tools
 ├── requirements.txt          # Python dependencies
 ├── schema/
-│   └── atom.schema.json      # Formal JSON Schema specification (v2)
+│   └── atom.schema.json      # Formal JSON Schema specification (v3)
 └── vault/                    # Canonical user vault (gitignored / syncable)
     ├── vault.db              # Disposable SQLite search catalog
     ├── index.html            # Zero-dependency single-page visual gallery
@@ -214,7 +353,7 @@ wideweb/
         └── YYYY/
             └── MM/
                 └── atm_YYYYMMDD.../
-                    ├── atom.json      # 4-tier structured metadata envelope
+                    ├── atom.json      # 4-tier structured metadata envelope (Envelope, Provenance, Curation, Content)
                     ├── cover.jpg      # Universal visual preview (480px, blurhash, palette)
                     ├── article.md     # Offline readable article text (for articles)
                     ├── transcript.txt # Timestamped spoken dialogue (for videos)

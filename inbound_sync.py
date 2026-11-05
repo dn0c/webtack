@@ -2,7 +2,7 @@
 """
 WideWeb — Inbound Sync for Instapaper & Are.na
 Pulls newly bookmarked/saved items from Instapaper (unread) and Are.na (all channels)
-into local WideWeb atoms with deduplication, payload enrichment, and automatic schema validation.
+into local WideWeb atoms with deduplication, content enrichment, and automatic schema validation.
 """
 
 import os
@@ -381,7 +381,9 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
                             meta["arena_block_id"] = str(block_id)
                             doc["metadata_json"] = meta
 
-                        prov = doc.setdefault("provenance", {})
+                        if "provenance" in doc and "source" not in doc:
+                            doc["source"] = doc.pop("provenance")
+                        prov = doc.setdefault("source", {})
                         if not prov.get("capture_method"):
                             prov["capture_method"] = "arena"
                             prov["capture_id"] = str(block_id)

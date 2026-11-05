@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "OpenCurateAtom",
-  "description": "Canonical schema for an OpenCurate atom (article, bookmark, video, quote, note, image, file)",
+  "title": "WideWebAtom",
+  "description": "Canonical schema for a WideWeb atom v3 (article, bookmark, video, quote, note, image, file)",
   "type": "object",
-  "required": ["id", "kind", "version", "created_at", "curation", "provenance", "payload"],
+  "required": ["id", "kind", "version", "created_at", "curation", "source", "content"],
   "properties": {
     "id": {
       "type": "string",
@@ -16,7 +16,7 @@
     },
     "version": {
       "type": "integer",
-      "default": 2
+      "default": 3
     },
     "created_at": {
       "type": "string",
@@ -26,8 +26,9 @@
       "type": "string",
       "format": "date-time"
     },
-    "provenance": {
+    "source": {
       "type": "object",
+      "description": "Source Layer: origin, attribution, publisher metadata and upstream capture context",
       "properties": {
         "source_url": { "type": ["string", "null"] },
         "source_title": { "type": ["string", "null"] },
@@ -78,18 +79,20 @@
         "favorite": { "type": "boolean", "default": false }
       }
     },
-    "payload": {
+    "content": {
       "type": "object",
+      "description": "Content Layer: primary text body, offline readable markdown, visual assets, video streams, transcripts and file attachments",
       "properties": {
         "cover_image": {
-          "type": "object",
+          "type": ["object", "null"],
           "description": "Universal visual anchor: photo, article OG card, video poster, or PDF preview",
           "properties": {
             "file": { "type": ["string", "null"] },
+            "relative_path": { "type": ["string", "null"] },
             "mime_type": { "type": ["string", "null"] },
             "hash": { "type": ["string", "null"] },
             "dimensions": {
-              "type": "object",
+              "type": ["object", "null"],
               "properties": {
                 "width": { "type": "integer" },
                 "height": { "type": "integer" }
@@ -106,24 +109,26 @@
           }
         },
         "text": {
-          "type": "object",
+          "type": ["object", "string", "null"],
           "properties": {
             "file": { "type": ["string", "null"] },
+            "relative_path": { "type": ["string", "null"] },
             "excerpt": { "type": ["string", "null"] },
             "word_count": { "type": ["integer", "null"] }
           }
         },
         "article": {
-          "type": "object",
+          "type": ["object", "null"],
           "description": "Offline readable article body extracted via Readability/Trafilatura",
           "properties": {
             "file": { "type": ["string", "null"] },
+            "relative_path": { "type": ["string", "null"] },
             "word_count": { "type": ["integer", "null"] },
             "byline": { "type": ["string", "null"] }
           }
         },
         "video": {
-          "type": "object",
+          "type": ["object", "null"],
           "properties": {
             "provider": { "type": ["string", "null"] },
             "embed_url": { "type": ["string", "null"] },
@@ -136,9 +141,10 @@
           }
         },
         "file": {
-          "type": "object",
+          "type": ["object", "null"],
           "properties": {
             "filename": { "type": ["string", "null"] },
+            "relative_path": { "type": ["string", "null"] },
             "file_size_bytes": { "type": ["integer", "null"] },
             "file_extension": { "type": ["string", "null"] },
             "page_count": { "type": ["integer", "null"] }
