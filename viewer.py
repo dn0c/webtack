@@ -30,15 +30,7 @@ def get_atoms_data(vault_dir: Path):
         created_at = r["created_at"]
         folder = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / r["id"]
 
-        article_text = None
-        if raw.get("payload", {}).get("article", {}):
-            art_file = raw["payload"]["article"].get("file")
-            if art_file and (folder / art_file).exists():
-                try:
-                    with open(folder / art_file, "r", encoding="utf-8") as f:
-                        article_text = f.read()
-                except Exception:
-                    pass
+        article_text = r["text_content"] if (r["kind"] == "article" or raw.get("kind") == "article") else None
 
         meta = json.loads(r["metadata"]) if r["metadata"] else {}
         tags = json.loads(r["tags"]) if r["tags"] else []

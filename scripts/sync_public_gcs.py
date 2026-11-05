@@ -74,25 +74,91 @@ def generate_curation_export(rows):
     return out_file
 
 
+def get_gcs_access_token():
+    """Retrieve and refresh OAuth access token from gcloud credentials.db."""
+    import requests
+    cred_db = Path.home() / ".config" / "gcloud" / "credentials.db"
+    if not cred_db.exists():
+        return None
+    try:
+        conn = sqlite3.connect(cred_db)
+        c = conn.cursor()
+        row = c.execute("SELECT account_id, value FROM credentials").fetchone()
+        if not row:
+            return None
+        account_id, val = row
+        cred = json.loads(val)
+        token_resp = requests.post(
+            cred["token_uri"],
+            data={
+                "client_id": cred["client_id"],
+                "client_secret": cred["client_secret"],
+                "refresh_token": cred["refresh_token"],
+                "grant_type": "refresh_token"
+            },
+            timeout=10
+        )
+        if token_resp.status_code == 200:
+            token_data = token_resp.json()
+            access_token = token_data["access_token"]
+            # Also update access_tokens.db so gcloud CLI remains authenticated
+            try:
+                import time
+                atk_db = Path.home() / ".config" / "gcloud" / "access_tokens.db"
+                if atk_db.exists():
+                    atk_conn = sqlite3.connect(atk_db)
+                    expiry = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time() + 3600))
+                    with atk_conn:
+                        atk_conn.execute("REPLACE INTO access_tokens (account_id, access_token, token_expiry) VALUES (?, ?, ?)",
+                                         (account_id, access_token, expiry))
+            except Exception:
+                pass
+            return access_token
+    except Exception as e:
+        print(f"⚠️ Could not refresh token from credentials.db: {e}")
+    return None
+
+
 def upload_manifest():
+    """Upload curation_public.json directly to GCS using the high-speed REST API."""
+    import requests
+    json_path = VAULT_DIR / "export" / "curation_public.json"
+    if not json_path.exists():
+        print(f"❌ {json_path} does not exist.")
+        return
+
+    print("🚀 Uploading curation_public.json to GCS root via REST API...")
+    token = get_gcs_access_token()
+    if token:
+        upload_url = f"https://storage.googleapis.com/upload/storage/v1/b/{GCS_BUCKET}/o?uploadType=media&name=curation_public.json"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=60"
+        }
+        with open(json_path, "rb") as f:
+            resp = requests.post(upload_url, headers=headers, data=f, timeout=60)
+        if resp.status_code == 200:
+            print(f"✅ Published JSON manifest to {GCS_BASE_URL}/curation_public.json")
+            return
+        else:
+            print(f"⚠️ REST upload returned {resp.status_code}, falling back to gcloud CLI...")
+
+    # Fallback to gcloud CLI
     gcloud_bin = "/Users/drew/Documents/google-cloud-sdk/bin/gcloud"
     if not Path(gcloud_bin).exists():
         gcloud_bin = "gcloud"
-
-    json_path = VAULT_DIR / "export" / "curation_public.json"
-    if json_path.exists():
-        print("🚀 Uploading curation_public.json to GCS root...")
-        cp_cmd = [
-            gcloud_bin, "storage", "cp",
-            str(json_path),
-            f"gs://{GCS_BUCKET}/curation_public.json",
-            "--cache-control=public, max-age=60"
-        ]
-        res_json = subprocess.run(cp_cmd, capture_output=True, text=True)
-        if res_json.returncode == 0:
-            print(f"✅ Published JSON manifest to {GCS_BASE_URL}/curation_public.json")
-        else:
-            print(f"⚠️ JSON upload warning: {res_json.stderr}")
+    cp_cmd = [
+        gcloud_bin, "--quiet", "storage", "cp",
+        str(json_path),
+        f"gs://{GCS_BUCKET}/curation_public.json",
+        "--cache-control=public, max-age=60"
+    ]
+    res_json = subprocess.run(cp_cmd, capture_output=True, text=True)
+    if res_json.returncode == 0:
+        print(f"✅ Published JSON manifest to {GCS_BASE_URL}/curation_public.json")
+    else:
+        print(f"⚠️ JSON upload warning: {res_json.stderr}")
 
 
 def sync_assets_to_gcs():
