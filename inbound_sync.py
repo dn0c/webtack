@@ -202,6 +202,7 @@ def pull_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"
         return 0
 
     conn = sqlite3.connect(vault_dir / "vault.db")
+    conn.row_factory = sqlite3.Row
     state = get_sync_state(vault_dir)
     imported = 0
 
@@ -344,6 +345,7 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
         return 0
 
     conn = sqlite3.connect(vault_dir / "vault.db")
+    conn.row_factory = sqlite3.Row
     state = get_sync_state(vault_dir)
     imported = 0
 
