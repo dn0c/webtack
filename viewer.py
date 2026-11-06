@@ -3199,7 +3199,8 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                     args = types.SimpleNamespace(
                         url=data["url"],
                         title=data.get("title"),
-                        notes=None,
+                        description=data.get("description") or data.get("notes"),
+                        notes=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),
                         collection=None,
                         image_url=None,
@@ -3213,7 +3214,8 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                     args = types.SimpleNamespace(
                         url=data["url"],
                         title=data.get("title"),
-                        notes=None,
+                        description=data.get("description") or data.get("notes"),
+                        notes=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),
                         collection=None,
                         favorite=False,

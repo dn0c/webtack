@@ -589,7 +589,7 @@ def cmd_video(args):
     atom_id = generate_atom_id()
     now_iso = datetime.now(timezone.utc).isoformat()
     atom_title = args.title or video_info["title"]
-    notes = getattr(args, "notes", None)
+    notes = getattr(args, "description", None) or getattr(args, "notes", None)
     if isinstance(notes, dict):
         notes = notes.get("plain") or notes.get("markdown") or str(notes)
     tags = normalize_tags(getattr(args, "tags", None))
@@ -686,7 +686,7 @@ def cmd_video(args):
         },
         "curation": {
             "atom_title": atom_title,
-            "notes": notes,
+            "description": notes,
             "tags": tags,
             "collections": collections,
             "visibility": visibility,
@@ -804,7 +804,7 @@ def cmd_save_link(args):
     atom_id = generate_atom_id()
     now_iso = datetime.now(timezone.utc).isoformat()
     atom_title = args.title or scraped["source_title"]
-    notes = args.notes or scraped["description"]
+    notes = getattr(args, "description", None) or getattr(args, "notes", None) or scraped.get("description")
     if isinstance(notes, dict):
         notes = notes.get("plain") or notes.get("markdown") or str(notes)
     tags = normalize_tags(args.tags)
@@ -909,7 +909,7 @@ def cmd_save_link(args):
         },
         "curation": {
             "atom_title": atom_title,
-            "notes": notes,
+            "description": notes,
             "tags": tags,
             "collections": collections,
             "visibility": visibility,
@@ -1014,7 +1014,7 @@ def cmd_quote(args):
         },
         "curation": {
             "atom_title": atom_title,
-            "notes": args.notes,
+            "description": getattr(args, "description", None) or getattr(args, "notes", None),
             "tags": tags,
             "collections": collections,
             "visibility": visibility,
@@ -1116,7 +1116,7 @@ def cmd_note(args):
         },
         "curation": {
             "atom_title": atom_title,
-            "notes": None,
+            "description": getattr(args, "description", None) or getattr(args, "notes", None),
             "tags": tags,
             "collections": collections,
             "visibility": visibility,
@@ -1209,7 +1209,7 @@ def cmd_image(args):
 
     cover_rel_path = str(rel_folder / cover_filename)
     atom_title = args.title or (Path(src).stem if not is_url else "Image")
-    notes = getattr(args, "notes", None)
+    notes = getattr(args, "description", None) or getattr(args, "notes", None)
     if isinstance(notes, dict):
         notes = notes.get("plain") or notes.get("markdown") or str(notes)
     tags = normalize_tags(args.tags)
@@ -1266,7 +1266,7 @@ def cmd_image(args):
         },
         "curation": {
             "atom_title": atom_title,
-            "notes": args.notes,
+            "description": getattr(args, "description", None) or getattr(args, "notes", None),
             "tags": tags,
             "collections": collections,
             "visibility": visibility,
@@ -2518,7 +2518,7 @@ def cmd_reindex(args):
                 if "blurhash" not in meta_bag and cover.get("blurhash"):
                     meta_bag["blurhash"] = cover.get("blurhash")
 
-                atom_notes = cur.get("notes")
+                atom_notes = cur.get("description") or cur.get("notes")
                 if isinstance(atom_notes, dict):
                     atom_notes = atom_notes.get("plain") or atom_notes.get("markdown") or str(atom_notes)
 
@@ -3067,7 +3067,7 @@ def main():
     p_art = subparsers.add_parser("article", help="Save a longform article/essay with full offline text and reader view")
     p_art.add_argument("url", help="Webpage URL of the article")
     p_art.add_argument("--title", help="Custom atom title")
-    p_art.add_argument("--notes", help="Personal curation notes")
+    p_art.add_argument("--description", "--notes", dest="description", help="Curator description or notes")
     p_art.add_argument("--tags", help="Comma-separated tags")
     p_art.add_argument("--collection", help="Collection name")
     p_art.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
@@ -3081,7 +3081,7 @@ def main():
     p_bm = subparsers.add_parser("bookmark", help="Save a lightweight web pointer (OG metadata only, no article body)")
     p_bm.add_argument("url", help="Webpage URL to bookmark")
     p_bm.add_argument("--title", help="Custom atom title")
-    p_bm.add_argument("--notes", help="Personal curation notes")
+    p_bm.add_argument("--description", "--notes", dest="description", help="Curator description or notes")
     p_bm.add_argument("--tags", help="Comma-separated tags")
     p_bm.add_argument("--collection", help="Collection name")
     p_bm.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
@@ -3095,7 +3095,7 @@ def main():
     p_link = subparsers.add_parser("link", help="Save a link into the vault (auto-detects article vs bookmark)")
     p_link.add_argument("url", help="The webpage URL to capture")
     p_link.add_argument("--title", help="Custom atom title (defaults to page title)")
-    p_link.add_argument("--notes", help="Personal curation notes")
+    p_link.add_argument("--description", "--notes", dest="description", help="Curator description or notes")
     p_link.add_argument("--tags", help="Comma-separated tags (e.g. design,systems)")
     p_link.add_argument("--collection", help="Collection name")
     p_link.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
@@ -3108,7 +3108,7 @@ def main():
     p_save = subparsers.add_parser("save", help="Alias for 'link' (smart auto-detect)")
     p_save.add_argument("url", help="The webpage URL to capture")
     p_save.add_argument("--title", help="Custom atom title (defaults to page title)")
-    p_save.add_argument("--notes", help="Personal curation notes")
+    p_save.add_argument("--description", "--notes", dest="description", help="Curator description or notes")
     p_save.add_argument("--tags", help="Comma-separated tags")
     p_save.add_argument("--collection", help="Collection name")
     p_save.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
@@ -3125,7 +3125,7 @@ def main():
     p_quote.add_argument("--source", help="Source URL where the quote was found")
     p_quote.add_argument("--source-title", help="Original article title")
     p_quote.add_argument("--author", help="Author of the quote")
-    p_quote.add_argument("--notes", help="Personal marginalia / notes")
+    p_quote.add_argument("--description", "--notes", dest="description", help="Curator description or marginalia")
     p_quote.add_argument("--tags", help="Comma-separated tags")
     p_quote.add_argument("--collection", help="Collection name")
     p_quote.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
@@ -3137,6 +3137,7 @@ def main():
     p_note = subparsers.add_parser("note", help="Save a personal thought or memo")
     p_note.add_argument("text", help="The body of the note/thought")
     p_note.add_argument("--title", help="Custom title for the note")
+    p_note.add_argument("--description", "--notes", dest="description", help="Curator description or notes")
     p_note.add_argument("--tags", help="Comma-separated tags")
     p_note.add_argument("--collection", help="Collection name")
     p_note.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
@@ -3151,7 +3152,7 @@ def main():
     p_image.add_argument("--source", help="Original webpage URL or credit link")
     p_image.add_argument("--author", help="Photographer, illustrator, or creator")
     p_image.add_argument("--alt", help="Accessibility alt text / visual description")
-    p_image.add_argument("--notes", help="Personal notes on the image")
+    p_image.add_argument("--description", "--notes", dest="description", help="Curator description or notes")
     p_image.add_argument("--tags", help="Comma-separated tags")
     p_image.add_argument("--collection", help="Collection name")
     p_image.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
@@ -3163,7 +3164,7 @@ def main():
     p_video = subparsers.add_parser("video", help="Save a video stream (YouTube, Vimeo, etc.)")
     p_video.add_argument("url", help="URL of the video to capture")
     p_video.add_argument("--title", help="Custom video title")
-    p_video.add_argument("--notes", help="Personal curation notes")
+    p_video.add_argument("--description", "--notes", dest="description", help="Curator description or notes")
     p_video.add_argument("--tags", help="Comma-separated tags")
     p_video.add_argument("--collection", help="Collection name")
     p_video.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")

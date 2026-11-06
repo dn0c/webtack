@@ -55,7 +55,8 @@
       "required": ["atom_title"],
       "properties": {
         "atom_title": { "type": "string" },
-        "notes": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "notes": { "type": ["string", "null"], "description": "Legacy alias for description" },
         "tags": {
           "type": "array",
           "description": "Universal lowercase tags (hyphen-separated for multi-word phrases)",
@@ -104,8 +105,7 @@
               "type": "array",
               "items": { "type": "string" }
             },
-            "alt_text": { "type": ["string", "null"] },
-            "public_url": { "type": ["string", "null"] }
+            "alt_text": { "type": ["string", "null"] }
           }
         },
         "text": {
