@@ -461,6 +461,12 @@ def extract_video_info(url: str) -> dict | None:
 def fetch_youtube_transcript(video_id: str, cookies: str | None = None) -> dict | None:
     """Fetch subtitles/captions using youtube-transcript-api if available."""
     session = None
+    if not cookies:
+        for candidate in [Path("cookies.txt"), Path(__file__).resolve().parent / "cookies.txt", Path.home() / "Downloads" / "cookies.txt"]:
+            if candidate.exists():
+                cookies = str(candidate)
+                break
+
     if cookies and Path(cookies).exists():
         import http.cookiejar
         import requests

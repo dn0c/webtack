@@ -18,6 +18,7 @@ env/
 .env
 .env.*
 .sync_credentials.json
+*cookie*.txt
 
 # Operating System Files
 .DS_Store
