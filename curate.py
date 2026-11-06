@@ -2578,6 +2578,8 @@ def cmd_backfill_transcripts(args):
         atom_id = r["id"]
         title = r["atom_title"] or "Untitled Video"
         url = r["destination_url"] or r["source_url"] or ""
+        meta = json.loads(r["metadata"]) if r["metadata"] else {}
+        raw = json.loads(r["raw_json"]) if r["raw_json"] else {}
 
         # Extract YouTube video id
         video_id = None
@@ -2590,6 +2592,11 @@ def cmd_backfill_transcripts(args):
 
         if not video_id:
             print(f"[{idx}/{len(to_process)}] ⚠️ Could not parse video ID from {url} ({atom_id})")
+            meta["transcript_checked"] = True
+            meta["has_transcript"] = False
+            conn.execute("UPDATE atoms SET metadata = ? WHERE id = ?", (json.dumps(meta), atom_id))
+            conn.commit()
+            unavailable_count += 1
             continue
 
         print(f"[{idx}/{len(to_process)}] 🎙️ Querying captions for '{title[:45]}' ({video_id})...")
@@ -2619,9 +2626,6 @@ def cmd_backfill_transcripts(args):
                 if p.is_dir():
                     atom_dir = p
                     break
-
-        meta = json.loads(r["metadata"]) if r["metadata"] else {}
-        raw = json.loads(r["raw_json"]) if r["raw_json"] else {}
 
         if transcript_data and atom_dir:
             txt_path = atom_dir / "transcript.txt"
