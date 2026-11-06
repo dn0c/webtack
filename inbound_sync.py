@@ -221,7 +221,7 @@ def pull_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"
                 aid = existing["id"]
                 created_at = existing["created_at"]
                 art_file = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / aid / "article.md"
-                if not art_file.exists():
+                if existing.get("kind") != "quote" and not art_file.exists():
                     try:
                         from scripts.backfill_instapaper_fulltext import backfill_atom_fulltext
                         if backfill_atom_fulltext(requests.Session(), existing, b, vault_dir):

@@ -2789,8 +2789,10 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
 
         # atom.json public URL for on-demand lazy loading in schema explorer
         atom_url = None
-        if (vault_dir / folder_rel / "atom.json").exists():
-            atom_url = f"{base_url}/{folder_rel}/atom.json"
+        atom_file = vault_dir / folder_rel / "atom.json"
+        if atom_file.exists():
+            v_tag = int(atom_file.stat().st_mtime)
+            atom_url = f"{base_url}/{folder_rel}/atom.json?v={v_tag}"
 
         # For articles, do not inline the full text in the public manifest (prevents 120MB+ bloat).
         # Supply article_url so client can lazy-load article.md on demand when opening reader modal.
@@ -3162,7 +3164,7 @@ def main():
 
     # 6. List command
     p_list = subparsers.add_parser("list", help="List atoms in the vault")
-    p_list.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file", "link"], help="Filter by kind")
+    p_list.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file"], help="Filter by kind")
     p_list.add_argument("--tag", help="Filter by tag")
     p_list.add_argument("--collection", help="Filter by collection")
     p_list.add_argument("--visibility", choices=["public", "shared", "private"], help="Filter by visibility tier")
@@ -3189,7 +3191,7 @@ def main():
         default="digest",
         help="Export target format (digest, llms-txt, obsidian, bookmarks-html, readwise, arena-csv, raindrop-csv, pinterest-csv, rss, bibtex, jsonl, json)"
     )
-    p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file", "link"], help="Filter by kind")
+    p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file"], help="Filter by kind")
     p_export.add_argument("--tag", help="Filter by tag")
     p_export.add_argument("--visibility", choices=["public", "shared", "private"], help="Filter by visibility tier (e.g. export only public atoms)")
     p_export.add_argument("--folder", help="Default Raindrop collection / folder name (default: WideWeb/<Kind>s)")

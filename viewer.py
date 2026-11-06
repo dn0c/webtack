@@ -23,7 +23,7 @@ def get_atoms_data(vault_dir: Path):
     rows = conn.execute("SELECT * FROM atoms ORDER BY created_at DESC").fetchall()
 
     atoms_data = []
-    kind_counts = {"all": len(rows), "article": 0, "bookmark": 0, "video": 0, "quote": 0, "note": 0, "image": 0, "file": 0, "link": 0}
+    kind_counts = {"all": len(rows), "article": 0, "bookmark": 0, "video": 0, "quote": 0, "note": 0, "image": 0, "file": 0}
 
     for r in rows:
         raw = json.loads(r["raw_json"])
@@ -3193,7 +3193,7 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                 if script_dir not in sys.path:
                     sys.path.insert(0, script_dir)
                 import curate
-                kind = data.get("kind", "link")
+                kind = data.get("kind", "bookmark")
                 
                 if kind in ("article", "bookmark", "link"):
                     args = types.SimpleNamespace(

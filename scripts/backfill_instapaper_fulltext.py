@@ -371,6 +371,10 @@ def main():
             already_has_article += 1
             continue
 
+        # Quotes are intentional highlight excerpts; do not overwrite quote sidecars into articles
+        if r["kind"] == "quote" or (atom_folder / "quote.md").exists():
+            continue
+
         # Match against Instapaper
         src_clean = clean_url(r["source_url"] or "")
         dest_clean = clean_url(r["destination_url"] or "")
