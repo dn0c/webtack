@@ -474,7 +474,7 @@ def fetch_youtube_transcript(video_id: str, cookies: str | None = None) -> dict 
 
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-        from youtube_transcript_api._errors import IpBlocked
+        from youtube_transcript_api._errors import IpBlocked, RequestBlocked
         ytt = YouTubeTranscriptApi(http_client=session) if session else YouTubeTranscriptApi()
         transcript_list = ytt.list(video_id)
 
@@ -526,7 +526,7 @@ def fetch_youtube_transcript(video_id: str, cookies: str | None = None) -> dict 
             "language": transcript.language_code,
             "is_generated": transcript.is_generated
         }
-    except IpBlocked:
+    except (IpBlocked, RequestBlocked):
         raise
     except Exception as e:
         return None
@@ -2564,12 +2564,11 @@ def cmd_backfill_transcripts(args):
         if not meta.get("transcript_checked"):
             candidates.append(r)
 
-    print(f"🔍 Found {len(candidates)} video atoms pending transcript extraction (processing up to {limit}).")
-    if not candidates:
+    to_process = candidates[:limit] if (limit and limit > 0) else candidates
+    print(f"🔍 Found {len(candidates)} video atoms pending transcript extraction (processing {len(to_process)}).")
+    if not to_process:
         print("✅ No video atoms require transcript backfill!")
         return
-
-    to_process = candidates[:limit]
     success_count = 0
     unavailable_count = 0
     blocked = False
@@ -3229,7 +3228,7 @@ def main():
 
     # 11. Backfill Transcripts command
     p_backfill = subparsers.add_parser("backfill-transcripts", help="Throttled background drip to fetch YouTube captions/transcripts")
-    p_backfill.add_argument("--limit", type=int, default=30, help="Max videos to process in this run (default: 30)")
+    p_backfill.add_argument("--limit", type=int, default=30, help="Max videos to process in this run (default: 30, pass 0 for all)")
     p_backfill.add_argument("--delay", type=float, default=3.5, help="Base delay in seconds between requests (default: 3.5)")
     p_backfill.add_argument("--cookies", help="Path to cookies.txt exported from browser")
     p_backfill.set_defaults(func=cmd_backfill_transcripts)
