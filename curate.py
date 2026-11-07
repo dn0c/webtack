@@ -479,9 +479,9 @@ def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key:
     if supadata_key:
         try:
             import requests
-            url = f"https://api.supadata.ai/v1/transcript?url=https://youtu.be/{video_id}&text=false"
+            url = f"https://api.supadata.ai/v1/youtube/transcript?videoId={video_id}&text=false"
             headers = {"x-api-key": supadata_key}
-            resp = requests.get(url, headers=headers, timeout=15.0)
+            resp = requests.get(url, headers=headers, timeout=25.0)
             if resp.status_code == 200:
                 data = resp.json()
                 raw_content = data.get("content")
@@ -526,7 +526,7 @@ def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key:
                         "language": lang,
                         "is_generated": True
                     }
-            elif resp.status_code in (400, 404):
+            elif resp.status_code in (206, 400, 404):
                 return None
             elif resp.status_code in (401, 403):
                 print(f"⚠️ Supadata API key error ({resp.status_code}): {resp.text}")
