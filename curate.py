@@ -36,6 +36,21 @@ except ImportError as e:
     sys.exit(f"Missing dependency: {e}. Please run: python3 -m pip install requests beautifulsoup4 pillow trafilatura blurhash-python")
 
 # Default vault path: ./vault or from environment variable
+def _load_dotenv():
+    """Load key-value pairs from .env into os.environ if not already set."""
+    env_path = Path(__file__).resolve().parent / ".env"
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k, v = k.strip(), v.strip().strip('"').strip("'")
+                    if k not in os.environ:
+                        os.environ[k] = v
+
+_load_dotenv()
+
 DEFAULT_VAULT = Path(os.environ.get("WIDEWEB_VAULT", os.environ.get("OPENCURATE_VAULT", Path(__file__).resolve().parent / "vault")))
 DEFAULT_GCS_BUCKET = os.environ.get("WIDEWEB_GCS_BUCKET", "wideweb-assets-drew")
 SCHEMA_URL = "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json"
@@ -458,8 +473,66 @@ def extract_video_info(url: str) -> dict | None:
     return None
 
 
-def fetch_youtube_transcript(video_id: str, cookies: str | None = None) -> dict | None:
-    """Fetch subtitles/captions using youtube-transcript-api if available."""
+def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key: str | None = None) -> dict | None:
+    """Fetch subtitles/captions using Supadata API (if key configured) or fallback to youtube-transcript-api."""
+    supadata_key = api_key or os.environ.get("SUPADATA_API_KEY")
+    if supadata_key:
+        try:
+            import requests
+            url = f"https://api.supadata.ai/v1/transcript?url=https://youtu.be/{video_id}&text=false"
+            headers = {"x-api-key": supadata_key}
+            resp = requests.get(url, headers=headers, timeout=15.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                raw_content = data.get("content")
+                if isinstance(raw_content, list) and raw_content:
+                    snippets = []
+                    plain_lines = []
+                    for s in raw_content:
+                        offset_ms = float(s.get("offset", 0))
+                        dur_ms = float(s.get("duration", 0))
+                        start_sec = offset_ms / 1000.0
+                        dur_sec = dur_ms / 1000.0
+                        sec = int(start_sec)
+                        m, s_rem = divmod(sec, 60)
+                        h, m = divmod(m, 60)
+                        timestamp_str = f"{h}:{m:02d}:{s_rem:02d}" if h > 0 else f"{m}:{s_rem:02d}"
+                        clean_text = str(s.get("text", "")).replace("\n", " ").strip()
+                        snippets.append({
+                            "start": round(start_sec, 2),
+                            "duration": round(dur_sec, 2),
+                            "timestamp": timestamp_str,
+                            "text": clean_text
+                        })
+                        plain_lines.append(f"[{timestamp_str}] {clean_text}")
+
+                    plain_text = "\n".join(plain_lines)
+                    speech_text = " ".join([s["text"] for s in snippets])
+                    lang = data.get("lang", "en")
+                    return {
+                        "plain_text": plain_text,
+                        "speech_text": speech_text,
+                        "snippets": snippets,
+                        "language": lang,
+                        "is_generated": True
+                    }
+                elif isinstance(raw_content, str) and raw_content.strip():
+                    clean_text = raw_content.strip()
+                    lang = data.get("lang", "en")
+                    return {
+                        "plain_text": clean_text,
+                        "speech_text": clean_text,
+                        "snippets": [{"start": 0.0, "duration": 0.0, "timestamp": "0:00", "text": clean_text}],
+                        "language": lang,
+                        "is_generated": True
+                    }
+            elif resp.status_code in (400, 404):
+                return None
+            elif resp.status_code in (401, 403):
+                print(f"⚠️ Supadata API key error ({resp.status_code}): {resp.text}")
+        except Exception as se:
+            print(f"⚠️ Supadata fetch error: {se}")
+
     session = None
     if not cookies:
         for candidate in [Path("cookies.txt"), Path(__file__).resolve().parent / "cookies.txt", Path.home() / "Downloads" / "cookies.txt"]:
@@ -2555,6 +2628,12 @@ def cmd_backfill_transcripts(args):
     limit = args.limit
     delay = args.delay
     cookies_path = getattr(args, "cookies", None)
+    api_key = getattr(args, "api_key", None) or os.environ.get("SUPADATA_API_KEY")
+
+    if api_key:
+        print("⚡ High-throughput mode active: Using Supadata Managed API.")
+        if delay == 3.5:
+            delay = 0.5
 
     rows = conn.execute("""
         SELECT id, atom_title, destination_url, source_url, cover_file_path, metadata, raw_json
@@ -2608,7 +2687,7 @@ def cmd_backfill_transcripts(args):
 
         transcript_data = None
         try:
-            transcript_data = fetch_youtube_transcript(video_id, cookies=cookies_path)
+            transcript_data = fetch_youtube_transcript(video_id, cookies=cookies_path, api_key=api_key)
         except Exception as e:
             err_name = type(e).__name__
             if "IpBlocked" in err_name or "Blocked" in str(e):
@@ -3238,6 +3317,7 @@ def main():
     p_backfill.add_argument("--limit", type=int, default=30, help="Max videos to process in this run (default: 30, pass 0 for all)")
     p_backfill.add_argument("--delay", type=float, default=3.5, help="Base delay in seconds between requests (default: 3.5)")
     p_backfill.add_argument("--cookies", help="Path to cookies.txt exported from browser")
+    p_backfill.add_argument("--api-key", help="Supadata API key for high-throughput transcript extraction")
     p_backfill.set_defaults(func=cmd_backfill_transcripts)
 
     # 12. Sync command (Google Cloud Storage)
