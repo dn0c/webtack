@@ -2641,7 +2641,7 @@ def cmd_backfill_transcripts(args):
     if api_key:
         print("⚡ High-throughput mode active: Using Supadata Managed API.")
         if delay == 3.5:
-            delay = 0.5
+            delay = 0.3
 
     rows = conn.execute("""
         SELECT id, atom_title, destination_url, source_url, cover_file_path, metadata, raw_json
@@ -2776,8 +2776,9 @@ def cmd_backfill_transcripts(args):
             print(f"   ℹ️ No captions found on YouTube for this video.")
 
         if idx < len(to_process) and not blocked:
-            sleep_time = delay + random.uniform(0.5, 1.5)
-            time.sleep(sleep_time)
+            sleep_time = delay if api_key else (delay + random.uniform(0.5, 1.5))
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
     print(f"\n📊 Summary:")
     print(f"   ✅ Transcripts added: {success_count}")
