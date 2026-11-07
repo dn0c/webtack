@@ -526,12 +526,20 @@ def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key:
                         "language": lang,
                         "is_generated": True
                     }
+                else:
+                    return None
             elif resp.status_code in (206, 400, 404):
                 return None
             elif resp.status_code in (401, 403):
                 print(f"⚠️ Supadata API key error ({resp.status_code}): {resp.text}")
+                return None
+            elif resp.status_code == 429:
+                print(f"⚠️ Supadata quota or rate limit exceeded: {resp.text}")
+                return None
         except Exception as se:
             print(f"⚠️ Supadata fetch error: {se}")
+
+        return None
 
     session = None
     if not cookies:
