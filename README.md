@@ -376,7 +376,7 @@ Runs asynchronously, in the background, or in batch when you want to upgrade you
 | **All / Unified Enrichment** | `curate.py enrich`<br>*(runs `scripts/enrich.py`)* | Batch processes both image alt-text and article AI summaries across the vault. |
 | **Article AI Summaries** | `curate.py enrich --target articles` | Generates 2–3 sentence AI summaries labeled `[AI Summary: Provider]` into `curation.description`. |
 | **Image Vision & Accessibility** | `curate.py enrich --target images` | Resolves rich, descriptive accessibility `alt_text` using the 5-tier resolution engine. |
-| **Spoken Dialogue & Audio** | `curate.py backfill-transcripts` | Extracts dialogue into `transcript.txt` and timestamped offset cues in `transcript.json`. |
+| **Spoken Dialogue & Audio** | `curate.py attach-transcript` / `backfill-transcripts` | Attaches dialogue into `transcript.txt` and timestamped cues in `transcript.json` from user-supplied files (.txt, .vtt, .srt) or folder. |
 | **Full Article Text** | `scripts/backfill_instapaper_fulltext.py` | Upgrades lightweight bookmark pointers into full offline `article.md` reading sidecars. |
 | **Quote Sources & Authors** | `scripts/enrich_quotes_deep.py` | Matches quotes against publication domains to resolve missing author attributions. |
 

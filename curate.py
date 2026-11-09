@@ -475,159 +475,292 @@ def extract_video_info(url: str) -> dict | None:
     return None
 
 
-def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key: str | None = None, force_api: bool = False) -> dict | None:
-    """Fetch subtitles/captions using local youtube-transcript-api (with cookies.txt) first, falling back to Supadata API if blocked."""
-    supadata_key = api_key or os.environ.get("SUPADATA_API_KEY")
-
-    def _fetch_from_supadata():
-        if not supadata_key:
-            return None
-        try:
-            import requests
-            url = f"https://api.supadata.ai/v1/youtube/transcript?videoId={video_id}&text=false"
-            headers = {"x-api-key": supadata_key}
-            resp = requests.get(url, headers=headers, timeout=25.0)
-            if resp.status_code == 200:
-                data = resp.json()
-                raw_content = data.get("content")
-                if isinstance(raw_content, list) and raw_content:
-                    snippets = []
-                    plain_lines = []
-                    for s in raw_content:
-                        offset_ms = float(s.get("offset", 0))
-                        dur_ms = float(s.get("duration", 0))
-                        start_sec = offset_ms / 1000.0
-                        dur_sec = dur_ms / 1000.0
-                        sec = int(start_sec)
-                        m, s_rem = divmod(sec, 60)
-                        h, m = divmod(m, 60)
-                        timestamp_str = f"{h}:{m:02d}:{s_rem:02d}" if h > 0 else f"{m}:{s_rem:02d}"
-                        clean_text = str(s.get("text", "")).replace("\n", " ").strip()
-                        snippets.append({
-                            "start": round(start_sec, 2),
-                            "duration": round(dur_sec, 2),
-                            "timestamp": timestamp_str,
-                            "text": clean_text
-                        })
-                        plain_lines.append(f"[{timestamp_str}] {clean_text}")
-
-                    plain_text = "\n".join(plain_lines)
-                    speech_text = " ".join([s["text"] for s in snippets])
-                    lang = data.get("lang", "en")
-                    return {
-                        "plain_text": plain_text,
-                        "speech_text": speech_text,
-                        "snippets": snippets,
-                        "language": lang,
-                        "is_generated": True
-                    }
-                elif isinstance(raw_content, str) and raw_content.strip():
-                    clean_text = raw_content.strip()
-                    lang = data.get("lang", "en")
-                    return {
-                        "plain_text": clean_text,
-                        "speech_text": clean_text,
-                        "snippets": [{"start": 0.0, "duration": 0.0, "timestamp": "0:00", "text": clean_text}],
-                        "language": lang,
-                        "is_generated": True
-                    }
-                else:
-                    return None
-            elif resp.status_code in (206, 400, 404):
-                return None
-            elif resp.status_code in (401, 403):
-                print(f"⚠️ Supadata API key error ({resp.status_code}): {resp.text}")
-                return None
-            elif resp.status_code == 429:
-                print(f"⚠️ Supadata quota or rate limit exceeded: {resp.text}")
-                return None
-        except Exception as se:
-            print(f"⚠️ Supadata fetch error: {se}")
+def parse_transcript_input(transcript_input: str | Path) -> dict | None:
+    """Parse user-supplied transcript from a file path (.txt, .vtt, .srt, .json) or raw text.
+    
+    Supports:
+    - WebVTT (.vtt) cues and timestamps
+    - SubRip (.srt) cues and timestamps
+    - JSON snippet array ([{"start": ..., "text": ...}])
+    - YouTube web player "Show transcript" copy-paste (alternating timestamps and lines)
+    - Bracketed timestamps [01:23] Dialogue line
+    - Plain raw text
+    """
+    if not transcript_input:
         return None
 
-    if force_api:
-        return _fetch_from_supadata()
-
-    # 1. Primary: Local scraper using browser cookies
-    session = None
-    if not cookies:
-        for candidate in [Path("cookies.txt"), Path(__file__).resolve().parent / "cookies.txt", Path.home() / "Downloads" / "cookies.txt"]:
-            if candidate.exists():
-                cookies = str(candidate)
-                break
-
-    if cookies and Path(cookies).exists():
-        import http.cookiejar
-        import requests
-        session = requests.Session()
-        cj = http.cookiejar.MozillaCookieJar(cookies)
-        try:
-            cj.load(ignore_discard=True, ignore_expires=True)
-            session.cookies = cj
-        except Exception as ce:
-            print(f"⚠️ Cookie loading warning: {ce}")
-
+    raw_text = ""
+    file_path = None
     try:
-        from youtube_transcript_api import YouTubeTranscriptApi
-        from youtube_transcript_api._errors import IpBlocked, RequestBlocked
-        ytt = YouTubeTranscriptApi(http_client=session) if session else YouTubeTranscriptApi()
-        transcript_list = ytt.list(video_id)
+        p = Path(transcript_input)
+        if p.is_file():
+            file_path = p
+            with open(p, "r", encoding="utf-8", errors="replace") as f:
+                raw_text = f.read()
+    except Exception:
+        pass
 
-        # Priority: manual English -> any manual -> auto English -> any auto
-        transcript = None
+    if not raw_text:
+        raw_text = str(transcript_input).strip()
+
+    if not raw_text:
+        return None
+
+    ext = file_path.suffix.lower() if file_path else ""
+
+    # 1. JSON format (e.g. [{'start': 0.0, 'duration': 2.5, 'text': '...'}] or Supadata JSON)
+    if ext == ".json" or (raw_text.startswith("[") and raw_text.endswith("]")):
         try:
-            transcript = transcript_list.find_manually_created_transcript(["en"])
+            data = json.loads(raw_text)
+            if isinstance(data, list) and data:
+                snippets = []
+                plain_lines = []
+                for item in data:
+                    start = float(item.get("start", item.get("offset", 0.0)))
+                    dur = float(item.get("duration", 0.0))
+                    text = str(item.get("text", "")).strip()
+                    sec = int(start)
+                    m, s_rem = divmod(sec, 60)
+                    h, m = divmod(m, 60)
+                    timestamp_str = f"{h}:{m:02d}:{s_rem:02d}" if h > 0 else f"{m}:{s_rem:02d}"
+                    snippets.append({
+                        "start": round(start, 2),
+                        "duration": round(dur, 2),
+                        "timestamp": timestamp_str,
+                        "text": text
+                    })
+                    plain_lines.append(f"[{timestamp_str}] {text}")
+                return {
+                    "plain_text": "\n".join(plain_lines),
+                    "speech_text": " ".join(s["text"] for s in snippets),
+                    "snippets": snippets,
+                    "language": "en",
+                    "is_generated": False
+                }
         except Exception:
             pass
 
-        if not transcript:
-            try:
-                transcript = transcript_list.find_transcript(["en"])
-            except Exception:
-                pass
-
-        if not transcript:
-            for t in transcript_list:
-                transcript = t
-                break
-
-        if not transcript:
-            return None
-
-        fetched = transcript.fetch()
+    # 2. WebVTT (.vtt)
+    if ext == ".vtt" or "WEBVTT" in raw_text[:50]:
         snippets = []
         plain_lines = []
-        for s in fetched:
-            sec = int(s.start)
-            m, s_rem = divmod(sec, 60)
-            h, m = divmod(m, 60)
-            timestamp_str = f"{h}:{m:02d}:{s_rem:02d}" if h > 0 else f"{m}:{s_rem:02d}"
-            clean_text = s.text.replace("\n", " ").strip()
-            snippets.append({
-                "start": round(s.start, 2),
-                "duration": round(s.duration, 2),
-                "timestamp": timestamp_str,
-                "text": clean_text
-            })
-            plain_lines.append(f"[{timestamp_str}] {clean_text}")
+        vtt_regex = re.compile(r"((?:(\d{1,2}):)?(\d{2}):(\d{2})[\.,](\d{3}))\s*-->\s*((?:(\d{1,2}):)?(\d{2}):(\d{2})[\.,](\d{3}))")
+        lines = raw_text.splitlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            match = vtt_regex.search(line)
+            if match:
+                h1 = int(match.group(2) or 0)
+                m1 = int(match.group(3))
+                s1 = int(match.group(4))
+                ms1 = int(match.group(5))
+                start_sec = h1 * 3600 + m1 * 60 + s1 + ms1 / 1000.0
 
-        plain_text = "\n".join(plain_lines)
-        speech_text = " ".join([s["text"] for s in snippets])
+                h2 = int(match.group(7) or 0)
+                m2 = int(match.group(8))
+                s2 = int(match.group(9))
+                ms2 = int(match.group(10))
+                end_sec = h2 * 3600 + m2 * 60 + s2 + ms2 / 1000.0
 
+                timestamp_str = f"{h1}:{m1:02d}:{s1:02d}" if h1 > 0 else f"{m1}:{s1:02d}"
+
+                cue_text = []
+                i += 1
+                while i < len(lines) and lines[i].strip() and not vtt_regex.search(lines[i]):
+                    cue_text.append(lines[i].strip())
+                    i += 1
+                clean_text = " ".join(cue_text)
+                clean_text = re.sub(r"<[^>]+>", "", clean_text).strip()
+                if clean_text:
+                    snippets.append({
+                        "start": round(start_sec, 2),
+                        "duration": round(max(0.0, end_sec - start_sec), 2),
+                        "timestamp": timestamp_str,
+                        "text": clean_text
+                    })
+                    plain_lines.append(f"[{timestamp_str}] {clean_text}")
+                continue
+            i += 1
+        if snippets:
+            return {
+                "plain_text": "\n".join(plain_lines),
+                "speech_text": " ".join(s["text"] for s in snippets),
+                "snippets": snippets,
+                "language": "en",
+                "is_generated": False
+            }
+
+    # 3. SubRip (.srt)
+    if ext == ".srt" or re.search(r"\d+\r?\n\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->", raw_text):
+        snippets = []
+        plain_lines = []
+        srt_regex = re.compile(r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})")
+        lines = raw_text.splitlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            match = srt_regex.search(line)
+            if match:
+                h1, m1, s1, ms1 = int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4))
+                start_sec = h1 * 3600 + m1 * 60 + s1 + ms1 / 1000.0
+                h2, m2, s2, ms2 = int(match.group(5)), int(match.group(6)), int(match.group(7)), int(match.group(8))
+                end_sec = h2 * 3600 + m2 * 60 + s2 + ms2 / 1000.0
+                timestamp_str = f"{h1}:{m1:02d}:{s1:02d}" if h1 > 0 else f"{m1}:{s1:02d}"
+
+                cue_text = []
+                i += 1
+                while i < len(lines) and lines[i].strip() and not srt_regex.search(lines[i]):
+                    if not (len(cue_text) == 0 and lines[i].strip().isdigit()):
+                        cue_text.append(lines[i].strip())
+                    i += 1
+                clean_text = " ".join(cue_text)
+                clean_text = re.sub(r"<[^>]+>", "", clean_text).strip()
+                if clean_text:
+                    snippets.append({
+                        "start": round(start_sec, 2),
+                        "duration": round(max(0.0, end_sec - start_sec), 2),
+                        "timestamp": timestamp_str,
+                        "text": clean_text
+                    })
+                    plain_lines.append(f"[{timestamp_str}] {clean_text}")
+                continue
+            i += 1
+        if snippets:
+            return {
+                "plain_text": "\n".join(plain_lines),
+                "speech_text": " ".join(s["text"] for s in snippets),
+                "snippets": snippets,
+                "language": "en",
+                "is_generated": False
+            }
+
+    # 4. Text or YouTube Web player "Show transcript" copy-paste
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    ts_bracket_re = re.compile(r"^\[?((?:(\d{1,2}):)?(\d{1,2}):(\d{2}))\]?\s*(.*)$")
+    bare_ts = re.compile(r"^((?:(\d{1,2}):)?(\d{1,2}):(\d{2}))$")
+    snippets = []
+    plain_lines = []
+
+    # Check for alternating timestamp / text pattern
+    is_alternating = False
+    if len(lines) >= 2:
+        sample_even = [bool(bare_ts.match(lines[k])) for k in range(0, min(10, len(lines)), 2)]
+        sample_odd = [not bool(bare_ts.match(lines[k])) for k in range(1, min(10, len(lines)), 2)]
+        if all(sample_even) and all(sample_odd) and len(sample_even) >= 2:
+            is_alternating = True
+
+    if is_alternating:
+        for idx in range(0, len(lines) - 1, 2):
+            ts_str = lines[idx]
+            text = lines[idx + 1]
+            match = ts_bracket_re.match(ts_str)
+            if match:
+                h = int(match.group(2) or 0)
+                m = int(match.group(3))
+                s = int(match.group(4))
+                start_sec = h * 3600 + m * 60 + s
+                snippets.append({
+                    "start": float(start_sec),
+                    "duration": 0.0,
+                    "timestamp": ts_str,
+                    "text": text
+                })
+                plain_lines.append(f"[{ts_str}] {text}")
+    else:
+        for line in lines:
+            match = ts_bracket_re.match(line)
+            if match and match.group(5):
+                ts_str = match.group(1)
+                h = int(match.group(2) or 0)
+                m = int(match.group(3))
+                s = int(match.group(4))
+                start_sec = h * 3600 + m * 60 + s
+                text = match.group(5).strip()
+                snippets.append({
+                    "start": float(start_sec),
+                    "duration": 0.0,
+                    "timestamp": ts_str,
+                    "text": text
+                })
+                plain_lines.append(f"[{ts_str}] {text}")
+            else:
+                plain_lines.append(line)
+
+    if snippets:
         return {
-            "plain_text": plain_text,
-            "speech_text": speech_text,
+            "plain_text": "\n".join(plain_lines),
+            "speech_text": " ".join(s["text"] for s in snippets),
             "snippets": snippets,
-            "language": transcript.language_code,
-            "is_generated": transcript.is_generated
+            "language": "en",
+            "is_generated": False
         }
-    except (IpBlocked, RequestBlocked):
-        if supadata_key:
-            print("   ℹ️ Local IP blocked by YouTube; falling back to Supadata API...")
-            return _fetch_from_supadata()
-        raise
-    except Exception:
+
+    # Fallback: un-timestamped plain text
+    return {
+        "plain_text": raw_text,
+        "speech_text": " ".join(raw_text.split()),
+        "snippets": [{"start": 0.0, "duration": 0.0, "timestamp": "0:00", "text": raw_text}],
+        "language": "en",
+        "is_generated": False
+    }
+
+
+def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key: str | None = None, force_api: bool = False) -> dict | None:
+    """Fetch transcript via optional external API (e.g. Supadata) if configured, or None."""
+    supadata_key = api_key or os.environ.get("SUPADATA_API_KEY")
+    if not supadata_key:
         return None
+
+    try:
+        import requests
+        url = f"https://api.supadata.ai/v1/youtube/transcript?videoId={video_id}&text=false"
+        headers = {"x-api-key": supadata_key}
+        resp = requests.get(url, headers=headers, timeout=25.0)
+        if resp.status_code == 200:
+            data = resp.json()
+            raw_content = data.get("content")
+            if isinstance(raw_content, list) and raw_content:
+                snippets = []
+                plain_lines = []
+                for s in raw_content:
+                    offset_ms = float(s.get("offset", 0))
+                    dur_ms = float(s.get("duration", 0))
+                    start_sec = offset_ms / 1000.0
+                    dur_sec = dur_ms / 1000.0
+                    sec = int(start_sec)
+                    m, s_rem = divmod(sec, 60)
+                    h, m = divmod(m, 60)
+                    timestamp_str = f"{h}:{m:02d}:{s_rem:02d}" if h > 0 else f"{m}:{s_rem:02d}"
+                    clean_text = str(s.get("text", "")).replace("\n", " ").strip()
+                    snippets.append({
+                        "start": round(start_sec, 2),
+                        "duration": round(dur_sec, 2),
+                        "timestamp": timestamp_str,
+                        "text": clean_text
+                    })
+                    plain_lines.append(f"[{timestamp_str}] {clean_text}")
+
+                return {
+                    "plain_text": "\n".join(plain_lines),
+                    "speech_text": " ".join([s["text"] for s in snippets]),
+                    "snippets": snippets,
+                    "language": data.get("lang", "en"),
+                    "is_generated": True
+                }
+            elif isinstance(raw_content, str) and raw_content.strip():
+                clean_text = raw_content.strip()
+                return {
+                    "plain_text": clean_text,
+                    "speech_text": clean_text,
+                    "snippets": [{"start": 0.0, "duration": 0.0, "timestamp": "0:00", "text": clean_text}],
+                    "language": data.get("lang", "en"),
+                    "is_generated": True
+                }
+    except Exception as se:
+        print(f"⚠️ Transcript API fetch error: {se}")
+
+    return None
 
 
 def transcribe_audio_whisper(audio_path: Path) -> dict | None:
@@ -719,13 +852,20 @@ def cmd_video(args):
 
     # 2. Extract Transcript / Captions
     transcript_data = None
-    if video_info.get("provider") == "YouTube" and video_info.get("video_id"):
-        print(f"🎙️ Fetching captions/transcript for YouTube video {video_info['video_id']}...")
+    transcript_arg = getattr(args, "transcript", None)
+    if transcript_arg:
+        transcript_data = parse_transcript_input(transcript_arg)
+        if transcript_data:
+            print(f"✅ Loaded user-supplied transcript: {len(transcript_data['snippets'])} segments")
+        else:
+            print("⚠️ Could not parse provided transcript.")
+    elif video_info.get("provider") == "YouTube" and video_info.get("video_id"):
+        # Check if an external API key (e.g. Supadata) is configured
         transcript_data = fetch_youtube_transcript(video_info["video_id"])
         if transcript_data:
-            print(f"✅ Found transcript: {len(transcript_data['snippets'])} snippets ({transcript_data['language']}, generated={transcript_data['is_generated']})")
+            print(f"✅ Found transcript: {len(transcript_data['snippets'])} snippets ({transcript_data['language']})")
         else:
-            print("ℹ️ No captions or transcript available for this video.")
+            print("ℹ️ No transcript provided. Pass --transcript <file|text> or use 'attach-transcript' to add one.")
 
     transcript_txt_rel = None
     transcript_json_rel = None
@@ -1176,7 +1316,7 @@ def cmd_quote(args):
                 author, metadata, raw_json
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            atom_id, "quote", now_iso, now_iso, atom_title, args.notes, json.dumps(tags),
+            atom_id, "quote", now_iso, now_iso, atom_title, getattr(args, "description", None) or getattr(args, "notes", None), json.dumps(tags),
             json.dumps(collections), visibility, 1 if args.favorite else 0, args.source, None,
             args.quote.strip(), args.source, args.author, json.dumps(meta_bag),
             json.dumps(atom_doc)
@@ -1439,7 +1579,7 @@ def cmd_image(args):
                 author, metadata, raw_json
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            atom_id, "image", now_iso, now_iso, atom_title, args.notes, json.dumps(tags),
+            atom_id, "image", now_iso, now_iso, atom_title, getattr(args, "description", None) or getattr(args, "notes", None), json.dumps(tags),
             json.dumps(collections), visibility, 1 if args.favorite else 0, args.source or source_candidate, cover_rel_path,
             None, source_candidate, author, json.dumps(meta_bag), json.dumps(atom_doc)
         ))
@@ -2450,18 +2590,129 @@ def cmd_validate(args):
         sys.exit(1)
 
 
+def cmd_attach_transcript(args):
+    """Attach a user-supplied transcript (.txt, .vtt, .srt, .json) or text to a video atom."""
+    vault_dir = Path(args.vault).resolve()
+    conn = get_db(vault_dir)
+    target = args.atom_id_or_url.strip()
+
+    row = conn.execute("""
+        SELECT id, atom_title, cover_file_path, metadata, raw_json
+        FROM atoms
+        WHERE id = ? OR source_url = ? OR destination_url = ?
+    """, (target, target, target)).fetchone()
+
+    if not row:
+        row = conn.execute("""
+            SELECT id, atom_title, cover_file_path, metadata, raw_json
+            FROM atoms
+            WHERE id LIKE ? OR source_url LIKE ? OR destination_url LIKE ?
+        """, (f"{target}%", f"%{target}%", f"%{target}%")).fetchone()
+
+    if not row:
+        print(f"❌ Could not find atom matching '{target}' in vault.")
+        sys.exit(1)
+
+    atom_id = row["id"]
+    title = row["atom_title"] or "Untitled"
+
+    transcript_data = parse_transcript_input(args.transcript)
+    if not transcript_data:
+        print(f"❌ Failed to parse transcript from '{args.transcript}'.")
+        sys.exit(1)
+
+    # Locate atom directory
+    rel_cover = row["cover_file_path"]
+    atom_dir = None
+    if rel_cover:
+        candidate_dir = (vault_dir / rel_cover).parent
+        if candidate_dir.exists():
+            atom_dir = candidate_dir
+    if not atom_dir:
+        for p in (vault_dir / "atoms").glob(f"**/{atom_id}"):
+            if p.is_dir():
+                atom_dir = p
+                break
+
+    if not atom_dir:
+        print(f"❌ Atom folder on disk not found for {atom_id}.")
+        sys.exit(1)
+
+    # Write transcript sidecars
+    txt_path = atom_dir / "transcript.txt"
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write(transcript_data["plain_text"])
+
+    json_path = atom_dir / "transcript.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(transcript_data["snippets"], f, indent=2)
+
+    rel_txt = str(txt_path.relative_to(vault_dir))
+    rel_json = str(json_path.relative_to(vault_dir))
+
+    # Update atom.json
+    raw = json.loads(row["raw_json"]) if row["raw_json"] else {}
+    content_key = "content" if "content" in raw else ("payload" if "payload" in raw else "content")
+    if content_key not in raw:
+        raw[content_key] = {}
+    if "video" not in raw[content_key] or not isinstance(raw[content_key]["video"], dict):
+        raw[content_key]["video"] = {}
+    raw[content_key]["video"]["has_transcript"] = True
+    raw[content_key]["video"]["transcript_file"] = rel_txt
+    raw[content_key]["video"]["transcript_json"] = rel_json
+    raw[content_key]["video"]["transcript_language"] = transcript_data.get("language", "en")
+    raw[content_key]["video"]["transcript_is_generated"] = transcript_data.get("is_generated", False)
+
+    atom_json_path = atom_dir / "atom.json"
+    with open(atom_json_path, "w", encoding="utf-8") as f:
+        json.dump(raw, f, indent=2, ensure_ascii=False)
+
+    # Update SQLite database
+    meta = json.loads(row["metadata"]) if row["metadata"] else {}
+    meta["has_transcript"] = True
+    meta["transcript_snippets"] = len(transcript_data["snippets"])
+    meta["transcript_language"] = transcript_data.get("language", "en")
+    meta["transcript_checked"] = True
+
+    conn.execute("""
+        UPDATE atoms
+        SET metadata = ?, text_content = ?, raw_json = ?, updated_at = ?
+        WHERE id = ?
+    """, (
+        json.dumps(meta),
+        transcript_data["plain_text"],
+        json.dumps(raw),
+        datetime.now(timezone.utc).isoformat(),
+        atom_id
+    ))
+    conn.commit()
+
+    print(f"🎉 Successfully attached transcript to [{atom_id}] '{title}' ({len(transcript_data['snippets'])} segments)!")
+
+
 def cmd_backfill_transcripts(args):
-    """Enrich video atoms by fetching YouTube captions/transcripts with polite throttling."""
+    """Enrich video atoms with transcripts from a local folder or optional API."""
     vault_dir = Path(args.vault).resolve()
     conn = get_db(vault_dir)
 
     limit = args.limit
     delay = args.delay
-    cookies_path = getattr(args, "cookies", None)
+    input_dir = getattr(args, "dir", None)
     api_key = getattr(args, "api_key", None) or os.environ.get("SUPADATA_API_KEY")
 
+    transcripts_dir = Path(input_dir).resolve() if input_dir else None
+    if transcripts_dir and not transcripts_dir.is_dir():
+        print(f"❌ Transcripts directory '{input_dir}' not found.")
+        sys.exit(1)
+
+    if not transcripts_dir and not api_key:
+        print("ℹ️ No transcript source provided.")
+        print("   Use --dir <folder> to bulk-attach local transcript files (.txt, .vtt, .srt, .json),")
+        print("   or attach individual transcripts using: curate.py attach-transcript <atom_id> <file>")
+        return
+
     if api_key:
-        print("⚡ High-throughput mode active: Using Supadata Managed API.")
+        print("⚡ High-throughput mode active: Using configured Transcript API.")
         if delay == 3.5:
             delay = 0.3
 
@@ -2484,9 +2735,9 @@ def cmd_backfill_transcripts(args):
     if not to_process:
         print("✅ No video atoms require transcript backfill!")
         return
+
     success_count = 0
     unavailable_count = 0
-    blocked = False
 
     for idx, r in enumerate(to_process, 1):
         atom_id = r["id"]
@@ -2504,28 +2755,37 @@ def cmd_backfill_transcripts(args):
         elif "/shorts/" in url:
             video_id = url.split("/shorts/")[1].split("?")[0].split("#")[0]
 
-        if not video_id:
-            print(f"[{idx}/{len(to_process)}] ⚠️ Could not parse video ID from {url} ({atom_id})")
-            meta["transcript_checked"] = True
-            meta["has_transcript"] = False
-            conn.execute("UPDATE atoms SET metadata = ? WHERE id = ?", (json.dumps(meta), atom_id))
-            conn.commit()
-            unavailable_count += 1
-            continue
-
-        print(f"[{idx}/{len(to_process)}] 🎙️ Querying captions for '{title[:45]}' ({video_id})...")
-
         transcript_data = None
-        try:
-            transcript_data = fetch_youtube_transcript(video_id, cookies=cookies_path, api_key=api_key)
-        except Exception as e:
-            err_name = type(e).__name__
-            if "IpBlocked" in err_name or "Blocked" in str(e):
-                print(f"\n🛑 YouTube is currently rate-limiting this IP address (IpBlocked).")
-                print("   Stopping run to let cooldown clear. Run again later or supply --cookies.")
-                blocked = True
-                break
-            else:
+
+        # Check local directory first
+        if transcripts_dir:
+            file_candidates = []
+            if video_id:
+                file_candidates.extend([
+                    transcripts_dir / f"{video_id}.txt",
+                    transcripts_dir / f"{video_id}.vtt",
+                    transcripts_dir / f"{video_id}.srt",
+                    transcripts_dir / f"{video_id}.json",
+                ])
+            file_candidates.extend([
+                transcripts_dir / f"{atom_id}.txt",
+                transcripts_dir / f"{atom_id}.vtt",
+                transcripts_dir / f"{atom_id}.srt",
+                transcripts_dir / f"{atom_id}.json",
+            ])
+            for cand in file_candidates:
+                if cand.exists():
+                    transcript_data = parse_transcript_input(cand)
+                    if transcript_data:
+                        print(f"[{idx}/{len(to_process)}] 📄 Loaded local transcript: {cand.name}")
+                        break
+
+        # Fallback to API if configured
+        if not transcript_data and api_key and video_id:
+            print(f"[{idx}/{len(to_process)}] 🎙️ Querying captions for '{title[:45]}' ({video_id})...")
+            try:
+                transcript_data = fetch_youtube_transcript(video_id, api_key=api_key)
+            except Exception as e:
                 print(f"   ℹ️ Captions unavailable: {e}")
 
         # Locate atom directory
@@ -2555,7 +2815,7 @@ def cmd_backfill_transcripts(args):
 
             meta["has_transcript"] = True
             meta["transcript_snippets"] = len(transcript_data["snippets"])
-            meta["transcript_language"] = transcript_data["language"]
+            meta["transcript_language"] = transcript_data.get("language", "en")
             meta["transcript_checked"] = True
 
             content_key = "content" if "content" in raw else ("payload" if "payload" in raw else "content")
@@ -2566,8 +2826,8 @@ def cmd_backfill_transcripts(args):
             raw[content_key]["video"]["has_transcript"] = True
             raw[content_key]["video"]["transcript_file"] = rel_txt
             raw[content_key]["video"]["transcript_json"] = rel_json
-            raw[content_key]["video"]["transcript_language"] = transcript_data["language"]
-            raw[content_key]["video"]["transcript_is_generated"] = transcript_data["is_generated"]
+            raw[content_key]["video"]["transcript_language"] = transcript_data.get("language", "en")
+            raw[content_key]["video"]["transcript_is_generated"] = transcript_data.get("is_generated", False)
 
             with open(atom_dir / "atom.json", "w", encoding="utf-8") as f:
                 json.dump(raw, f, indent=2, ensure_ascii=False)
@@ -2586,7 +2846,7 @@ def cmd_backfill_transcripts(args):
             conn.commit()
             print(f"   ✅ Saved {len(transcript_data['snippets'])} captions ({transcript_data['language']})")
             success_count += 1
-        elif not blocked:
+        else:
             meta["transcript_checked"] = True
             meta["has_transcript"] = False
             conn.execute("UPDATE atoms SET metadata = ? WHERE id = ?", (json.dumps(meta), atom_id))
@@ -2595,18 +2855,13 @@ def cmd_backfill_transcripts(args):
                 with open(atom_dir / "atom.json", "w", encoding="utf-8") as f:
                     json.dump(raw, f, indent=2, ensure_ascii=False)
             unavailable_count += 1
-            print(f"   ℹ️ No captions found on YouTube for this video.")
 
-        if idx < len(to_process) and not blocked:
-            sleep_time = delay if api_key else (delay + random.uniform(0.5, 1.5))
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+        if idx < len(to_process) and api_key and transcript_data:
+            time.sleep(delay)
 
     print(f"\n📊 Summary:")
     print(f"   ✅ Transcripts added: {success_count}")
-    print(f"   ℹ️ No captions available: {unavailable_count}")
-    if blocked:
-        print(f"   ⏸️ Run paused early due to IP rate-limiting.")
+    print(f"   ℹ️ Skipped / unavailable: {unavailable_count}")
 
 
 def cmd_view(args):
@@ -3153,6 +3408,7 @@ def main():
     p_video.add_argument("--description", "--notes", dest="description", help="Curator description or notes")
     p_video.add_argument("--tags", help="Comma-separated tags")
     p_video.add_argument("--collection", help="Collection name")
+    p_video.add_argument("--transcript", help="Path to transcript file (.txt, .vtt, .srt, .json) or raw transcript text")
     p_video.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
     p_video.add_argument("--favorite", action="store_true", help="Mark as favorite")
     add_capture_args(p_video)
@@ -3219,12 +3475,18 @@ def main():
     p_import_arena.add_argument("--visibility", choices=["public", "shared", "private"], help="Explicitly set visibility tier (public, shared, private)")
     p_import_arena.set_defaults(func=cmd_import_arena)
 
-    # 11. Backfill Transcripts command
-    p_backfill = subparsers.add_parser("backfill-transcripts", help="Throttled background drip to fetch YouTube captions/transcripts")
+    # 11. Attach Transcript command
+    p_attach = subparsers.add_parser("attach-transcript", help="Attach a user-supplied transcript (.txt, .vtt, .srt, .json) or text to a video atom")
+    p_attach.add_argument("atom_id_or_url", help="Atom ID or URL of the video")
+    p_attach.add_argument("transcript", help="Path to transcript file (.txt, .vtt, .srt, .json) or raw text")
+    p_attach.set_defaults(func=cmd_attach_transcript)
+
+    # 12. Backfill Transcripts command
+    p_backfill = subparsers.add_parser("backfill-transcripts", help="Bulk attach transcripts to video atoms from a folder or configured API")
+    p_backfill.add_argument("--dir", help="Directory of transcript files named by video ID or atom ID (.txt, .vtt, .srt, .json)")
     p_backfill.add_argument("--limit", type=int, default=30, help="Max videos to process in this run (default: 30, pass 0 for all)")
-    p_backfill.add_argument("--delay", type=float, default=3.5, help="Base delay in seconds between requests (default: 3.5)")
-    p_backfill.add_argument("--cookies", help="Path to cookies.txt exported from browser")
-    p_backfill.add_argument("--api-key", help="Supadata API key for high-throughput transcript extraction")
+    p_backfill.add_argument("--delay", type=float, default=0.5, help="Delay in seconds between API requests (default: 0.5)")
+    p_backfill.add_argument("--api-key", help="Supadata API key for optional transcript extraction")
     p_backfill.set_defaults(func=cmd_backfill_transcripts)
 
     # 12. Sync command (Google Cloud Storage)
@@ -3250,7 +3512,6 @@ def main():
 
     # 15. Validate command (Schema and Sidecar Integrity Linter)
     p_val = subparsers.add_parser("validate", help="Validate atom.json sidecars against formal schema and check sidecar integrity")
-    p_val.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to vault directory")
     p_val.add_argument("--atom", help="Validate a specific atom ID instead of the entire vault")
     p_val.set_defaults(func=cmd_validate)
 

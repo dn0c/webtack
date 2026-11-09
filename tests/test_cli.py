@@ -1,0 +1,132 @@
+"""End-to-end CLI integration tests for Webtack."""
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CURATE_BIN = PROJECT_ROOT / "curate.py"
+
+
+class TestWebtackCLI(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.vault_dir = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def _run_cli(self, args, expect_success=True):
+        cmd = [sys.executable, str(CURATE_BIN), "--vault", str(self.vault_dir)] + args
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if expect_success and res.returncode != 0:
+            self.fail(f"CLI command failed with code {res.returncode}:\nSTDOUT: {res.stdout}\nSTDERR: {res.stderr}")
+        return res
+
+    def test_save_note_creates_sidecar_and_schema(self):
+        """Verify 'curate.py note' captures a memo, creates note.md and valid atom.json."""
+        res = self._run_cli([
+            "note",
+            "This is a test personal thought on local-first architectures.",
+            "--title", "Local-First Note",
+            "--tags", "test,local-first",
+            "--description", "Editorial summary for note"
+        ])
+        self.assertIn("Note atom saved successfully", res.stdout)
+
+        # Verify filesystem sidecars
+        atom_dirs = list((self.vault_dir / "atoms").glob("*/*/*"))
+        self.assertEqual(len(atom_dirs), 1)
+        atom_dir = atom_dirs[0]
+
+        atom_json_path = atom_dir / "atom.json"
+        note_md_path = atom_dir / "note.md"
+        self.assertTrue(atom_json_path.exists())
+        self.assertTrue(note_md_path.exists())
+
+        # Inspect note.md
+        with open(note_md_path, "r", encoding="utf-8") as f:
+            note_content = f.read()
+        self.assertIn("This is a test personal thought", note_content)
+
+        # Inspect atom.json
+        with open(atom_json_path, "r", encoding="utf-8") as f:
+            atom = json.load(f)
+
+        self.assertEqual(atom["kind"], "note")
+        self.assertEqual(atom["curation"]["atom_title"], "Local-First Note")
+        self.assertEqual(atom["curation"]["tags"], ["test", "local-first"])
+        self.assertEqual(atom["curation"]["description"], "Editorial summary for note")
+        self.assertEqual(atom["content"]["text"]["word_count"], 9)
+        self.assertEqual(atom["content"]["text"]["file"], "note.md")
+
+    def test_save_quote_creates_sidecar_and_schema(self):
+        """Verify 'curate.py quote' captures an attributed excerpt and anchors provenance."""
+        res = self._run_cli([
+            "quote",
+            "The computer is the most remarkable tool that we've ever come up with.",
+            "--author", "Steve Jobs",
+            "--source", "https://example.com/bicycle-mind",
+            "--tags", "quotes,tools",
+            "--description", "Famous bicycle of the mind quote"
+        ])
+        self.assertIn("Quote atom saved successfully", res.stdout)
+
+        atom_dirs = list((self.vault_dir / "atoms").glob("*/*/*"))
+        self.assertEqual(len(atom_dirs), 1)
+        atom_dir = atom_dirs[0]
+
+        quote_md = atom_dir / "quote.md"
+        atom_json = atom_dir / "atom.json"
+        self.assertTrue(quote_md.exists())
+        self.assertTrue(atom_json.exists())
+
+        with open(atom_json, "r", encoding="utf-8") as f:
+            atom = json.load(f)
+
+        self.assertEqual(atom["kind"], "quote")
+        self.assertEqual(atom["source"]["author"], "Steve Jobs")
+        self.assertEqual(atom["source"]["source_url"], "https://example.com/bicycle-mind")
+        self.assertEqual(atom["source"]["site_name"], "example.com")
+        self.assertEqual(atom["content"]["text"]["word_count"], 13)
+
+    def test_reindex_and_list(self):
+        """Verify 'curate.py reindex' rebuilds SQLite database and 'curate.py list' queries it."""
+        # 1. Save two atoms
+        self._run_cli(["note", "First memo", "--tags", "memo"])
+        self._run_cli(["quote", "Second quote", "--author", "Anonymous", "--tags", "quote"])
+
+        # 2. Reindex
+        reindex_res = self._run_cli(["reindex"])
+        self.assertIn("Successfully indexed 2 atoms", reindex_res.stdout)
+
+        db_path = self.vault_dir / "vault.db"
+        self.assertTrue(db_path.exists())
+
+        # 3. List
+        list_res = self._run_cli(["list"])
+        self.assertIn("Webtack Vault (2 items shown)", list_res.stdout)
+        self.assertIn("[NOTE]", list_res.stdout)
+        self.assertIn("[QUOTE]", list_res.stdout)
+
+        # 4. List with filter
+        filter_res = self._run_cli(["list", "--kind", "note"])
+        self.assertIn("Webtack Vault (1 items shown)", filter_res.stdout)
+        self.assertIn("[NOTE]", filter_res.stdout)
+        self.assertNotIn("[QUOTE]", filter_res.stdout)
+
+    def test_validate_passes_on_captured_atoms(self):
+        """Verify newly captured atoms pass the formal schema linter."""
+        self._run_cli(["note", "Validation test note", "--tags", "ci,test"])
+        self._run_cli(["quote", "Attributed quote test", "--author", "Ada Lovelace", "--tags", "history"])
+
+        val_res = self._run_cli(["validate"])
+        self.assertIn("All 2 atoms passed validation with zero errors or warnings", val_res.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

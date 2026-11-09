@@ -2,6 +2,7 @@
 vault/
 *.db
 *.sqlite3
+fixtures/demo_vault/export/
 
 # Python Bytecode & Cache
 __pycache__/
