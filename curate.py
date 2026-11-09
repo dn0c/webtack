@@ -1919,10 +1919,11 @@ def cmd_export(args):
             filename = f"{clean_title[:60]}_{aid[-6:]}.md"
             tags_list = json.loads(r["tags"]) if r["tags"] else []
 
+            escaped_title = title.replace('"', '\\"')
             fm = [
                 "---",
                 f"id: \"{aid}\"",
-                f"title: \"{title.replace('\"', '\\\"')}\"",
+                f"title: \"{escaped_title}\"",
                 f"kind: {kind}",
                 f"date: \"{r['created_at'][:10]}\"",
                 f"created_at: \"{r['created_at']}\""
@@ -1931,7 +1932,8 @@ def cmd_export(args):
             if url:
                 fm.append(f"url: \"{url}\"")
             if r["author"]:
-                fm.append(f"author: \"{r['author'].replace('\"', '\\\"')}\"")
+                escaped_author = r["author"].replace('"', '\\"')
+                fm.append(f"author: \"{escaped_author}\"")
             if tags_list:
                 fm.append("tags:")
                 for t in tags_list:
