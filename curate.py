@@ -2700,6 +2700,9 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
                 if src_key in raw and isinstance(raw[src_key], dict):
                     raw[src_key].pop("author_url", None)
                     raw[src_key].pop("canonical_url", None)
+            if "curation" in raw and isinstance(raw["curation"], dict):
+                if "notes" in raw["curation"] and "description" not in raw["curation"]:
+                    raw["curation"]["description"] = raw["curation"].pop("notes")
 
         source_url_val = r["source_url"] or r["destination_url"]
 
@@ -2732,6 +2735,7 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
             "id": r["id"],
             "kind": r["kind"],
             "title": r["atom_title"] or "Untitled",
+            "description": r["notes"],
             "notes": r["notes"],
             "tags": tags,
             "collections": collections,

@@ -1884,7 +1884,11 @@ def generate_viewer(vault_dir: Path) -> Path:
       window.currentMetaAtomId = atom.id;
 
       const raw = atom.raw || {{}};
-      const curation = raw.curation || {{}};
+      const curation = {{ ...(raw.curation || {{}}) }};
+      if ('notes' in curation && !('description' in curation)) {{
+        curation.description = curation.notes;
+        delete curation.notes;
+      }}
       const source = raw.source || raw.provenance || {{}};
       const provenance = source;
       const payload = raw.content || raw.payload || {{}};
@@ -2005,10 +2009,10 @@ def generate_viewer(vault_dir: Path) -> Path:
       `;
 
       // TIER 1: CURATION LAYER
-      const notesHtml = atom.notes ? `
+      const notesHtml = (atom.description || atom.notes) ? `
         <div class="meta-notes-banner" style="margin-top: 14px; margin-bottom: 0;">
-          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">notes</div>
-          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{renderMarkdown(atom.notes)}}</div>
+          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">description</div>
+          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{renderMarkdown(atom.description || atom.notes)}}</div>
         </div>
       ` : '';
 
