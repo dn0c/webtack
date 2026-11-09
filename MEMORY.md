@@ -244,4 +244,12 @@ WideWeb features a dedicated local export engine that serializes the vault into 
   - Google Drive desktop pointer files (`.gsheet`, `.gdoc`) moved out of git tracking to `My Drive/Personal/WideWeb/`.
   - Added `*.gsheet`, `*.gdoc`, `*.gslides` to `.gitignore`.
   - Verified git history contains zero leaked API keys, tokens, or plaintext passwords.
+- **Specimen Demo Vault (`fixtures/demo_vault`)**:
+  - Created 6 self-contained specimen atoms covering all canonical kinds (`article`, `bookmark`, `video`, `quote`, `note`, `image`).
+  - Added automatic self-healing reindex to `viewer.py` so new clones launch immediately without manual DB setup.
+- **Specification & Validation Tooling**:
+  - Authored [SPECIFICATION.md](SPECIFICATION.md) defining the living standard, sidecar resolution contracts, and 4-tier envelope.
+  - Formalized Option A for `metadata_json`: namespaced extension keys for third-party tools/plugins (`metadata_json['com.plugin_name'] = {...}`).
+  - Added CLI linter `python3 curate.py validate [--vault <dir>] [--atom <id>]` combining `jsonschema` verification with disk sidecar existence checks.
+
 
