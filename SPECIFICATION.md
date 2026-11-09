@@ -145,7 +145,10 @@ Enrichment operates across four distinct levels of technological involvement, gi
 | **Level 0** | **Pure Determinism (Zero-AI)** | Zero | Raw URL metadata, embedded EXIF/IPTC image captions, HTML `<figcaption>` scraping. 100% offline, zero keys, zero tokens. |
 | **Level 1** | **On-Device Neural (Local AI)** | Zero | Apple Silicon Neural Engine / native macOS Vision (`VNRecognizeTextRequest` + `VNClassifyImageRequest`). Processes images and OCR locally on hardware without sending bytes to the web. |
 | **Level 2** | **Self-Hosted Local LLM** | Local Network | Optional self-hosted models (Ollama, vLLM, llama.cpp) for local article summarization or tagging. |
-| **Level 3** | **Cloud Generative AI** | User-Configured API | Multi-provider cloud models (Gemini, OpenAI, Anthropic, Groq, OpenRouter) requiring explicit API keys in `.env` for deep synthesis or captioning. |
+| **Level 3** | **Cloud Generative AI** | User-Configured API | Multi-provider cloud models (Gemini, OpenAI, Anthropic, Groq, OpenRouter) requiring explicit API keys in `.env` for deep synthesis, article summarization, or captioning. |
+
+> [!IMPORTANT]
+> **Provenance Transparency Rule:** Whenever AI models generate descriptions or summaries for an atom, the text must be explicitly labeled with its provider or model prefix (e.g., `[AI Summary: Gemini] ...`). This ensures full provenance transparency, clearly distinguishing synthetic summaries from personal curator notes. Personal notes provided by the curator are always preserved and given top priority.
 
 ---
 

@@ -971,6 +971,25 @@ def cmd_save_link(args):
         }
         print(f"📖 Extracted offline article text ({scraped['article_word_count']} words -> article.md)")
 
+        # AI Article Summarization (Level 3 Multi-Provider, skipped if --no-enrich)
+        if not getattr(args, "no_enrich", False):
+            try:
+                from scripts import enrich
+                ai_sum, prov = enrich.generate_ai_article_summary(
+                    scraped["article_markdown"],
+                    title=atom_title
+                )
+                if ai_sum and prov:
+                    labeled_sum = enrich.format_ai_summary(ai_sum, prov)
+                    user_notes = getattr(args, "description", None) or getattr(args, "notes", None)
+                    if user_notes:
+                        notes = f"{user_notes}\n\n{labeled_sum}"
+                    else:
+                        notes = labeled_sum
+                    print(f"   ✨ [{prov.upper()}] Generated article summary: {labeled_sum[:70]}...")
+            except Exception as e:
+                print(f"   ⚠️ AI summary generation failed ({e}), retaining default notes.")
+
     # 3. Text / Excerpt if provided
     text_meta = None
     quote_rel_path = None
@@ -2995,11 +3014,12 @@ def cmd_pull(args):
 
 
 def cmd_enrich(args):
-    """Enrich image atoms with AI-generated accessibility alt text using Gemini Flash."""
+    """Enrich image atoms with alt text and/or article atoms with AI summaries."""
     from scripts import enrich
     vault_dir = Path(args.vault).resolve()
     enrich.batch_enrich_vault(
         vault_dir=vault_dir,
+        target=getattr(args, "target", "all"),
         limit=getattr(args, "limit", None),
         force=getattr(args, "force", False)
     )
@@ -3216,10 +3236,11 @@ def main():
     p_pull.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Default visibility tier (default: public)")
     p_pull.set_defaults(func=cmd_pull)
 
-    # 14. Enrich command (Vision Alt Text)
-    p_enrich = subparsers.add_parser("enrich", help="Generate accessibility alt text for vault images (macOS Vision offline, or Cloud AI)")
-    p_enrich.add_argument("--limit", type=int, default=None, help="Max images to enrich in this run")
-    p_enrich.add_argument("--force", action="store_true", help="Re-generate alt text even if already present")
+    # 14. Enrich command (Vision Alt Text & Article Summaries)
+    p_enrich = subparsers.add_parser("enrich", help="Generate accessibility alt text for images and/or AI summaries for articles")
+    p_enrich.add_argument("--target", choices=["all", "images", "articles"], default="all", help="What to enrich: images, articles, or all (default)")
+    p_enrich.add_argument("--limit", type=int, default=None, help="Max atoms to enrich per category")
+    p_enrich.add_argument("--force", action="store_true", help="Re-generate descriptions even if already present")
     p_enrich.add_argument("--no-arena", action="store_true", help="(Deprecated) Legacy flag, Are.na sync has moved to integrations/arena/")
     p_enrich.set_defaults(func=cmd_enrich)
 

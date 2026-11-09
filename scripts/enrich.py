@@ -482,6 +482,176 @@ def generate_ai_alt_text(image_path: Path) -> tuple[str | None, str | None]:
     return alt, provider if alt else None
 
 
+# ─── Article Summarization (Level 3 Multi-Provider) ──────────────────────────
+
+ARTICLE_SUMMARY_PROMPT = (
+    "Provide a concise, dense, highly informative 2-3 sentence summary of the following article. "
+    "Focus on the core thesis, key insights, and primary takeaways. "
+    "Do not use filler phrases like 'This article discusses', 'The author explains', or 'In this piece'. "
+    "Directly state the essential ideas."
+)
+
+
+def _call_gemini_text(api_key: str, text: str, title: str = None, model: str = "gemini-flash-latest") -> str | None:
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        user_content = f"{ARTICLE_SUMMARY_PROMPT}\n\n"
+        if title:
+            user_content += f"Article Title: {title}\n\n"
+        user_content += f"Article Text:\n{text[:25000]}"
+        payload = {
+            "contents": [{"parts": [{"text": user_content}]}],
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1000}
+        }
+        r = requests.post(url, json=payload, timeout=25)
+        if r.status_code == 200:
+            cands = r.json().get("candidates", [])
+            if cands:
+                parts = cands[0].get("content", {}).get("parts", [])
+                text_parts = [p.get("text", "") for p in parts if p.get("text")]
+                if text_parts:
+                    return "".join(text_parts).strip()
+        else:
+            print(f"⚠️ Gemini API returned HTTP {r.status_code}: {r.text[:120]}")
+    except Exception as e:
+        print(f"⚠️ Gemini request failed: {e}")
+    return None
+
+
+def _call_openai_text(api_key: str, text: str, title: str = None, model: str = "gpt-4o-mini") -> str | None:
+    try:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        user_content = f"{ARTICLE_SUMMARY_PROMPT}\n\n"
+        if title:
+            user_content += f"Article Title: {title}\n\n"
+        user_content += f"Article Text:\n{text[:25000]}"
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": user_content}],
+            "max_tokens": 400,
+            "temperature": 0.2
+        }
+        r = requests.post(url, headers=headers, json=payload, timeout=25)
+        if r.status_code == 200:
+            choices = r.json().get("choices", [])
+            if choices:
+                return choices[0].get("message", {}).get("content", "").strip()
+    except Exception:
+        pass
+    return None
+
+
+def _call_anthropic_text(api_key: str, text: str, title: str = None, model: str = "claude-3-5-haiku-20241022") -> str | None:
+    try:
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json"
+        }
+        user_content = f"{ARTICLE_SUMMARY_PROMPT}\n\n"
+        if title:
+            user_content += f"Article Title: {title}\n\n"
+        user_content += f"Article Text:\n{text[:25000]}"
+        payload = {
+            "model": model,
+            "max_tokens": 400,
+            "messages": [{"role": "user", "content": user_content}]
+        }
+        r = requests.post(url, headers=headers, json=payload, timeout=25)
+        if r.status_code == 200:
+            content = r.json().get("content", [])
+            if content:
+                return content[0].get("text", "").strip()
+    except Exception:
+        pass
+    return None
+
+
+def _call_groq_text(api_key: str, text: str, title: str = None, model: str = "llama-3.3-70b-versatile") -> str | None:
+    try:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        user_content = f"{ARTICLE_SUMMARY_PROMPT}\n\n"
+        if title:
+            user_content += f"Article Title: {title}\n\n"
+        user_content += f"Article Text:\n{text[:25000]}"
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": user_content}],
+            "max_tokens": 400,
+            "temperature": 0.2
+        }
+        r = requests.post(url, headers=headers, json=payload, timeout=25)
+        if r.status_code == 200:
+            choices = r.json().get("choices", [])
+            if choices:
+                return choices[0].get("message", {}).get("content", "").strip()
+    except Exception:
+        pass
+    return None
+
+
+def _call_openrouter_text(api_key: str, text: str, title: str = None, model: str = "google/gemini-2.0-flash-001") -> str | None:
+    try:
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        user_content = f"{ARTICLE_SUMMARY_PROMPT}\n\n"
+        if title:
+            user_content += f"Article Title: {title}\n\n"
+        user_content += f"Article Text:\n{text[:25000]}"
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": user_content}],
+            "max_tokens": 400
+        }
+        r = requests.post(url, headers=headers, json=payload, timeout=25)
+        if r.status_code == 200:
+            choices = r.json().get("choices", [])
+            if choices:
+                return choices[0].get("message", {}).get("content", "").strip()
+    except Exception:
+        pass
+    return None
+
+
+def generate_ai_article_summary(article_text: str, title: str = None) -> tuple[str | None, str | None]:
+    """
+    Generate a 2-3 sentence summary of article text using whichever Cloud AI provider
+    is configured in environment: Gemini -> OpenAI -> Anthropic -> Groq -> OpenRouter.
+    Returns (summary_text, provider_name).
+    """
+    if not article_text or len(article_text.strip()) < 60:
+        return None, None
+
+    provider, key = get_available_ai_provider()
+    if not provider or not key:
+        return None, None
+
+    summary = None
+    if provider == "gemini":
+        summary = _call_gemini_text(key, article_text, title=title)
+    elif provider == "openai":
+        summary = _call_openai_text(key, article_text, title=title)
+    elif provider == "anthropic":
+        summary = _call_anthropic_text(key, article_text, title=title)
+    elif provider == "groq":
+        summary = _call_groq_text(key, article_text, title=title)
+    elif provider == "openrouter":
+        summary = _call_openrouter_text(key, article_text, title=title)
+
+    if summary:
+        return summary.strip(), provider
+    return None, None
+
+
+def format_ai_summary(summary: str, provider: str = None) -> str:
+    """Format an AI summary with a clear label (e.g. [AI Summary: Gemini] ...)."""
+    label = f"[AI Summary: {provider.capitalize()}]" if provider else "[AI Summary]"
+    return f"{label} {summary.strip()}"
+
+
 # ─── Unified Multi-Tier Resolver ─────────────────────────────────────────────
 
 def resolve_image_alt_text(image_path: Path, source_url: str = None, upstream_img_url: str = None, fallback_title: str = None) -> tuple[str | None, str]:
@@ -530,9 +700,133 @@ def generate_image_alt_text(image_path: Path, source_url: str = None, fallback_t
     return alt
 
 
+def batch_enrich_articles(vault_dir: Path, limit: int = None, force: bool = False) -> int:
+    """
+    Scan article atoms in vault for missing or unsummarized descriptions,
+    generating 2-3 sentence AI summaries labeled [AI Summary: Provider].
+    """
+    vault_dir = Path(vault_dir).resolve()
+    db_path = vault_dir / "vault.db"
+    if not db_path.exists():
+        print(f"❌ Database not found at {db_path}. Run 'python3 curate.py reindex' first.")
+        return 0
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT id, created_at, atom_title, notes, raw_json
+        FROM atoms
+        WHERE kind = 'article'
+        ORDER BY created_at DESC
+    """)
+    rows = c.fetchall()
+
+    provider, _ = get_available_ai_provider()
+    if not provider:
+        print("⚠️ No AI provider configured in .env (add GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or GROQ_API_KEY).")
+        conn.close()
+        return 0
+
+    print(f"⚙️ Article Summarizer Engine: Using {provider.upper()}")
+
+    to_process = []
+    for r in rows:
+        aid = r["id"]
+        notes = r["notes"] or ""
+        doc = json.loads(r["raw_json"]) if r["raw_json"] else {}
+        atom_folder = vault_dir / "atoms" / r['created_at'][:4] / r['created_at'][5:7] / aid
+        article_path = atom_folder / "article.md"
+
+        if not article_path.exists():
+            continue
+
+        has_ai_summary = "[AI Summary" in notes
+        if force or not notes or not has_ai_summary:
+            to_process.append({
+                "id": aid,
+                "title": r["atom_title"],
+                "notes": notes,
+                "article_path": article_path,
+                "atom_json_path": atom_folder / "atom.json",
+                "doc": doc
+            })
+
+    print(f"🔍 Found {len(to_process)} article atoms eligible for AI summarization.")
+    if limit and limit > 0:
+        to_process = to_process[:limit]
+        print(f"⚡ Limiting run to {limit} articles.")
+
+    if not to_process:
+        print("✅ All article atoms already have AI summaries!")
+        conn.close()
+        return 0
+
+    updated_count = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    for idx, item in enumerate(to_process, 1):
+        aid = item["id"]
+        title = item["title"]
+        art_path = item["article_path"]
+        atom_json = item["atom_json_path"]
+        doc = item["doc"]
+        existing_notes = item["notes"]
+
+        print(f"\n[{idx}/{len(to_process)}] Summarizing {aid} ({title[:35]}...):")
+        try:
+            with open(art_path, "r", encoding="utf-8") as f:
+                article_body = f.read()
+        except Exception as e:
+            print(f"   ⚠️ Could not read {art_path}: {e}")
+            continue
+
+        ai_summary, prov_name = generate_ai_article_summary(article_body, title=title)
+        if not ai_summary:
+            print("   ⚠️ Could not generate AI summary. Skipping.")
+            continue
+
+        labeled_summary = format_ai_summary(ai_summary, prov_name)
+        print(f"   ✨ [{prov_name.upper()}] \"{labeled_summary[:80]}...\"")
+
+        # Combine with existing curator notes if present and not already having an AI summary
+        if existing_notes and "[AI Summary" not in existing_notes:
+            new_notes = f"{existing_notes}\n\n{labeled_summary}"
+        else:
+            new_notes = labeled_summary
+
+        # Update document
+        curation = doc.setdefault("curation", {})
+        curation["description"] = new_notes
+        curation["notes"] = new_notes
+        doc["updated_at"] = now_iso
+
+        # Write to disk
+        try:
+            with open(atom_json, "w", encoding="utf-8") as f:
+                json.dump(doc, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"   ⚠️ Failed to write {atom_json}: {e}")
+            continue
+
+        # Update SQLite
+        with conn:
+            conn.execute(
+                "UPDATE atoms SET notes = ?, updated_at = ?, raw_json = ? WHERE id = ?",
+                (new_notes, now_iso, json.dumps(doc, ensure_ascii=False), aid)
+            )
+
+        updated_count += 1
+
+    conn.close()
+    print(f"\n🎉 Successfully summarized and updated {updated_count} article atoms!")
+    return updated_count
+
+
 # ─── Batch Vault Enrichment ──────────────────────────────────────────────────
 
-def batch_enrich_vault(vault_dir: Path, limit: int = None, force: bool = False) -> int:
+def batch_enrich_images(vault_dir: Path, limit: int = None, force: bool = False) -> int:
     """
     Scan image atoms in vault for missing or placeholder alt text,
     resolving descriptions through EXIF -> Web Metadata -> Cloud AI -> Title.
@@ -653,12 +947,31 @@ def batch_enrich_vault(vault_dir: Path, limit: int = None, force: bool = False) 
     return updated_count
 
 
+def batch_enrich_vault(vault_dir: Path, target: str = "all", limit: int = None, force: bool = False) -> dict[str, int]:
+    """
+    Unified enrichment entrypoint: processes images, articles, or all.
+    """
+    vault_dir = Path(vault_dir).resolve()
+    results = {"images": 0, "articles": 0}
+
+    if target in ("all", "articles"):
+        print("\n=== 📖 Article AI Summarization ===")
+        results["articles"] = batch_enrich_articles(vault_dir, limit=limit, force=force)
+
+    if target in ("all", "images"):
+        print("\n=== 🖼️ Image Accessibility Alt-Text ===")
+        results["images"] = batch_enrich_images(vault_dir, limit=limit, force=force)
+
+    return results
+
+
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Webtack Multi-Tier Image Enrichment Tool")
+    parser = argparse.ArgumentParser(description="Webtack Multi-Tier Enrichment Engine")
     parser.add_argument("--vault", default="vault", help="Path to vault directory (default: vault)")
-    parser.add_argument("--limit", type=int, default=None, help="Max images to enrich")
-    parser.add_argument("--force", action="store_true", help="Re-generate alt text even if already present")
+    parser.add_argument("--target", choices=["all", "images", "articles"], default="all", help="Target atoms: images, articles, or all (default)")
+    parser.add_argument("--limit", type=int, default=None, help="Max atoms to enrich per category")
+    parser.add_argument("--force", action="store_true", help="Re-generate descriptions even if already present")
     args = parser.parse_args()
 
-    batch_enrich_vault(Path(args.vault), limit=args.limit, force=args.force)
+    batch_enrich_vault(Path(args.vault), target=args.target, limit=args.limit, force=args.force)

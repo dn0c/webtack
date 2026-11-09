@@ -341,7 +341,7 @@ Webtack follows two core operational rules:
 
 ### Phase 1: Ingestion-Time Enrichment (`curate.py`)
 Runs automatically during capture to ensure instant visual parity in the viewer:
-* **Articles:** Trafilatura extracts clean markdown into `article.md`, calculates `word_count` and `read_time`, downloads the hero image, and fetches the site's `favicon`.
+* **Articles:** Trafilatura extracts clean markdown into `article.md`, calculates `word_count` and `read_time`, downloads the hero image, fetches the site's `favicon`, and generates a crisp 2–3 sentence summary labeled `[AI Summary: Provider]` in the atom description (if an AI key is configured in `.env`, or falls back to publisher description; skipped with `--no-enrich`).
 * **Bookmarks:** Scrapes OpenGraph tags (`og:title`, `og:description`, `og:image`) and calculates the `blurhash` and `color_palette` for instant progressive rendering in the UI.
 * **Quotes:** Normalizes typography (curly quotes, em-dashes), captures creator attribution, and saves clean markdown in `quote.md`.
 * **Videos:** Scrapes channel name, duration, and high-res video thumbnail.
@@ -353,7 +353,9 @@ Runs asynchronously, in the background, or in batch when you want to upgrade you
 
 | Target | Command | What it Adds to the Atom |
 | :--- | :--- | :--- |
-| **Image Vision & Accessibility** | `curate.py enrich`<br>*(runs `scripts/enrich.py`)* | Resolves rich, descriptive accessibility `alt_text` using a 5-tier resolution engine. |
+| **All / Unified Enrichment** | `curate.py enrich`<br>*(runs `scripts/enrich.py`)* | Batch processes both image alt-text and article AI summaries across the vault. |
+| **Article AI Summaries** | `curate.py enrich --target articles` | Generates 2–3 sentence AI summaries labeled `[AI Summary: Provider]` into `curation.description`. |
+| **Image Vision & Accessibility** | `curate.py enrich --target images` | Resolves rich, descriptive accessibility `alt_text` using the 5-tier resolution engine. |
 | **Spoken Dialogue & Audio** | `curate.py backfill-transcripts` | Extracts dialogue into `transcript.txt` and timestamped offset cues in `transcript.json`. |
 | **Full Article Text** | `scripts/backfill_instapaper_fulltext.py` | Upgrades lightweight bookmark pointers into full offline `article.md` reading sidecars. |
 | **Quote Sources & Authors** | `scripts/enrich_quotes_deep.py` | Matches quotes against publication domains to resolve missing author attributions. |
