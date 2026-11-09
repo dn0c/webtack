@@ -473,10 +473,13 @@ def extract_video_info(url: str) -> dict | None:
     return None
 
 
-def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key: str | None = None) -> dict | None:
-    """Fetch subtitles/captions using Supadata API (if key configured) or fallback to youtube-transcript-api."""
+def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key: str | None = None, force_api: bool = False) -> dict | None:
+    """Fetch subtitles/captions using local youtube-transcript-api (with cookies.txt) first, falling back to Supadata API if blocked."""
     supadata_key = api_key or os.environ.get("SUPADATA_API_KEY")
-    if supadata_key:
+
+    def _fetch_from_supadata():
+        if not supadata_key:
+            return None
         try:
             import requests
             url = f"https://api.supadata.ai/v1/youtube/transcript?videoId={video_id}&text=false"
@@ -538,9 +541,12 @@ def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key:
                 return None
         except Exception as se:
             print(f"⚠️ Supadata fetch error: {se}")
-
         return None
 
+    if force_api:
+        return _fetch_from_supadata()
+
+    # 1. Primary: Local scraper using browser cookies
     session = None
     if not cookies:
         for candidate in [Path("cookies.txt"), Path(__file__).resolve().parent / "cookies.txt", Path.home() / "Downloads" / "cookies.txt"]:
@@ -614,8 +620,11 @@ def fetch_youtube_transcript(video_id: str, cookies: str | None = None, api_key:
             "is_generated": transcript.is_generated
         }
     except (IpBlocked, RequestBlocked):
+        if supadata_key:
+            print("   ℹ️ Local IP blocked by YouTube; falling back to Supadata API...")
+            return _fetch_from_supadata()
         raise
-    except Exception as e:
+    except Exception:
         return None
 
 
