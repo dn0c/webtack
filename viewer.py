@@ -3346,6 +3346,7 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                         title=data.get("title"),
                         author=data.get("author"),
                         image_url=data.get("image_url") or data.get("cover_image_url"),
+                        article_markdown=data.get("article_markdown"),
                         description=data.get("description") or data.get("notes"),
                         notes=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),

@@ -1042,6 +1042,14 @@ def cmd_save_link(args):
     if getattr(args, "image_url", None):
         scraped["image_url"] = args.image_url
 
+    # If client passed in pre-extracted article markdown (e.g. from bookmarklet):
+    client_markdown = getattr(args, "article_markdown", None)
+    if client_markdown and len(client_markdown.strip()) > 50:
+        if not scraped.get("article_markdown") or len(client_markdown) > len(scraped["article_markdown"]):
+            scraped["article_markdown"] = client_markdown.strip()
+            scraped["article_word_count"] = len(client_markdown.strip().split())
+            print(f"📖 Using in-browser extracted article text ({scraped['article_word_count']} words)")
+
     # Determine kind
     if target_kind:
         kind = target_kind
@@ -1050,8 +1058,30 @@ def cmd_save_link(args):
     else:
         kind = "bookmark"
 
-    atom_id = generate_atom_id()
-    now_iso = datetime.now(timezone.utc).isoformat()
+    # Check if an existing atom already matches this URL with empty article text (Backfill support)
+    target_url = scraped.get("canonical_url") or args.url
+    conn = get_db(vault_dir)
+    existing_row = None
+    with conn:
+        existing_row = conn.execute("""
+            SELECT id, created_at, cover_file_path, raw_json
+            FROM atoms
+            WHERE (source_url = ? OR destination_url = ?)
+              AND kind = 'article'
+            ORDER BY created_at DESC LIMIT 1
+        """, (target_url, target_url)).fetchone()
+
+    if existing_row:
+        atom_id = existing_row["id"]
+        now_iso = existing_row["created_at"]
+        print(f"🔄 Updating existing article atom {atom_id} with full article text...")
+        rel_folder = Path("atoms") / now_iso[:4] / now_iso[5:7] / atom_id
+    else:
+        atom_id = generate_atom_id()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
+        rel_folder = Path("atoms") / f"{now.year}" / f"{now.month:02d}" / atom_id
+
     atom_title = args.title or scraped["source_title"]
     notes = getattr(args, "description", None) or getattr(args, "notes", None) or scraped.get("description")
     if isinstance(notes, dict):
@@ -1062,9 +1092,6 @@ def cmd_save_link(args):
     if visibility not in ("public", "shared", "private"):
         visibility = "public"
 
-    # Prepare sidecar folder: vault/atoms/YYYY/MM/<atom_id>/
-    now = datetime.now(timezone.utc)
-    rel_folder = Path("atoms") / f"{now.year}" / f"{now.month:02d}" / atom_id
     abs_folder = vault_dir / rel_folder
     abs_folder.mkdir(parents=True, exist_ok=True)
 
@@ -1198,7 +1225,7 @@ def cmd_save_link(args):
     with open(atom_json_path, "w", encoding="utf-8") as f:
         json.dump(atom_doc, f, indent=2)
 
-    # Insert into SQLite Clean Hybrid table
+    # Insert or update SQLite Clean Hybrid table
     conn = get_db(vault_dir)
     with conn:
         conn.execute("""
@@ -1207,10 +1234,19 @@ def cmd_save_link(args):
                 visibility, favorite, destination_url, cover_file_path, text_content, source_url,
                 author, metadata, raw_json
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                updated_at = excluded.updated_at,
+                atom_title = excluded.atom_title,
+                notes = excluded.notes,
+                tags = excluded.tags,
+                text_content = excluded.text_content,
+                author = excluded.author,
+                metadata = excluded.metadata,
+                raw_json = excluded.raw_json
         """, (
-            atom_id, kind, now_iso, now_iso, atom_title, notes, json.dumps(tags),
+            atom_id, kind, now_iso, datetime.now(timezone.utc).isoformat(), atom_title, notes, json.dumps(tags),
             json.dumps(collections), visibility, 1 if args.favorite else 0, args.url, cover_rel_path,
-            args.quote.strip() if args.quote else None, args.url, scraped["author"],
+            args.quote.strip() if getattr(args, "quote", None) else (scraped.get("article_markdown") if kind == "article" else None), args.url, getattr(args, "author", None) or scraped["author"],
             json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 

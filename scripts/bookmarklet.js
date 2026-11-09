@@ -23,6 +23,66 @@
     return '';
   }
 
+  function extractArticleMarkdown() {
+    const selectors = [
+      'article',
+      '[name="articleBody"]',
+      'section[name="articleBody"]',
+      '.article-body',
+      '.story-body',
+      '.entry-content',
+      '.post-content',
+      '[itemprop="articleBody"]',
+      'main'
+    ];
+    let container = null;
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el && el.innerText && el.innerText.length > 200) {
+        container = el;
+        break;
+      }
+    }
+    if (!container) container = document.body;
+    if (!container) return null;
+
+    const clone = container.cloneNode(true);
+    const stripSelectors = [
+      'script', 'style', 'noscript', 'nav', 'header', 'footer', 'aside',
+      '.advertisement', '.ad', '[aria-hidden="true"]', 'button', 'iframe',
+      '.social-share', '.comments', '.newsletter-signup', '[id*="ad-"]'
+    ];
+    clone.querySelectorAll(stripSelectors.join(', ')).forEach(el => el.remove());
+
+    const elements = clone.querySelectorAll('h1, h2, h3, h4, p, blockquote, ul, ol');
+    if (!elements || elements.length === 0) {
+      return clone.innerText ? clone.innerText.trim() : null;
+    }
+
+    const lines = [];
+    elements.forEach(el => {
+      const tag = el.tagName.toLowerCase();
+      const text = el.innerText.trim();
+      if (!text || text.length < 2) return;
+
+      if (tag === 'h1') lines.push('# ' + text);
+      else if (tag === 'h2') lines.push('## ' + text);
+      else if (tag === 'h3') lines.push('### ' + text);
+      else if (tag === 'h4') lines.push('#### ' + text);
+      else if (tag === 'blockquote') lines.push('> ' + text);
+      else if (tag === 'p') lines.push(text);
+      else if (tag === 'ul' || tag === 'ol') {
+        el.querySelectorAll('li').forEach(li => {
+          const liText = li.innerText.trim();
+          if (liText) lines.push('- ' + liText);
+        });
+      }
+    });
+
+    const md = lines.join('\n\n');
+    return md.length > 100 ? md : (clone.innerText ? clone.innerText.trim() : null);
+  }
+
   function getJsonLdMetadata() {
     const scripts = document.querySelectorAll('script[type="application/ld+json"]');
     for (const s of scripts) {
@@ -377,6 +437,11 @@
       ` : ''}
 
       <form id="captureForm">
+        <div id="articleBadge" style="display: ${currentKind === 'article' ? 'flex' : 'none'}; align-items: center; gap: 6px; font-size: 11.5px; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 6px 10px; margin-bottom: 12px;">
+          <span>📖</span>
+          <span>In-browser full article text ready for offline reading</span>
+        </div>
+
         <!-- Title Input -->
         <div class="form-group" id="groupTitle">
           <label id="lblTitle">Title</label>
@@ -492,6 +557,7 @@
       currentKind = p.dataset.kind;
 
       // Adjust field visibility
+      shadow.getElementById('articleBadge').style.display = currentKind === 'article' ? 'flex' : 'none';
       groupQuote.style.display = currentKind === 'quote' ? 'block' : 'none';
       groupNote.style.display = currentKind === 'note' ? 'block' : 'none';
       groupUrl.style.display = currentKind === 'note' ? 'none' : 'block';
@@ -565,6 +631,12 @@
 
     if (currentKind === 'article' || currentKind === 'bookmark') {
       payload.url = shadow.getElementById('inputUrl').value.trim();
+      if (currentKind === 'article') {
+        const extractedMd = extractArticleMarkdown();
+        if (extractedMd) {
+          payload.article_markdown = extractedMd;
+        }
+      }
     } else if (currentKind === 'video') {
       payload.url = shadow.getElementById('inputUrl').value.trim();
     } else if (currentKind === 'quote') {
