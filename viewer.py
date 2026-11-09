@@ -1223,6 +1223,11 @@ def generate_viewer(vault_dir: Path) -> Path:
         <button class="cap-tab-btn" data-tab="image" onclick="switchCaptureTab('image')">🎨 Image</button>
       </div>
 
+      <div class="bookmarklet-banner">
+        <span>⚡ <strong>1-Click Web Capture:</strong> Drag to your browser bookmarks bar:</span>
+        <a class="bookmarklet-link" href="javascript:(function(){{const d=document,e=d.getElementById('webtack-drawer-host');if(e){{e.remove();return;}}const s=d.createElement('script');s.id='webtack-script';s.src='http://127.0.0.1:8080/bookmarklet.js?r='+Date.now();s.onerror=function(){{const u=location.href,t=document.title,q=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(q),'_blank');}};d.body.appendChild(s);}})();" onclick="alert('Drag this ⚡ Save to Webtack link to your browser Bookmarks Bar to capture articles, videos, quotes, and bookmarks from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to Webtack</a>
+      </div>
+
       <!-- Link / URL Form -->
       <form id="linkForm" onsubmit="handleCaptureSubmit(event, activeUrlKind)">
         <div class="form-group">
@@ -1239,7 +1244,7 @@ def generate_viewer(vault_dir: Path) -> Path:
         </div>
         <div class="form-actions">
           <div class="bookmarklet-box">
-            Bookmarklet: <a class="bookmarklet-link" href="javascript:(function(){{const u=location.href,t=document.title,s=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(s),'_blank');}})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to Webtack</a>
+            <a class="bookmarklet-link" href="javascript:(function(){{const d=document,e=d.getElementById('webtack-drawer-host');if(e){{e.remove();return;}}const s=d.createElement('script');s.id='webtack-script';s.src='http://127.0.0.1:8080/bookmarklet.js?r='+Date.now();s.onerror=function(){{const u=location.href,t=document.title,q=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(q),'_blank');}};d.body.appendChild(s);}})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to Webtack</a>
           </div>
           <button type="submit" class="submit-btn" id="capLinkSubmit">Save Link</button>
         </div>
