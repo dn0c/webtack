@@ -127,6 +127,41 @@ class TestWebtackCLI(unittest.TestCase):
         val_res = self._run_cli(["validate"])
         self.assertIn("All 2 atoms passed validation with zero errors or warnings", val_res.stdout)
 
+    def test_attach_user_transcript(self):
+        """Verify user-supplied transcripts (.vtt) can be attached to video atoms."""
+        self._run_cli([
+            "video",
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "--title", "Demo Video",
+            "--no-enrich"
+        ])
+
+        vtt_file = self.vault_dir / "user_captions.vtt"
+        vtt_file.write_text("""WEBVTT
+
+00:00:01.000 --> 00:00:04.000
+Never gonna give you up
+
+00:00:04.500 --> 00:00:08.000
+Never gonna let you down
+""", encoding="utf-8")
+
+        res = self._run_cli(["attach-transcript", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", str(vtt_file)])
+        self.assertIn("Successfully attached transcript", res.stdout)
+
+        atom_dirs = list((self.vault_dir / "atoms").glob("*/*/*"))
+        self.assertEqual(len(atom_dirs), 1)
+        atom_dir = atom_dirs[0]
+
+        txt_sidecar = atom_dir / "transcript.txt"
+        json_sidecar = atom_dir / "transcript.json"
+        self.assertTrue(txt_sidecar.exists())
+        self.assertTrue(json_sidecar.exists())
+        self.assertIn("Never gonna give you up", txt_sidecar.read_text())
+
+        val_res = self._run_cli(["validate"])
+        self.assertIn("zero errors", val_res.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

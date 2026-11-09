@@ -192,6 +192,36 @@ def save_bookmark(url: str, title: str = "", tags: str = "") -> dict:
     return {"success": True, "atom_id": doc["id"], "title": doc["curation"]["atom_title"]}
 
 
+@app.tool()
+def save_video(url: str, title: str = "", tags: str = "", transcript: str = "") -> dict:
+    """Save a video atom into the Webtack vault with metadata and optional user-supplied transcript text."""
+    script_dir = str(Path(__file__).resolve().parent)
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    import curate
+    import types
+    vault_dir = get_vault_dir()
+    args = types.SimpleNamespace(
+        url=url,
+        title=title or None,
+        notes=None,
+        description=None,
+        tags=tags or None,
+        transcript=transcript or None,
+        collection=None,
+        visibility="public",
+        favorite=False,
+        vault=str(vault_dir),
+        capture_method="mcp",
+        capture_id=None,
+        capture_url=None,
+        no_enrich=False
+    )
+    doc = curate.cmd_video(args)
+    has_transcript = doc.get("content", {}).get("video", {}).get("has_transcript", False)
+    return {"success": True, "atom_id": doc["id"], "title": doc["curation"]["atom_title"], "has_transcript": has_transcript}
+
+
 def main():
     """Run the Webtack MCP server via stdio transport."""
     app.run()

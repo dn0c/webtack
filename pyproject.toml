@@ -8,7 +8,7 @@ version = "3.0.0"
 description = "A local-first, durable web curation and bookmarking framework using the Content Sidecar pattern."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Drew Shannon", email = "andrew.w.shannon@gmail.com"}
 ]
@@ -26,7 +26,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -61,3 +60,13 @@ Specification = "https://github.com/dn0c/webtack/blob/main/SPECIFICATION.md"
 
 [project.scripts]
 webtack = "curate:main"
+
+[tool.setuptools]
+py-modules = ["curate", "viewer", "webtack_mcp"]
+
+[tool.setuptools.packages.find]
+include = ["integrations*", "scripts*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.html", "*.md"]
+

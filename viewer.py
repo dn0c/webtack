@@ -1242,9 +1242,13 @@ def generate_viewer(vault_dir: Path) -> Path:
           <label>Tags (Comma separated)</label>
           <input type="text" id="capVideoTags" placeholder="interviews, music-gear, tech">
         </div>
+        <div class="form-group">
+          <label>Transcript / Dialogue (Optional)</label>
+          <textarea id="capVideoTranscript" rows="3" placeholder="Include your own transcription here if you choose (pasted text, timestamps, or .vtt/.srt cues)..."></textarea>
+        </div>
         <div class="form-actions">
           <div style="font-size: 11px; color: var(--muted); line-height: 1.3;">
-            ⚡ Auto-downloads poster thumbnail and fetches full spoken transcript subtitles for search & LLM digest.
+            ⚡ Auto-fetches video metadata and poster thumbnail. Users can include their own transcription if they choose to do so.
           </div>
           <button type="submit" class="submit-btn" id="capVideoSubmit">Save Video</button>
         </div>
@@ -1602,6 +1606,7 @@ def generate_viewer(vault_dir: Path) -> Path:
         payload.url = document.getElementById('capVideoUrl').value.trim();
         payload.title = document.getElementById('capVideoTitle').value.trim() || null;
         payload.tags = cleanTags(document.getElementById('capVideoTags').value);
+        payload.transcript = document.getElementById('capVideoTranscript') ? document.getElementById('capVideoTranscript').value.trim() || null : null;
       }} else if (kind === 'quote') {{
         submitBtn = document.getElementById('capQuoteSubmit');
         payload.quote = document.getElementById('capQuoteText').value.trim();
@@ -3228,6 +3233,7 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                         description=data.get("description") or data.get("notes"),
                         notes=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),
+                        transcript=data.get("transcript"),
                         collection=None,
                         favorite=False,
                         vault=str(self.vault_dir)

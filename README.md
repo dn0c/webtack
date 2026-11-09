@@ -254,7 +254,7 @@ python3 curate.py view --server
 ```
 
 **In-Browser Studio Features:**
-- **`+ Capture` Modal (`c`)**: 1-click capture tabs for **Articles** (scraped Markdown), **Bookmarks** (lightweight pointers), **Videos** (auto-transcription & posters), **Quotes**, **Notes** (Markdown), and **Images** (blurhash & color extraction).
+- **`+ Capture` Modal (`c`)**: 1-click capture tabs for **Articles** (scraped Markdown), **Bookmarks** (lightweight pointers), **Videos** (posters & optional user transcriptions), **Quotes**, **Notes** (Markdown), and **Images** (blurhash & color extraction).
 - **`📥 Export ▾` Menu**: 1-click browser downloads for:
   - 🤖 **NotebookLM Digest (`.md`)**: Unified longform document with articles, notes, quotes, and full video transcripts.
   - 📑 **`llms.txt` Index (`.txt`)**: Compact, LLM-friendly index standard.
