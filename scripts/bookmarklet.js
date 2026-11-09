@@ -1,0 +1,608 @@
+/**
+ * Webtack In-Page Capture Drawer Bookmarklet (Option B)
+ * Extracts canonical metadata, OpenGraph, JSON-LD, bylines, and selections
+ * into a sleek, isolated Shadow DOM drawer directly on the active webpage.
+ */
+(function() {
+  const DRAWER_ID = 'webtack-drawer-host';
+  const existing = document.getElementById(DRAWER_ID);
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  // 1. DOM Metadata Extraction
+  function getMeta(selectors) {
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        const val = el.getAttribute('content') || el.getAttribute('value') || el.innerText;
+        if (val && val.trim()) return val.trim();
+      }
+    }
+    return '';
+  }
+
+  function getJsonLdMetadata() {
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const s of scripts) {
+      try {
+        const data = JSON.parse(s.textContent.trim());
+        const items = Array.isArray(data) ? data : (data['@graph'] || [data]);
+        for (const item of items) {
+          if (!item) continue;
+          let author = null;
+          if (item.author) {
+            if (typeof item.author === 'string') author = item.author;
+            else if (Array.isArray(item.author)) author = item.author.map(a => a.name || a).join(', ');
+            else if (item.author.name) author = item.author.name;
+          }
+          let date = item.datePublished || item.dateCreated || null;
+          let image = null;
+          if (typeof item.image === 'string') image = item.image;
+          else if (item.image && item.image.url) image = item.image.url;
+
+          if (author || date || image) {
+            return { author, date, image };
+          }
+        }
+      } catch (e) {}
+    }
+    return {};
+  }
+
+  const jsonLd = getJsonLdMetadata();
+  const canonicalUrl = document.querySelector('link[rel="canonical"]')?.href || window.location.href;
+  const pageTitle = getMeta(['meta[property="og:title"]', 'meta[name="twitter:title"]']) || document.title || '';
+  const siteName = getMeta(['meta[property="og:site_name"]']) || window.location.hostname.replace(/^www\./, '');
+  const author = jsonLd.author || getMeta([
+    'meta[name="author"]',
+    'meta[name="twitter:creator"]',
+    'meta[property="article:author"]',
+    '[rel="author"]',
+    '.byline',
+    '[itemprop="author"]'
+  ]);
+  const description = getMeta(['meta[property="og:description"]', 'meta[name="description"]']);
+  const imageUrl = jsonLd.image || getMeta(['meta[property="og:image:secure_url"]', 'meta[property="og:image"]', 'meta[name="twitter:image"]']);
+  const selection = window.getSelection() ? window.getSelection().toString().trim() : '';
+  const isVideoPage = /youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|loom\.com/i.test(window.location.hostname);
+  const isArticlePage = !!document.querySelector('article') || (document.body ? document.body.innerText.length > 2000 : false);
+
+  // Auto-detect initial kind
+  let currentKind = 'bookmark';
+  if (selection.length > 0) {
+    currentKind = 'quote';
+  } else if (isVideoPage) {
+    currentKind = 'video';
+  } else if (isArticlePage) {
+    currentKind = 'article';
+  }
+
+  // 2. Create Isolated Shadow DOM Host
+  const host = document.createElement('div');
+  host.id = DRAWER_ID;
+  host.style.position = 'fixed';
+  host.style.top = '0';
+  host.style.right = '0';
+  host.style.width = '0';
+  host.style.height = '0';
+  host.style.zIndex = '2147483647';
+  document.body.appendChild(host);
+
+  const shadow = host.attachShadow({ mode: 'open' });
+
+  // 3. Inject Scoped CSS & HTML
+  shadow.innerHTML = `
+    <style>
+      :host {
+        all: initial;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      .webtack-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(2px);
+        z-index: 2147483646;
+      }
+      .webtack-card {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 440px;
+        max-width: calc(100vw - 40px);
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        background: #0f172a;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        border-radius: 16px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+        padding: 20px;
+        z-index: 2147483647;
+        animation: slideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes slideIn {
+        from { transform: translateX(30px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #1e293b;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 15px;
+        color: #f1f5f9;
+        letter-spacing: -0.01em;
+      }
+      .brand-dot {
+        width: 8px;
+        height: 8px;
+        background: #10b981;
+        border-radius: 50%;
+        box-shadow: 0 0 8px #10b981;
+      }
+      .close-btn {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        line-height: 1;
+        transition: all 0.15s;
+      }
+      .close-btn:hover {
+        color: #f8fafc;
+        background: #1e293b;
+      }
+      .kind-pills {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 8px;
+        margin-bottom: 14px;
+        scrollbar-width: none;
+      }
+      .kind-pills::-webkit-scrollbar {
+        display: none;
+      }
+      .pill-btn {
+        background: #1e293b;
+        color: #94a3b8;
+        border: 1px solid #334155;
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s;
+      }
+      .pill-btn:hover {
+        background: #334155;
+        color: #f8fafc;
+      }
+      .pill-btn.active {
+        background: #2563eb;
+        color: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
+      }
+      .preview-box {
+        display: flex;
+        gap: 12px;
+        background: #1e293b;
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 14px;
+        border: 1px solid #334155;
+        align-items: center;
+      }
+      .preview-img {
+        width: 84px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 6px;
+        background: #0f172a;
+        flex-shrink: 0;
+      }
+      .preview-meta {
+        font-size: 11px;
+        color: #94a3b8;
+        overflow: hidden;
+      }
+      .preview-site {
+        font-weight: 700;
+        color: #38bdf8;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        margin-bottom: 2px;
+      }
+      .form-group {
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 4px;
+      }
+      input, textarea, select {
+        width: 100%;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        color: #f8fafc;
+        font-size: 13px;
+        padding: 8px 10px;
+        outline: none;
+        transition: border-color 0.15s;
+        font-family: inherit;
+      }
+      input:focus, textarea:focus, select:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+      }
+      textarea {
+        resize: vertical;
+        min-height: 56px;
+        line-height: 1.4;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+      }
+      .row > div {
+        flex: 1;
+      }
+      .quote-highlight {
+        background: rgba(59, 130, 246, 0.08);
+        border-left: 3px solid #3b82f6;
+        padding-left: 8px;
+      }
+      .actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid #1e293b;
+      }
+      .status-text {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+      .status-error {
+        color: #f87171 !important;
+      }
+      .status-success {
+        color: #34d399 !important;
+        font-weight: 600;
+      }
+      .btn-group {
+        display: flex;
+        gap: 8px;
+      }
+      .btn {
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: all 0.15s;
+      }
+      .btn-cancel {
+        background: #1e293b;
+        color: #94a3b8;
+        border: 1px solid #334155;
+      }
+      .btn-cancel:hover {
+        background: #334155;
+        color: #f8fafc;
+      }
+      .btn-save {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      }
+      .btn-save:hover {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+      }
+      .btn-save:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .server-warning {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 12px;
+        color: #fca5a5;
+        margin-top: 10px;
+        display: none;
+        line-height: 1.4;
+      }
+    </style>
+
+    <div class="webtack-backdrop" id="backdrop"></div>
+    <div class="webtack-card">
+      <div class="header">
+        <div class="brand">
+          <div class="brand-dot"></div>
+          Webtack Capture
+        </div>
+        <button class="close-btn" id="closeBtn" title="Close (Esc)">✕</button>
+      </div>
+
+      <div class="kind-pills">
+        <button class="pill-btn ${currentKind === 'article' ? 'active' : ''}" data-kind="article">📖 Article</button>
+        <button class="pill-btn ${currentKind === 'bookmark' ? 'active' : ''}" data-kind="bookmark">🔖 Bookmark</button>
+        <button class="pill-btn ${currentKind === 'video' ? 'active' : ''}" data-kind="video">🎬 Video</button>
+        <button class="pill-btn ${currentKind === 'quote' ? 'active' : ''}" data-kind="quote">✍️ Quote</button>
+        <button class="pill-btn ${currentKind === 'note' ? 'active' : ''}" data-kind="note">📝 Note</button>
+        <button class="pill-btn ${currentKind === 'image' ? 'active' : ''}" data-kind="image">🎨 Image</button>
+      </div>
+
+      ${imageUrl ? `
+        <div class="preview-box">
+          <img src="${imageUrl}" class="preview-img" onerror="this.style.display='none'">
+          <div class="preview-meta">
+            <div class="preview-site">${siteName}</div>
+            <div style="color: #cbd5e1; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${pageTitle}</div>
+          </div>
+        </div>
+      ` : ''}
+
+      <form id="captureForm">
+        <!-- Title Input -->
+        <div class="form-group" id="groupTitle">
+          <label id="lblTitle">Title</label>
+          <input type="text" id="inputTitle" value="${escapeHtml(pageTitle)}" placeholder="Atom Title" required>
+        </div>
+
+        <!-- Quote Area (Conditional) -->
+        <div class="form-group" id="groupQuote" style="display: ${currentKind === 'quote' ? 'block' : 'none'};">
+          <label>Quote Excerpt</label>
+          <textarea id="inputQuote" class="quote-highlight" rows="3" placeholder="Verbatim quote...">${escapeHtml(selection)}</textarea>
+        </div>
+
+        <!-- Note Text Area (Conditional) -->
+        <div class="form-group" id="groupNote" style="display: ${currentKind === 'note' ? 'block' : 'none'};">
+          <label>Memo / Thought</label>
+          <textarea id="inputNote" rows="3" placeholder="Your note or reflection..."></textarea>
+        </div>
+
+        <!-- URL Input -->
+        <div class="form-group" id="groupUrl" style="display: ${currentKind === 'note' ? 'none' : 'block'};">
+          <label id="lblUrl">Source URL</label>
+          <input type="url" id="inputUrl" value="${escapeHtml(canonicalUrl)}" placeholder="https://..." required>
+        </div>
+
+        <!-- Image URL Input (Conditional for Image Kind) -->
+        <div class="form-group" id="groupImageSrc" style="display: ${currentKind === 'image' ? 'block' : 'none'};">
+          <label>Image Source Link</label>
+          <input type="url" id="inputImageSrc" value="${escapeHtml(imageUrl || '')}" placeholder="https://.../photo.jpg">
+        </div>
+
+        <!-- Author & Published Meta Row -->
+        <div class="row" id="groupAuthorRow" style="display: ${['article', 'quote', 'video', 'image'].includes(currentKind) ? 'flex' : 'none'};">
+          <div class="form-group">
+            <label id="lblAuthor">Author / Channel</label>
+            <input type="text" id="inputAuthor" value="${escapeHtml(author)}" placeholder="Author name">
+          </div>
+        </div>
+
+        <!-- Description / Editorial Notes -->
+        <div class="form-group" id="groupDescription" style="display: ${currentKind === 'note' ? 'none' : 'block'};">
+          <label>Description / Notes</label>
+          <textarea id="inputDescription" rows="2" placeholder="Summary or personal notes...">${escapeHtml(description)}</textarea>
+        </div>
+
+        <!-- Tags & Visibility Row -->
+        <div class="row">
+          <div class="form-group" style="flex: 2;">
+            <label>Tags (Comma separated)</label>
+            <input type="text" id="inputTags" placeholder="e.g. design, ai, web">
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label>Visibility</label>
+            <select id="selectVisibility">
+              <option value="public" selected>🌐 Public</option>
+              <option value="shared">👥 Shared</option>
+              <option value="private">🔒 Private</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="server-warning" id="serverWarning">
+          ⚠️ <strong>Cannot connect to Webtack!</strong><br>
+          Make sure Webtack is running by double-clicking <code>Launch Webtack.command</code> or running <code>python3 curate.py view --server</code> on your Mac.
+          <div style="margin-top: 6px;">
+            <a href="http://127.0.0.1:8080/?capture_url=${encodeURIComponent(canonicalUrl)}&capture_title=${encodeURIComponent(pageTitle)}" target="_blank" style="color: #60a5fa; text-decoration: underline;">Open Webtack in tab instead</a>
+          </div>
+        </div>
+
+        <div class="actions">
+          <div class="status-text" id="statusText">Ready</div>
+          <div class="btn-group">
+            <button type="button" class="btn btn-cancel" id="btnCancel">Cancel</button>
+            <button type="submit" class="btn btn-save" id="btnSave">Save to Vault</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  `;
+
+  // 4. Helper Functions
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function closeDrawer() {
+    host.remove();
+  }
+
+  // 5. Kind Switching Logic
+  const pills = shadow.querySelectorAll('.pill-btn');
+  const groupQuote = shadow.getElementById('groupQuote');
+  const groupNote = shadow.getElementById('groupNote');
+  const groupUrl = shadow.getElementById('groupUrl');
+  const groupImageSrc = shadow.getElementById('groupImageSrc');
+  const groupAuthorRow = shadow.getElementById('groupAuthorRow');
+  const groupDescription = shadow.getElementById('groupDescription');
+  const lblAuthor = shadow.getElementById('lblAuthor');
+  const lblTitle = shadow.getElementById('lblTitle');
+  const inputTitle = shadow.getElementById('inputTitle');
+  const inputTags = shadow.getElementById('inputTags');
+
+  pills.forEach(p => {
+    p.addEventListener('click', (e) => {
+      e.preventDefault();
+      pills.forEach(b => b.classList.remove('active'));
+      p.classList.add('active');
+      currentKind = p.dataset.kind;
+
+      // Adjust field visibility
+      groupQuote.style.display = currentKind === 'quote' ? 'block' : 'none';
+      groupNote.style.display = currentKind === 'note' ? 'block' : 'none';
+      groupUrl.style.display = currentKind === 'note' ? 'none' : 'block';
+      groupImageSrc.style.display = currentKind === 'image' ? 'block' : 'none';
+      groupAuthorRow.style.display = ['article', 'quote', 'video', 'image'].includes(currentKind) ? 'flex' : 'none';
+      groupDescription.style.display = currentKind === 'note' ? 'none' : 'block';
+
+      if (currentKind === 'video') {
+        lblAuthor.textContent = 'Channel / Creator';
+      } else {
+        lblAuthor.textContent = 'Author';
+      }
+
+      if (currentKind === 'note') {
+        lblTitle.textContent = 'Note Title (Optional)';
+        inputTitle.required = false;
+      } else {
+        lblTitle.textContent = 'Title';
+        inputTitle.required = true;
+      }
+    });
+  });
+
+  // Focus tags or quote
+  setTimeout(() => {
+    if (currentKind === 'quote') {
+      shadow.getElementById('inputQuote').focus();
+    } else {
+      inputTags.focus();
+    }
+  }, 100);
+
+  // 6. Close Event Handlers
+  shadow.getElementById('backdrop').addEventListener('click', closeDrawer);
+  shadow.getElementById('closeBtn').addEventListener('click', closeDrawer);
+  shadow.getElementById('btnCancel').addEventListener('click', closeDrawer);
+
+  window.addEventListener('keydown', function onKey(e) {
+    if (e.key === 'Escape') {
+      closeDrawer();
+      window.removeEventListener('keydown', onKey);
+    }
+  });
+
+  // 7. Form Submission to http://127.0.0.1:8080/api/capture
+  const form = shadow.getElementById('captureForm');
+  const btnSave = shadow.getElementById('btnSave');
+  const statusText = shadow.getElementById('statusText');
+  const serverWarning = shadow.getElementById('serverWarning');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    serverWarning.style.display = 'none';
+    btnSave.disabled = true;
+    btnSave.textContent = 'Saving...';
+    statusText.className = 'status-text';
+    statusText.textContent = 'Writing to vault...';
+
+    const tagsVal = inputTags.value.trim();
+    const tags = tagsVal ? tagsVal.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+
+    const payload = {
+      kind: currentKind,
+      title: inputTitle.value.trim() || null,
+      tags: tags,
+      description: shadow.getElementById('inputDescription').value.trim() || null,
+      visibility: shadow.getElementById('selectVisibility').value,
+      author: shadow.getElementById('inputAuthor').value.trim() || null,
+      image_url: imageUrl || null
+    };
+
+    if (currentKind === 'article' || currentKind === 'bookmark') {
+      payload.url = shadow.getElementById('inputUrl').value.trim();
+    } else if (currentKind === 'video') {
+      payload.url = shadow.getElementById('inputUrl').value.trim();
+    } else if (currentKind === 'quote') {
+      payload.quote = shadow.getElementById('inputQuote').value.trim();
+      payload.source = shadow.getElementById('inputUrl').value.trim();
+      payload.source_title = pageTitle || null;
+    } else if (currentKind === 'note') {
+      payload.text = shadow.getElementById('inputNote').value.trim();
+    } else if (currentKind === 'image') {
+      payload.src = shadow.getElementById('inputImageSrc').value.trim() || imageUrl;
+      payload.source = shadow.getElementById('inputUrl').value.trim();
+      payload.alt = pageTitle || null;
+    }
+
+    try {
+      const resp = await fetch('http://127.0.0.1:8080/api/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const res = await resp.json();
+      if (res.success && res.atom) {
+        statusText.className = 'status-text status-success';
+        statusText.textContent = `✨ Saved "${res.atom.title}"!`;
+        btnSave.textContent = '✓ Saved';
+        setTimeout(() => {
+          closeDrawer();
+        }, 1200);
+      } else {
+        throw new Error(res.error || 'Server rejected atom');
+      }
+    } catch (err) {
+      btnSave.disabled = false;
+      btnSave.textContent = 'Save to Vault';
+      statusText.className = 'status-text status-error';
+      statusText.textContent = 'Connection failed';
+      serverWarning.style.display = 'block';
+    }
+  });
+})();
