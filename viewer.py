@@ -3367,21 +3367,25 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                 elif content_doc.get("quote", {}):
                     excerpt_text = content_doc["quote"].get("text")
 
+                curation_doc = atom_doc.get("curation") or {}
+                source_doc = atom_doc.get("source") or atom_doc.get("provenance") or {}
+                cover_doc = content_doc.get("cover_image") or {}
+
                 card_data = {
-                    "id": atom_doc["id"],
-                    "kind": atom_doc.get("kind") or atom_doc.get("curation", {}).get("kind"),
-                    "title": atom_doc["curation"]["atom_title"],
-                    "notes": atom_doc["curation"].get("description") or atom_doc["curation"].get("notes"),
-                    "tags": atom_doc["curation"].get("tags", []),
-                    "date": created_at[:10],
+                    "id": atom_doc.get("id"),
+                    "kind": atom_doc.get("kind") or curation_doc.get("kind"),
+                    "title": curation_doc.get("atom_title") or atom_doc.get("title") or "Untitled",
+                    "notes": curation_doc.get("description") or curation_doc.get("notes") or "",
+                    "tags": curation_doc.get("tags") or [],
+                    "date": created_at[:10] if created_at else "",
                     "created_at": created_at,
-                    "source_url": (atom_doc.get("source") or atom_doc.get("provenance") or {}).get("source_url") or content_doc.get("destination_url"),
-                    "author": (atom_doc.get("source") or atom_doc.get("provenance") or {}).get("author"),
-                    "cover_path": content_doc.get("cover_image", {}).get("relative_path") if content_doc.get("cover_image") else None,
-                    "metadata": atom_doc.get("metadata_json", {}),
+                    "source_url": source_doc.get("source_url") or content_doc.get("destination_url"),
+                    "author": source_doc.get("author"),
+                    "cover_path": cover_doc.get("relative_path"),
+                    "metadata": atom_doc.get("metadata_json") or {},
                     "article_markdown": article_text,
                     "excerpt": excerpt_text,
-                    "folder_path": f"atoms/{created_at[:4]}/{created_at[5:7]}/{atom_doc['id']}",
+                    "folder_path": f"atoms/{created_at[:4]}/{created_at[5:7]}/{atom_doc['id']}" if created_at and atom_doc.get("id") else "",
                     "raw": atom_doc
                 }
 
