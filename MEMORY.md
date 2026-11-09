@@ -126,9 +126,10 @@ WideWeb features automated, deduplicated sync engines for external services:
    - Two-Way Sync: AI-generated alt text created in WideWeb is synced back upstream to Are.na block descriptions (`ai_enrich.py`).
 3. **YouTube Ingestion & Transcription (`curate.py backfill-transcripts`)**:
    - Ingests video bookmarks and channel playlists.
-   - Background drip fetches spoken audio transcripts via `youtube-transcript-api`.
-   - Auto-detects local `cookies.txt` (gitignored) to bypass YouTube bot detection/rate limits and gracefully handles `RequestBlocked` errors.
-   - Generates both `transcript.txt` (plain text) and `transcript.json` (timestamped cues).
+   - **Local-First Architecture**: Routine captures (<5/day) use `youtube-transcript-api` with local `cookies.txt` (gitignored), completely free and private.
+   - **Managed API Fallback**: Full support for Supadata API (`SUPADATA_API_KEY`) for high-throughput batch backfills or automatic fallback if local IP encounters `IpBlocked`.
+   - Generates both `transcript.txt` (plain text) and `transcript.json` (timestamped cues), indexed in `vault.db`.
+   - Backlog backfill completed in Nov 2026: 1,312 video transcripts generated and indexed across the library.
 
 ### Provenance & URL Normalization
 - **URL Consolidation**: Deprecated conflicting fields (`destination_url`, `canonical_url`, `original_src_url`, `author_url`) into a single canonical `source.source_url`.
