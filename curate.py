@@ -1044,7 +1044,7 @@ def cmd_save_link(args):
 
     # If client passed in pre-extracted article markdown (e.g. from bookmarklet):
     client_markdown = getattr(args, "article_markdown", None)
-    if client_markdown and len(client_markdown.strip()) > 50:
+    if client_markdown and len(client_markdown.strip()) > 20:
         if not scraped.get("article_markdown") or len(client_markdown) > len(scraped["article_markdown"]):
             scraped["article_markdown"] = client_markdown.strip()
             scraped["article_word_count"] = len(client_markdown.strip().split())
@@ -1125,7 +1125,7 @@ def cmd_save_link(args):
 
     # 2. Save Offline Article Body (only for article kind)
     article_meta = None
-    if kind == "article" and scraped.get("article_markdown") and scraped["article_word_count"] > 40:
+    if kind == "article" and scraped.get("article_markdown") and scraped["article_word_count"] > 10:
         article_filename = "article.md"
         abs_article_path = abs_folder / article_filename
         with open(abs_article_path, "w", encoding="utf-8") as f:

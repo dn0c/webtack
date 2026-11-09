@@ -3317,6 +3317,53 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(content_bytes)
             else:
                 self.send_error(404, "Bookmarklet script not found")
+        elif parsed.path == "/api/check":
+            query = urllib.parse.parse_qs(parsed.query)
+            target_url = query.get("url", [None])[0]
+            if not target_url:
+                self.send_error(400, "Missing url parameter")
+                return
+
+            script_dir = str(Path(__file__).resolve().parent)
+            if script_dir not in sys.path:
+                sys.path.insert(0, script_dir)
+            import curate
+            conn = curate.get_db(self.vault_dir)
+            with conn:
+                row = conn.execute("""
+                    SELECT id, kind, atom_title, notes, tags, visibility, created_at, source_url
+                    FROM atoms
+                    WHERE source_url = ? OR destination_url = ?
+                    ORDER BY created_at DESC LIMIT 1
+                """, (target_url, target_url)).fetchone()
+
+            if row:
+                tags = []
+                try:
+                    tags = json.loads(row["tags"]) if row["tags"] else []
+                except Exception:
+                    pass
+                data = {
+                    "exists": True,
+                    "atom": {
+                        "id": row["id"],
+                        "kind": row["kind"],
+                        "title": row["atom_title"],
+                        "description": row["notes"],
+                        "tags": tags,
+                        "visibility": row["visibility"] or "public"
+                    }
+                }
+            else:
+                data = {"exists": False}
+
+            response_bytes = json.dumps(data).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(response_bytes)))
+            self.end_headers()
+            self.wfile.write(response_bytes)
         else:
             super().do_GET()
 

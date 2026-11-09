@@ -482,8 +482,11 @@
 
         <!-- Description / Editorial Notes -->
         <div class="form-group" id="groupDescription" style="display: ${currentKind === 'note' ? 'none' : 'block'};">
-          <label>Description / Notes</label>
-          <textarea id="inputDescription" rows="2" placeholder="Summary or personal notes...">${escapeHtml(description)}</textarea>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+            <label style="margin-bottom: 0;">Description / Editorial Summary</label>
+            <span style="font-size: 10px; color: #94a3b8; font-weight: 500;">Editable</span>
+          </div>
+          <textarea id="inputDescription" rows="4" style="min-height: 84px; line-height: 1.45;" placeholder="Add or edit summary or personal editorial notes...">${escapeHtml(description)}</textarea>
         </div>
 
         <!-- Tags & Visibility Row -->
@@ -589,6 +592,35 @@
       inputTags.focus();
     }
   }, 100);
+
+  // Check if URL is already in vault (to prefill existing description/tags and allow updating)
+  fetch('http://127.0.0.1:8080/api/check?url=' + encodeURIComponent(canonicalUrl))
+    .then(r => r.json())
+    .then(res => {
+      if (res && res.exists && res.atom) {
+        const brand = shadow.querySelector('.brand');
+        if (brand) {
+          brand.innerHTML = '<div class="brand-dot" style="background:#38bdf8; box-shadow:0 0 8px #38bdf8;"></div> Webtack • Existing Atom';
+        }
+        const btnSave = shadow.getElementById('btnSave');
+        if (btnSave) {
+          btnSave.textContent = 'Update Atom';
+        }
+        if (res.atom.description) {
+          shadow.getElementById('inputDescription').value = res.atom.description;
+        }
+        if (res.atom.title) {
+          shadow.getElementById('inputTitle').value = res.atom.title;
+        }
+        if (res.atom.tags && res.atom.tags.length) {
+          shadow.getElementById('inputTags').value = res.atom.tags.join(', ');
+        }
+        if (res.atom.visibility) {
+          shadow.getElementById('selectVisibility').value = res.atom.visibility;
+        }
+      }
+    })
+    .catch(() => {});
 
   // 6. Close Event Handlers
   shadow.getElementById('backdrop').addEventListener('click', closeDrawer);
