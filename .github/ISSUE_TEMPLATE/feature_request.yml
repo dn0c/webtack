@@ -1,0 +1,44 @@
+name: Feature Request
+description: Propose an idea or enhancement for Webtack
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping make Webtack better! Please consider how your proposed feature fits with Webtack's core principles: **Content Sidecar Pattern**, **Filesystem as Canonical Truth**, **The 30-Year Horizon**, and **Zero Bloat**.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem or limitation?
+      placeholder: I am frustrated when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: A clear and concise description of what you want to happen.
+      placeholder: Describe the feature, CLI flag, or viewer capability...
+    validations:
+      required: true
+
+  - type: textarea
+    id: architectural-fit
+    attributes:
+      label: Architectural Alignment
+      description: How does this proposal align with local-first, sidecar storage, and zero-bloat principles? Does it affect atom.json or sidecar files?
+      placeholder: Does this change atom.json? Does it introduce new dependencies?
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or workarounds you have considered.
+    validations:
+      required: false
