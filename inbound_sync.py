@@ -313,7 +313,7 @@ def get_block_channel_info(block_id: str, headers: dict):
     return None, None
 
 
-def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
+def pull_arena(vault_dir: Path, limit: int = 100, visibility: str = "public"):
     """Pull recent blocks across all user channels from Are.na into WideWeb."""
     import curate
 
@@ -359,12 +359,20 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
         notes = (desc_obj.get("plain") or desc_obj.get("markdown")) if isinstance(desc_obj, dict) else (desc_obj or None)
 
         source_url = it.get("source", {}).get("url") if isinstance(it.get("source"), dict) else None
-        check_url = source_url or (f"https://www.are.na/block/{block_id}" if block_id else None)
 
         # Deduplication check
         if block_id and block_id in arena_synced:
             continue
-        existing = find_existing_atom_for_url(conn, check_url)
+
+        # For Image and Quote blocks, multiple distinct media items or quote excerpts often share
+        # the same upstream source article URL. Only Link and Embed blocks should deduplicate against
+        # the parent webpage URL. Images and Quotes should deduplicate against their specific Are.na block URL.
+        if block_type in ("Link", "Embed"):
+            check_url = source_url or (f"https://www.are.na/block/{block_id}" if block_id else None)
+        else:
+            check_url = f"https://www.are.na/block/{block_id}" if block_id else None
+
+        existing = find_existing_atom_for_url(conn, check_url) if check_url else None
         if existing:
             if block_id:
                 state["arena"]["synced_ids"].append(block_id)
@@ -524,7 +532,7 @@ def pull_arena(vault_dir: Path, limit: int = 25, visibility: str = "public"):
     return imported
 
 
-def pull_all(vault_dir: Path, service: str = "all", limit: int = 25, visibility: str = "public"):
+def pull_all(vault_dir: Path, service: str = "all", limit: int = 100, visibility: str = "public"):
     """Run inbound pull for Instapaper, Are.na, or both."""
     total = 0
     if service in ("all", "instapaper"):

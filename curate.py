@@ -3338,7 +3338,7 @@ def main():
     # 13. Pull command (Instapaper & Are.na inbound sync)
     p_pull = subparsers.add_parser("pull", help="Pull new captures from Instapaper (unread) and Are.na (user feed)")
     p_pull.add_argument("--service", choices=["all", "instapaper", "arena"], default="all", help="Service to pull from (default: all)")
-    p_pull.add_argument("--limit", type=int, default=25, help="Max items to fetch per service (default: 25)")
+    p_pull.add_argument("--limit", type=int, default=100, help="Max items to fetch per service (default: 100)")
     p_pull.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Default visibility tier (default: public)")
     p_pull.set_defaults(func=cmd_pull)
 
