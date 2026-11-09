@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-WideWeb Curate CLI (v3)
+Webtack Curate CLI (v3)
 A local-first, durable web curation and bookmarking framework using the Content Sidecar pattern.
+https://webtack.net
 """
 
 import argparse
@@ -52,9 +53,9 @@ def _load_dotenv():
 
 _load_dotenv()
 
-DEFAULT_VAULT = Path(os.environ.get("WIDEWEB_VAULT", os.environ.get("OPENCURATE_VAULT", Path(__file__).resolve().parent / "vault")))
-DEFAULT_GCS_BUCKET = os.environ.get("WIDEWEB_GCS_BUCKET", "")
-SCHEMA_URL = "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json"
+DEFAULT_VAULT = Path(os.environ.get("WEBTACK_VAULT", os.environ.get("WIDEWEB_VAULT", os.environ.get("OPENCURATE_VAULT", Path(__file__).resolve().parent / "vault"))))
+DEFAULT_GCS_BUCKET = os.environ.get("WEBTACK_GCS_BUCKET", os.environ.get("WIDEWEB_GCS_BUCKET", ""))
+SCHEMA_URL = "https://raw.githubusercontent.com/dn0c/webtack/main/schema/atom.schema.json"
 SCHEMA_VERSION = 3
 
 _HTTP_SESSION = None
@@ -65,7 +66,7 @@ def get_http_session() -> requests.Session:
     if _HTTP_SESSION is None:
         _HTTP_SESSION = requests.Session()
         _HTTP_SESSION.headers.update({
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 WideWeb/1.0",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Webtack/1.0",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
         })
         retries = Retry(
@@ -1325,10 +1326,15 @@ def cmd_image(args):
     try:
         import enrich
         if not alt_text or enrich.is_placeholder_alt(alt_text):
-            generated_alt = enrich.generate_image_alt_text(abs_cover_path)
-            if generated_alt:
-                alt_text = generated_alt
-                print(f"   ✨ Auto-generated alt text: {alt_text}")
+            resolved_alt, method = enrich.resolve_image_alt_text(
+                image_path=abs_cover_path,
+                source_url=source_candidate,
+                upstream_img_url=src if is_url else None,
+                fallback_title=atom_title
+            )
+            if resolved_alt:
+                alt_text = resolved_alt
+                print(f"   ✨ [{method.upper()}] Alt text: {alt_text}")
     except Exception as e:
         pass
 
@@ -1449,7 +1455,7 @@ def cmd_list(args):
         "file": "📄"
     }
 
-    print(f"\n📚 WideWeb Vault ({len(rows)} items shown):")
+    print(f"\n📚 Webtack Vault ({len(rows)} items shown):")
     print("─" * 80)
     for r in rows:
         icon = kind_icons.get(r["kind"], "📦")
@@ -1558,7 +1564,7 @@ def cmd_export(args):
 
     elif args.target in ("pinterest-csv", "pinterest"):
         out_path = Path(args.out) if args.out else export_dir / "pinterest_pins.csv"
-        default_board = getattr(args, "board", None) or "WideWeb"
+        default_board = getattr(args, "board", None) or "Webtack"
 
         with open(out_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -1607,7 +1613,7 @@ def cmd_export(args):
 
     elif args.target in ("raindrop-csv", "raindrop"):
         out_path = Path(args.out) if args.out else export_dir / "raindrop_export.csv"
-        default_folder = getattr(args, "folder", None) or "WideWeb"
+        default_folder = getattr(args, "folder", None) or "Webtack"
 
         with open(out_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -1649,9 +1655,9 @@ def cmd_export(args):
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         lines = [
-            f"# WideWeb Vault Knowledge Digest",
+            f"# Webtack Vault Knowledge Digest",
             f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} | Total Curated Atoms: {len(rows)}",
-            f"\n> This document is a unified compilation of curated articles, video transcripts, notes, quotes, and bookmarks from the WideWeb vault. Optimized for analysis, indexing, and synthesis in NotebookLM, Claude Projects, and local LLMs.\n",
+            f"\n> This document is a unified compilation of curated articles, video transcripts, notes, quotes, and bookmarks from the Webtack vault. Optimized for analysis, indexing, and synthesis in NotebookLM, Claude Projects, and local LLMs.\n",
             "---"
         ]
 
@@ -1708,7 +1714,7 @@ def cmd_export(args):
         out_path = Path(args.out) if args.out else export_dir / "llms.txt"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         lines = [
-            f"# WideWeb Vault Index",
+            f"# Webtack Vault Index",
             f"> Curated knowledge base of articles, bookmarks, videos, and notes.\n"
         ]
         for r in rows:
@@ -1788,8 +1794,8 @@ def cmd_export(args):
             "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
             "<!-- This is an automatically generated file. -->",
             '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
-            "<TITLE>WideWeb Bookmarks</TITLE>",
-            "<H1>WideWeb Bookmarks</H1>",
+            "<TITLE>Webtack Bookmarks</TITLE>",
+            "<H1>Webtack Bookmarks</H1>",
             "<DL><p>"
         ]
         for r in rows:
@@ -1838,7 +1844,7 @@ def cmd_export(args):
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<rss version="2.0">',
             '  <channel>',
-            '    <title>WideWeb Curation Vault</title>',
+            '    <title>Webtack Curation Vault</title>',
             '    <link>http://127.0.0.1:8080/</link>',
             '    <description>Personal local-first curation stream</description>',
             f'    <lastBuildDate>{now_rfc822}</lastBuildDate>'
@@ -1884,7 +1890,7 @@ def cmd_export(args):
             aid = r["id"]
             kind = r["kind"]
             title = r["atom_title"].replace("{", "\\{").replace("}", "\\}")
-            author = (r["author"] or "WideWeb Vault").replace("{", "\\{").replace("}", "\\}")
+            author = (r["author"] or "Webtack Vault").replace("{", "\\{").replace("}", "\\}")
             url = r["destination_url"] or r["source_url"] or ""
             year = r["created_at"][:4]
             tags_list = json.loads(r["tags"]) if r["tags"] else []
@@ -2165,7 +2171,7 @@ def extract_author_and_source_title(raw_title):
 
 
 def cmd_import_arena(args):
-    """Import blocks from an Are.na channel into WideWeb atoms (delegates to integrations/arena/import_channel.py)."""
+    """Import blocks from an Are.na channel into Webtack atoms (delegates to integrations/arena/import_channel.py)."""
     from integrations.arena.import_channel import import_channel
     import_channel(
         channel_input=args.channel,
@@ -2577,7 +2583,7 @@ def cmd_view(args):
         run_viewer_server(vault_dir, port=port, open_browser=not args.no_open)
     else:
         index_html = generate_viewer(vault_dir)
-        print(f"\n✨ WideWeb HTML viewer generated at: {index_html}")
+        print(f"\n✨ Webtack HTML viewer generated at: {index_html}")
         file_url = f"file://{index_html.resolve()}"
         if not args.no_open:
             print(f"🌐 Opening in default browser: {file_url}")
@@ -2858,7 +2864,7 @@ def get_non_public_atom_ids(vault_dir: Path) -> list[str]:
 def upload_manifest_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
     """Upload curation_recent.json and curation_public.json directly to GCS with gzip compression."""
     if not bucket:
-        print("❌ Error: No GCS bucket specified. Set WIDEWEB_GCS_BUCKET in .env or pass --bucket <name>.")
+        print("❌ Error: No GCS bucket specified. Set WEBTACK_GCS_BUCKET in .env or pass --bucket <name>.")
         return False
 
     export_dir = vault_dir / "export"
@@ -2886,7 +2892,7 @@ def upload_manifest_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
 def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
     """Sync public image assets and article markdown to GCS atoms directory."""
     if not bucket:
-        print("❌ Error: No GCS bucket specified. Set WIDEWEB_GCS_BUCKET in .env or pass --bucket <name>.")
+        print("❌ Error: No GCS bucket specified. Set WEBTACK_GCS_BUCKET in .env or pass --bucket <name>.")
         return False
 
     print(f"🚀 Syncing public assets to gs://{bucket}/atoms/ ...")
@@ -2920,7 +2926,7 @@ def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
 
 def get_or_prompt_bucket(args_bucket: str | None = None) -> str | None:
     """Resolve GCS bucket from argument, environment (.env), or prompt user interactively."""
-    bucket = (args_bucket or os.environ.get("WIDEWEB_GCS_BUCKET", "")).strip()
+    bucket = (args_bucket or os.environ.get("WEBTACK_GCS_BUCKET", os.environ.get("WIDEWEB_GCS_BUCKET", ""))).strip()
     if bucket:
         return bucket
 
@@ -2929,13 +2935,13 @@ def get_or_prompt_bucket(args_bucket: str | None = None) -> str | None:
         try:
             val = input("Enter your GCS bucket name (e.g. my-garden-assets): ").strip()
             if val:
-                save_env = input(f"Save '{val}' to .env as WIDEWEB_GCS_BUCKET for future runs? [Y/n]: ").strip().lower()
+                save_env = input(f"Save '{val}' to .env as WEBTACK_GCS_BUCKET for future runs? [Y/n]: ").strip().lower()
                 if save_env in ("", "y", "yes"):
                     env_path = Path(__file__).resolve().parent / ".env"
                     with open(env_path, "a", encoding="utf-8") as f:
-                        f.write(f"\nWIDEWEB_GCS_BUCKET={val}\n")
-                    os.environ["WIDEWEB_GCS_BUCKET"] = val
-                    print(f"✅ Saved WIDEWEB_GCS_BUCKET={val} to .env")
+                        f.write(f"\nWEBTACK_GCS_BUCKET={val}\n")
+                    os.environ["WEBTACK_GCS_BUCKET"] = val
+                    print(f"✅ Saved WEBTACK_GCS_BUCKET={val} to .env")
                 return val
         except (KeyboardInterrupt, EOFError):
             print("\nSync aborted.")
@@ -2948,7 +2954,7 @@ def cmd_sync(args):
     vault_dir = Path(args.vault).resolve()
     bucket = get_or_prompt_bucket(getattr(args, "bucket", None))
     if not bucket:
-        sys.exit("❌ Error: No GCS bucket provided. Pass --bucket <name>, set WIDEWEB_GCS_BUCKET in .env, or enter it at the prompt.")
+        sys.exit("❌ Error: No GCS bucket provided. Pass --bucket <name>, set WEBTACK_GCS_BUCKET in .env, or enter it at the prompt.")
 
     manifest_only = getattr(args, "manifest_only", False)
 
@@ -2982,14 +2988,17 @@ def cmd_enrich(args):
 
 
 def cmd_mcp(args):
-    """Run the WideWeb Model Context Protocol (MCP) server for Claude Desktop / AI assistants."""
-    import wideweb_mcp
+    """Run the Webtack Model Context Protocol (MCP) server for Claude Desktop / AI assistants."""
+    try:
+        import webtack_mcp as wideweb_mcp
+    except ImportError:
+        import wideweb_mcp
     wideweb_mcp.main()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="WideWeb Curate CLI - Local-first web curation framework")
-    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to WideWeb vault directory")
+    parser = argparse.ArgumentParser(description="Webtack Curate CLI - Local-first web curation framework")
+    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to Webtack vault directory")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     def add_capture_args(p):
@@ -3138,8 +3147,8 @@ def main():
     p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file"], help="Filter by kind")
     p_export.add_argument("--tag", help="Filter by tag")
     p_export.add_argument("--visibility", choices=["public", "shared", "private"], help="Filter by visibility tier (e.g. export only public atoms)")
-    p_export.add_argument("--folder", help="Default Raindrop collection / folder name (default: WideWeb/<Kind>s)")
-    p_export.add_argument("--board", help="Default Pinterest board name (default: WideWeb)")
+    p_export.add_argument("--folder", help="Default Raindrop collection / folder name (default: Webtack/<Kind>s)")
+    p_export.add_argument("--board", help="Default Pinterest board name (default: Webtack)")
     p_export.add_argument("--out", help="Output file path (default: stdout or vault/export/vault_digest.md)")
     p_export.set_defaults(func=cmd_export)
 
@@ -3155,11 +3164,11 @@ def main():
     p_view.set_defaults(func=cmd_view)
 
     # 9. MCP command
-    p_mcp = subparsers.add_parser("mcp", help="Run the WideWeb Model Context Protocol (MCP) server for Claude Desktop / AI tools")
+    p_mcp = subparsers.add_parser("mcp", help="Run the Webtack Model Context Protocol (MCP) server for Claude Desktop / AI tools")
     p_mcp.set_defaults(func=cmd_mcp)
 
     # 10. Import Are.na command
-    p_import_arena = subparsers.add_parser("import-arena", help="Import blocks from an Are.na channel into WideWeb atoms")
+    p_import_arena = subparsers.add_parser("import-arena", help="Import blocks from an Are.na channel into Webtack atoms")
     p_import_arena.add_argument("channel", help="Are.na channel slug, ID, or JSON file path")
     p_import_arena.add_argument("--limit", type=int, default=100, help="Max blocks to fetch (default: 100)")
     p_import_arena.add_argument("--tag", help="Additional tag to apply to imported atoms")
@@ -3177,7 +3186,7 @@ def main():
 
     # 12. Sync command (Google Cloud Storage)
     p_sync = subparsers.add_parser("sync", help="Sync public atoms and image assets to Google Cloud Storage (GCS)")
-    p_sync.add_argument("--bucket", default=None, help="GCS bucket name (overrides WIDEWEB_GCS_BUCKET in .env; prompted if unset)")
+    p_sync.add_argument("--bucket", default=None, help="GCS bucket name (overrides WEBTACK_GCS_BUCKET in .env; prompted if unset)")
     p_sync.add_argument("--manifest-only", action="store_true", help="Only upload curation_public.json manifest without rsyncing images")
     p_sync.set_defaults(func=cmd_sync)
 
@@ -3188,8 +3197,8 @@ def main():
     p_pull.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Default visibility tier (default: public)")
     p_pull.set_defaults(func=cmd_pull)
 
-    # 14. Enrich command (AI Vision Alt Text)
-    p_enrich = subparsers.add_parser("enrich", help="Generate AI accessibility alt text for vault images using Gemini Flash")
+    # 14. Enrich command (Vision Alt Text)
+    p_enrich = subparsers.add_parser("enrich", help="Generate accessibility alt text for vault images (macOS Vision offline, or Cloud AI)")
     p_enrich.add_argument("--limit", type=int, default=None, help="Max images to enrich in this run")
     p_enrich.add_argument("--force", action="store_true", help="Re-generate alt text even if already present")
     p_enrich.add_argument("--no-arena", action="store_true", help="(Deprecated) Legacy flag, Are.na sync has moved to integrations/arena/")

@@ -1,11 +1,11 @@
 #!/bin/bash
-# WideWeb — Double-clickable launcher for macOS
+# Webtack — Double-clickable launcher for macOS
 # Starts the local server and opens the vault in your default browser.
 
 cd "$(dirname "$0")"
 
 echo "=========================================================="
-echo "    WideWeb — Personal Local Knowledge Vault & Studio     "
+echo "    Webtack — Personal Local Knowledge Vault & Studio     "
 echo "=========================================================="
 echo "🚀 Starting local server at http://127.0.0.1:8080 ..."
 echo "🌐 Opening your browser..."

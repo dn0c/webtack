@@ -1,4 +1,4 @@
-# Google Cloud Storage (GCS) Integration for WideWeb
+# Google Cloud Storage (GCS) Integration for Webtack
 
 Sync your public curated atoms and media assets to a Google Cloud Storage bucket to host public digital gardens (such as `drewshannon.net/garden`).
 
@@ -13,7 +13,7 @@ Authenticate with Google Cloud SDK or provide service account credentials:
 gcloud auth application-default login
 
 # Or set your default bucket in .env
-WIDEWEB_GCS_BUCKET="your-public-bucket-name"
+WEBTACK_GCS_BUCKET="your-public-bucket-name"
 ```
 
 ---

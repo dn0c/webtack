@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Reclassify Reading Items by Content Depth
+Webtack — Reclassify Reading Items by Content Depth
 Enforces canonical taxonomy:
 - If atom has full article text (article.md or >= 100 words text) -> 'article' (📖 Read)
 - If atom is a web link with preview/metadata/excerpt -> 'bookmark' (↗ Visit)
@@ -99,9 +99,9 @@ def main():
     out_file = generate_curation_export(pub_rows)
     print(f"✅ Generated {out_file} ({len(pub_rows)} public atoms)")
 
-    print("\n✨ Regenerating WideWeb local viewer...")
+    print("\n✨ Regenerating Webtack local viewer...")
     generate_viewer(vault_dir)
-    print("✨ WideWeb viewer updated successfully!")
+    print("✨ Webtack viewer updated successfully!")
 
 
 if __name__ == "__main__":

@@ -146,7 +146,7 @@ def run_split(vault_dir: Path, dry_run: bool = False):
         new_abs_dir = vault_dir / new_rel_dir
 
         new_doc = {
-            "$schema": "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json",
+            "$schema": "https://raw.githubusercontent.com/dn0c/webtack/main/schema/atom.schema.json",
             "id": new_atom_id,
             "kind": "article",
             "version": 3,

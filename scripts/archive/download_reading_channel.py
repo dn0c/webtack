@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Reliable Sequential Dump for Are.na Reading Channel (10,243 blocks)
+Webtack — Reliable Sequential Dump for Are.na Reading Channel (10,243 blocks)
 Fetches all pages sequentially using the Are.na v2 API with incremental
 per-page checkpointing and retry backoff.
 """
@@ -42,7 +42,7 @@ def fetch_page_with_retry(page: int, token: str, retries: int = 5) -> list:
     url = f"https://api.are.na/v2/channels/{CHANNEL_ID}/contents?per={PER_PAGE}&page={page}"
     headers = {
         "Authorization": f"Bearer {token}",
-        "User-Agent": "WideWeb/1.0"
+        "User-Agent": "Webtack/1.0"
     }
 
     for attempt in range(1, retries + 1):
@@ -77,7 +77,7 @@ def main():
 
     # Step 1: Check total blocks from channel metadata
     ch_url = f"https://api.are.na/v2/channels/{CHANNEL_ID}?per=1"
-    headers = {"Authorization": f"Bearer {token}", "User-Agent": "WideWeb/1.0"}
+    headers = {"Authorization": f"Bearer {token}", "User-Agent": "Webtack/1.0"}
     resp = requests.get(ch_url, headers=headers, timeout=10)
     if resp.status_code != 200:
         print(f"❌ Failed to fetch channel details: HTTP {resp.status_code}")

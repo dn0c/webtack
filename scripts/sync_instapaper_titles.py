@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Sync Original Article Titles from Instapaper
+Webtack — Sync Original Article Titles from Instapaper
 Extracts the canonical, original article titles from Instapaper bookmarks and updates
 both provenance.source_title and curation.atom_title across the vault and database.
 """
@@ -204,7 +204,7 @@ def main():
     print(f"   • Updated Bookmarks: {updated_bookmarks}")
 
     if updated_articles > 0 or updated_bookmarks > 0:
-        print("\n🔄 Regenerating WideWeb viewer index...")
+        print("\n🔄 Regenerating Webtack viewer index...")
         generate_viewer(VAULT_DIR)
         print("✅ Viewer index regenerated!")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Backfill Instapaper Full Text
+Webtack — Backfill Instapaper Full Text
 Fetches parsed full-text articles directly from the Instapaper API (v2 /bookmarks/{id}/parse),
 converts the HTML to clean Markdown, writes offline article.md sidecars,
 promotes matching bookmarks to first-class 'article' atoms, and updates SQLite & viewer.
@@ -309,7 +309,7 @@ def backfill_atom_fulltext(session: requests.Session, atom: dict, bookmark: dict
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Backfill Instapaper full-text into WideWeb library.")
+    parser = argparse.ArgumentParser(description="Backfill Instapaper full-text into Webtack library.")
     parser.add_argument("--workers", type=int, default=6, help="Number of concurrent worker threads (default: 6)")
     parser.add_argument("--limit", type=int, default=0, help="Optional limit on number of items to process (0 = all)")
     parser.add_argument("--refresh-cache", action="store_true", help="Force refresh of Instapaper bookmarks index")
@@ -321,7 +321,7 @@ def main():
     session = requests.Session()
     session.headers.update({
         "Authorization": f"Bearer {token}",
-        "User-Agent": "WideWeb-Backfill/1.0"
+        "User-Agent": "Webtack-Backfill/1.0"
     })
 
     cache_file = vault_dir / ".instapaper_bookmarks_cache.json"
@@ -420,7 +420,7 @@ def main():
         s = requests.Session()
         s.headers.update({
             "Authorization": f"Bearer {token}",
-            "User-Agent": "WideWeb-Backfill/1.0"
+            "User-Agent": "Webtack-Backfill/1.0"
         })
         return r, bm, backfill_atom_fulltext(s, dict(r), bm, vault_dir)
 
@@ -445,7 +445,7 @@ def main():
     print(f"   • Skipped (short or not parsed): {skipped_count}")
 
     if success_count > 0:
-        print("\n🔄 Regenerating WideWeb viewer index...")
+        print("\n🔄 Regenerating Webtack viewer index...")
         generate_viewer(vault_dir)
         print("✅ Viewer index updated!")
 

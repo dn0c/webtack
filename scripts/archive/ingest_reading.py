@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-WideWeb — Fast Multi-Threaded Ingest for Are.na Reading Channel (10,243 blocks)
-Processes downloaded dump from vault/import/arena_reading.json into WideWeb atoms
+Webtack — Fast Multi-Threaded Ingest for Are.na Reading Channel (10,243 blocks)
+Processes downloaded dump from vault/import/arena_reading.json into Webtack atoms
 with concurrent thumbnail/cover downloads, blurhash generation, and atomic SQLite batch inserts.
 """
 
@@ -394,7 +394,7 @@ def main():
     print(f"✅ Imported: {total_imported} new reading atoms")
     print(f"⏭️ Skipped (Duplicates): {skipped}")
 
-    print("\n✨ Regenerating WideWeb viewer...")
+    print("\n✨ Regenerating Webtack viewer...")
     generate_viewer(vault_dir)
     print("✨ Viewer updated successfully!")
 

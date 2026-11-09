@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — AI Enrichment Compatibility Shim
+Webtack — AI Enrichment Compatibility Shim
 Directs callers to enrich.py (universal AI alt text) and integrations.arena.sync_alt_text.
 """
 

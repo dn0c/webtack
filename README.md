@@ -1,6 +1,7 @@
-# WideWeb
+# Webtack
 
-A local-first, durable web curation and bookmarking framework using the **Content Sidecar** pattern.
+A local-first, durable web curation and bookmarking framework using the **Content Sidecar** pattern.  
+**Website:** [https://webtack.net](https://webtack.net)
 
 Decouples capture and long-term storage from proprietary platforms. The filesystem is the canonical source of truth; SQLite is a disposable, fast index.
 
@@ -12,8 +13,8 @@ Clone the repository and view the included specimen vault:
 
 ```bash
 # 1. Clone repository & install dependencies
-git clone https://github.com/dn0c/wideweb.git
-cd wideweb
+git clone https://github.com/dn0c/webtack.git
+cd webtack
 pip install -r requirements.txt
 
 # 2. Open the visual gallery viewer (auto-indexes the demo vault)
@@ -27,7 +28,7 @@ python3 viewer.py --vault fixtures/demo_vault --server
 
 ## The 7 Kinds of Atoms
 
-WideWeb categorizes every curated piece of content into an explicit semantic `kind`:
+Webtack categorizes every curated piece of content into an explicit semantic `kind`:
 
 | Kind | Role | Primary Content | Key Metadata |
 | :--- | :--- | :--- | :--- |
@@ -41,7 +42,7 @@ WideWeb categorizes every curated piece of content into an explicit semantic `ki
 
 ---
 
-## WideWeb Schema Specification (v3)
+## Webtack Schema Specification (v3)
 
 > For the formal data protocol, sidecar storage contracts, and extension rules, read the complete **[SPECIFICATION.md](SPECIFICATION.md)**.
 
@@ -128,7 +129,7 @@ A flexible JSON dictionary for niche, plugin, or experimental metadata without b
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json",
+  "$schema": "https://raw.githubusercontent.com/dn0c/webtack/main/schema/atom.schema.json",
   "id": "2026-11-05-b2e3-c4d5",
   "kind": "article",
   "version": 3,
@@ -240,7 +241,7 @@ Browse your vault with high-aesthetic typography, 4-tier schema inspection, resp
 
 ```bash
 # Zero-Terminal macOS Launcher:
-# Simply double-click "Launch WideWeb.command" in Finder!
+# Simply double-click "Launch Webtack.command" in Finder!
 
 # Or launch via terminal:
 python3 curate.py view --server
@@ -253,13 +254,13 @@ python3 curate.py view --server
   - 📑 **`llms.txt` Index (`.txt`)**: Compact, LLM-friendly index standard.
   - 🧱 **Are.na CSV (`.csv`)**: Import-ready file for Are.na channels.
   - 💾 **Full Vault Backup (`.json`)**: Complete raw schemas & metadata.
-- **⚡ Bookmarklet**: Drag the "Save to WideWeb" bookmarklet to your browser's favorites bar for 1-click capture from any web page.
+- **⚡ Bookmarklet**: Drag the "Save to Webtack" bookmarklet to your browser's favorites bar for 1-click capture from any web page.
 
 ---
 
 ## AI Integration: Model Context Protocol (MCP)
 
-WideWeb includes an embedded [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server so AI assistants (**Claude Desktop**, **Antigravity**, **Cursor**) can search and read from your vault.
+Webtack includes an embedded [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server so AI assistants (**Claude Desktop**, **Antigravity**, **Cursor**) can search and read from your vault.
 
 ### 1. Claude Desktop Setup
 Add this to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
@@ -267,10 +268,10 @@ Add this to your Claude Desktop configuration (`~/Library/Application Support/Cl
 ```json
 {
   "mcpServers": {
-    "wideweb": {
+    "webtack": {
       "command": "python3",
       "args": [
-        "/ABSOLUTE/PATH/TO/wideweb/wideweb_mcp.py"
+        "/ABSOLUTE/PATH/TO/webtack/webtack_mcp.py"
       ]
     }
   }
@@ -290,7 +291,7 @@ Once connected, your AI assistant can invoke:
 
 ## Knowledge Exports & Data Portability
 
-WideWeb guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 12 open standards via the **Export Hub** (`/export.html`) or the CLI:
+Webtack guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 12 open standards via the **Export Hub** (`/export.html`) or the CLI:
 
 | Target | Command | Primary Ecosystem | Output File |
 | :--- | :--- | :--- | :--- |
@@ -311,20 +312,43 @@ To browse, search, and download all exports in your browser, click **📦 Export
 
 ---
 
-## Inbound Sync (`curate.py pull`)
+## Accessibility Alt Text & Vision Engine (`curate.py enrich`)
 
-Pulls newly captured content from Instapaper and Are.na directly into your vault:
-- **Instapaper**: Ingests new unread bookmarks with titles, excerpts, tags, and cover images.
-- **Are.na**: Ingests new blocks added across your account (Links, Images, and Text notes).
-- **Deduplication**: Automatic matching by destination URL and external IDs prevents duplicates.
+Webtack resolves accessibility alt text through a cascading **5-tier resolution engine**:
+1. **Embedded Metadata (EXIF/IPTC)**: Reads photographer descriptions stored inside the image binary (0ms, zero keys).
+2. **Upstream Web Scraping**: Extracts `<figcaption>`, `<img alt="...">`, or `og:image:alt` from the source webpage (zero keys).
+3. **Multi-Provider Cloud Vision**: If configured in `.env`, generates rich narrative descriptions via **Gemini** (`GEMINI_API_KEY`), **OpenAI** (`OPENAI_API_KEY`), **Anthropic** (`ANTHROPIC_API_KEY`), **Groq** (`GROQ_API_KEY`), or **OpenRouter** (`OPENROUTER_API_KEY`).
+4. **Native macOS Vision**: Offline fallback using Apple Silicon Neural Engine (`VNRecognizeTextRequest` + `VNClassifyImageRequest`) for local OCR and scene classification (zero keys, zero network).
+5. **Fallback**: Gracefully uses the atom title or curator description.
 
 ```bash
-# Pull new items from both Instapaper and Are.na
-python3 curate.py pull
+# Enrich images missing alt text
+python3 curate.py enrich
 
-# Pull from a specific service only
-python3 curate.py pull --service instapaper
-python3 curate.py pull --service arena
+# Force regenerate alt text for up to 10 images
+python3 curate.py enrich --limit 10 --force
+```
+
+---
+
+## Upstream Integrations (`integrations/`)
+
+Webtack is designed to be local-first and platform-agnostic. Optional connectors to external services live in the modular `integrations/` folder:
+
+* **Are.na** (`integrations/arena/`):
+  * Import entire channels: `python3 integrations/arena/import_channel.py <channel-slug>`
+  * Inbound feed sync: `python3 integrations/arena/sync.py`
+  * Two-way alt text sync: `python3 integrations/arena/sync_alt_text.py`
+* **Instapaper** (`integrations/instapaper/`):
+  * Sync unread reading list with parsed readability text: `python3 integrations/instapaper/sync.py`
+* **Google Cloud Storage** (`integrations/gcs/`):
+  * Sync public assets & `curation_public.json` to GCS for your digital garden: `python3 integrations/gcs/sync.py`
+
+You can also run automated inbound pulls across configured services using:
+
+```bash
+# Pull new items from configured services
+python3 curate.py pull
 ```
 
 ---
@@ -333,8 +357,8 @@ python3 curate.py pull --service arena
 
 Publishes public atoms to your live digital garden (e.g., `drewshannon.net/garden`):
 1. Exports `curation_public.json` containing metadata, tags, and excerpts for atoms where `visibility = 'public'` (keeps private atoms local-only).
-2. Uploads the manifest to Google Cloud Storage (`gs://wideweb-assets-drew/curation_public.json`).
-3. Rsyncs public cover images to `gs://wideweb-assets-drew/atoms/`.
+2. Uploads the manifest to Google Cloud Storage (`gs://webtack-assets-drew/curation_public.json`).
+3. Rsyncs public cover images to `gs://webtack-assets-drew/atoms/`.
 
 ```bash
 # Full sync: manifest + image assets
@@ -376,10 +400,10 @@ python3 curate.py validate --atom atm_20261108200100_demoart
 ## Vault Architecture
 
 ```text
-wideweb/
+webtack/
 ├── curate.py                 # Core CLI ingestion & pipeline engine
 ├── viewer.py                 # Visual presentation & local capture server
-├── wideweb_mcp.py            # Model Context Protocol (MCP) server for AI tools
+├── webtack_mcp.py            # Model Context Protocol (MCP) server for AI tools
 ├── requirements.txt          # Python dependencies
 ├── LICENSE                   # Open source license (MIT for code, CC0 for schema)
 ├── SPECIFICATION.md          # Formal architectural specification & storage contract
@@ -408,6 +432,6 @@ wideweb/
 
 ## License
 
-- **Software & Tooling** (`curate.py`, `viewer.py`, `wideweb_mcp.py`, etc.): [MIT License](LICENSE)
+- **Software & Tooling** (`curate.py`, `viewer.py`, `webtack_mcp.py`, etc.): [MIT License](LICENSE)
 - **Schema & Specification** (`schema/atom.schema.json`): [Creative Commons Zero v1.0 Universal (CC0 1.0)](LICENSE)
 

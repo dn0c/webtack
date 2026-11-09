@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Backfill Capture Provenance
+Webtack — Backfill Capture Provenance
 Populates capture_method, capture_id, and capture_url in the Source Layer
 for all atoms in the vault, inferring from:
   1. vault/.arena_scan_cache.json (direct aid -> bid mapping)
@@ -38,7 +38,7 @@ def normalize_lookup_url(url: str) -> str:
 
 
 def main():
-    print("🚀 Starting WideWeb Capture Provenance Backfill...")
+    print("🚀 Starting Webtack Capture Provenance Backfill...")
 
     conn = get_db(VAULT_DIR)
 

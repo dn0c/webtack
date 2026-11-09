@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-WideWeb Schema Migration: v2 -> v3
-Migrates vault atom.json files to WideWeb v3:
+Webtack Schema Migration: v2 -> v3
+Migrates vault atom.json files to Webtack v3:
 1. Renames 'payload' layer to 'content'
 2. Sets 'version': 3
 3. Cleans up deprecated URL fields:
@@ -190,8 +190,8 @@ def run_migration(vault_dir: Path, dry_run: bool = False, limit: int | None = No
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Migrate WideWeb atoms from v2 (payload) to v3 (content + consolidated URLs)")
-    parser.add_argument("--vault", default=str(curate.DEFAULT_VAULT), help="Path to WideWeb vault directory")
+    parser = argparse.ArgumentParser(description="Migrate Webtack atoms from v2 (payload) to v3 (content + consolidated URLs)")
+    parser.add_argument("--vault", default=str(curate.DEFAULT_VAULT), help="Path to Webtack vault directory")
     parser.add_argument("--dry-run", action="store_true", help="Simulate migration without modifying files")
     parser.add_argument("--limit", type=int, default=None, help="Process at most N atoms")
 

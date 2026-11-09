@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Inbound Sync Orchestrator
+Webtack — Inbound Sync Orchestrator
 Coordinates inbound sync from configured upstream integrations (Instapaper, Are.na).
 """
 

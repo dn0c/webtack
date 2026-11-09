@@ -1,28 +1,29 @@
-# The WideWeb Specification (v3)
+# The Webtack Specification (v3)
 
 **Status:** Living Standard  
 **Version:** 3.0.0  
-**Authors:** Drew Shannon & WideWeb Contributors  
+**Authors:** Drew Shannon & Webtack Contributors  
 **License:** [Creative Commons Zero v1.0 Universal (CC0 1.0)](LICENSE)  
-**Formal Schema:** [`schema/atom.schema.json`](schema/atom.schema.json)
+**Formal Schema:** [`schema/atom.schema.json`](schema/atom.schema.json)  
+**Canonical Spec:** https://webtack.net/spec
 
 ---
 
 ## 1. Abstract & Philosophy
 
-WideWeb is an open, local-first data specification and framework for durable digital curation and personal knowledge management. It establishes a formal bridge between ephemeral browser bookmarks (which rot and lack offline content) and unstructured text notes.
+Webtack is an open, local-first data specification and framework for durable digital curation and personal knowledge management. It establishes a formal bridge between ephemeral browser bookmarks (which rot and lack offline content) and unstructured text notes.
 
-WideWeb is built on three core architectural principles:
+Webtack is built on three core architectural principles:
 
 1. **The Content Sidecar Pattern**: Every captured unit of knowledge—called an **Atom**—is an isolated, self-contained directory on disk holding a structured metadata envelope (`atom.json`) alongside its offline media and text sidecars (`cover.jpg`, `article.md`, `transcript.txt`, `quote.md`, `note.md`).
 2. **Filesystem as Canonical Truth**: The directory tree on disk is the permanent source of truth. Databases (SQLite catalogs, vector stores, full-text indexes) are disposable, ephemeral artifacts that can be deleted and reconstructed in seconds from sidecars.
-3. **The 30-Year Horizon**: Software dies, platforms pivot, and APIs change. WideWeb atoms rely exclusively on open, human-readable, and machine-inspectable standards (JSON, Markdown, JPEG, UTF-8 plain text) that can be read on any operating system decades from today without proprietary software.
+3. **The 30-Year Horizon**: Software dies, platforms pivot, and APIs change. Webtack atoms rely exclusively on open, human-readable, and machine-inspectable standards (JSON, Markdown, JPEG, UTF-8 plain text) that can be read on any operating system decades from today without proprietary software.
 
 ---
 
 ## 2. Directory Layout & Storage Contract
 
-A WideWeb vault conforms to the following directory hierarchy:
+A Webtack vault conforms to the following directory hierarchy:
 
 ```text
 <vault_root>/
@@ -139,7 +140,7 @@ Third-party integrations **MUST** store custom fields under a reverse-domain or 
       "ease_factor": 2.5,
       "due_date": "2026-11-15"
     },
-    "org.wideweb.ai_vision": {
+    "net.webtack.ai_vision": {
       "model": "gemini-3.8-flash",
       "labels": ["infographic", "system-architecture"],
       "confidence": 0.96
@@ -148,7 +149,7 @@ Third-party integrations **MUST** store custom fields under a reverse-domain or 
 }
 ```
 
-Standard WideWeb parsers **MUST** preserve unknown keys inside `metadata_json` during updates and reindexing.
+Standard Webtack parsers **MUST** preserve unknown keys inside `metadata_json` during updates and reindexing.
 
 ---
 
@@ -166,7 +167,7 @@ Every atom carries an explicit `visibility` tier in its curation layer:
 
 ## 7. Validation & Conformance
 
-A valid WideWeb vault complies with the following tests:
+A valid Webtack vault complies with the following tests:
 
 1. **Schema Conformance**: Every `atom.json` validates without error against `schema/atom.schema.json`.
 2. **Sidecar Integrity**: Every relative path specified in `content` resolves to an existing file on disk.

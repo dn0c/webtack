@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Unwrap rdl.ink URLs
+Webtack — Unwrap rdl.ink URLs
 
 Unwraps Raindrop.io render proxy URLs (https://rdl.ink/render/<encoded_url>)
 across:
@@ -214,9 +214,9 @@ def main():
     out_file = generate_curation_export(pub_rows)
     print(f"✅ Generated {out_file}")
 
-    print("\n✨ Regenerating WideWeb viewer (index.html / export.html)...")
+    print("\n✨ Regenerating Webtack viewer (index.html / export.html)...")
     generate_viewer(vault_dir)
-    print("✨ WideWeb viewer updated successfully!")
+    print("✨ Webtack viewer updated successfully!")
 
 
 if __name__ == "__main__":

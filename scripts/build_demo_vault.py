@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Build Sample Demo Vault
+Webtack — Build Sample Demo Vault
 Constructs a pristine, self-contained fixtures/demo_vault directory with
 sample atoms representing the canonical kinds (article, bookmark, video, quote, note, image).
 """
@@ -40,7 +40,7 @@ def create_gradient_image(path: Path, title: str, subtitle: str, bg_color1: tupl
     draw.text((60, 240), subtitle, fill=(text_color[0], text_color[1], text_color[2]))
 
     # Watermark
-    draw.text((60, h - 70), "WIDEWEB // SPECIMEN", fill=(text_color[0], text_color[1], text_color[2]))
+    draw.text((60, h - 70), "WEBTACK // SPECIMEN", fill=(text_color[0], text_color[1], text_color[2]))
 
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, format="JPEG", quality=85)
@@ -291,7 +291,7 @@ Man cannot hope fully to duplicate this mental process artificially, but he cert
 6. **Security and privacy by default** — Local storage encrypted on your own filesystem.
 7. **You retain ultimate ownership and control** — Plain, inspectable files on disk.
 
-*Application in WideWeb*: The Content Sidecar pattern guarantees Ideal #5 and #7: every atom is a self-contained folder of open formats (`atom.json`, `cover.jpg`, `article.md`).
+*Application in Webtack*: The Content Sidecar pattern guarantees Ideal #5 and #7: every atom is a self-contained folder of open formats (`atom.json`, `cover.jpg`, `article.md`).
 """
     (not_dir / "note.md").write_text(note_md, encoding="utf-8")
 

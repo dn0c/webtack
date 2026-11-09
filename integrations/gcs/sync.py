@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Google Cloud Storage (GCS) Asset & Manifest Sync Integration
+Webtack — Google Cloud Storage (GCS) Asset & Manifest Sync Integration
 Uploads public atom media (cover images, attachments) to Google Cloud Storage
 and exports curation_public.json to power public digital gardens (e.g. drewshannon.net/garden).
 """
@@ -21,7 +21,7 @@ def sync_to_gcs(vault_dir: Path, bucket: str = None, manifest_only: bool = False
     vault_dir = Path(vault_dir).resolve()
     bucket_name = curate.get_or_prompt_bucket(bucket)
     if not bucket_name:
-        sys.exit("❌ Error: No GCS bucket provided. Pass --bucket <name>, set WIDEWEB_GCS_BUCKET in .env, or enter it at the prompt.")
+        sys.exit("❌ Error: No GCS bucket provided. Pass --bucket <name>, set WEBTACK_GCS_BUCKET in .env, or enter it at the prompt.")
 
     rows = curate.get_public_atoms(vault_dir)
     print(f"🔍 Found {len(rows)} public atoms in vault.")
@@ -34,9 +34,9 @@ def sync_to_gcs(vault_dir: Path, bucket: str = None, manifest_only: bool = False
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Sync WideWeb public vault assets to Google Cloud Storage")
+    parser = argparse.ArgumentParser(description="Sync Webtack public vault assets to Google Cloud Storage")
     parser.add_argument("--vault", default="vault", help="Path to vault directory (default: vault)")
-    parser.add_argument("--bucket", default=None, help="GCS bucket name (overrides WIDEWEB_GCS_BUCKET in .env)")
+    parser.add_argument("--bucket", default=None, help="GCS bucket name (overrides WEBTACK_GCS_BUCKET in .env)")
     parser.add_argument("--manifest-only", action="store_true", help="Only upload curation_public.json without rsyncing media files")
     args = parser.parse_args()
 

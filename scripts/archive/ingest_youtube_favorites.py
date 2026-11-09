@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Fast Batch Ingest for Are.na YouTube Favorites Channel
+Webtack — Fast Batch Ingest for Are.na YouTube Favorites Channel
 Processes 1,498 blocks with concurrent thumbnail downloads, transcript fetching,
 and atomic SQLite inserts.
 """
@@ -320,7 +320,7 @@ def main():
     print(f"📜 Spoken Captions Fetched: {total_transcripts} videos")
     print(f"⏭️ Skipped (Duplicates): {skipped}")
 
-    print("\n✨ Regenerating WideWeb viewer...")
+    print("\n✨ Regenerating Webtack viewer...")
     generate_viewer(vault_dir)
     print("✨ Viewer updated successfully!")
 

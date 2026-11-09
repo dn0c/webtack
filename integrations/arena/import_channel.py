@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-WideWeb — Are.na Channel Importer Integration
-Imports blocks from an Are.na channel (remote slug, ID, or JSON dump) into WideWeb atoms.
+Webtack — Are.na Channel Importer Integration
+Imports blocks from an Are.na channel (remote slug, ID, or JSON dump) into Webtack atoms.
 """
 
 import os
@@ -24,7 +24,7 @@ import viewer
 
 
 def import_channel(channel_input: str, vault_dir: Path, limit: int = 100, tag: str = None, collection: str = None, visibility: str = None):
-    """Import blocks from an Are.na channel (remote slug/ID or JSON dump) into WideWeb atoms."""
+    """Import blocks from an Are.na channel (remote slug/ID or JSON dump) into Webtack atoms."""
     vault_dir = Path(vault_dir).resolve()
     channel_input = channel_input.strip()
 
@@ -49,7 +49,7 @@ def import_channel(channel_input: str, vault_dir: Path, limit: int = 100, tag: s
                 channel_title = Path(channel_input).stem.replace("arena_", "").replace("_", " ").replace("-", " ").title()
     else:
         # 2. Fetch from Are.na API or local cached dump
-        headers = {"User-Agent": "WideWeb/1.0"}
+        headers = {"User-Agent": "Webtack/1.0"}
         token = os.environ.get("ARENA_TOKEN") or os.environ.get("ARENA_API_TOKEN")
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -353,9 +353,9 @@ def import_channel(channel_input: str, vault_dir: Path, limit: int = 100, tag: s
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Are.na Channel Importer for WideWeb")
+    parser = argparse.ArgumentParser(description="Are.na Channel Importer for Webtack")
     parser.add_argument("channel", help="Are.na channel slug, ID, or JSON file path")
-    parser.add_argument("--vault", default="vault", help="Path to WideWeb vault directory (default: vault)")
+    parser.add_argument("--vault", default="vault", help="Path to Webtack vault directory (default: vault)")
     parser.add_argument("--limit", type=int, default=100, help="Max blocks to fetch (default: 100)")
     parser.add_argument("--tag", help="Additional tag to apply to imported atoms")
     parser.add_argument("--collection", help="Collection name (defaults to channel title)")

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-WideWeb HTML Viewer & Local Capture Server
+Webtack HTML Viewer & Local Capture Server
 Builds a high-aesthetic, local-first masonry showcase for browsing, reading, and capturing atoms.
+https://webtack.net
 """
 
 import json
@@ -88,7 +89,7 @@ def generate_viewer(vault_dir: Path) -> Path:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WideWeb Vault</title>
+  <title>Webtack Vault</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1091,7 +1092,7 @@ def generate_viewer(vault_dir: Path) -> Path:
     <header>
       <div class="top-bar">
         <div class="logo-area">
-          <span class="logo">WideWeb</span>
+          <span class="logo">Webtack</span>
           <span class="subtitle">local curation vault</span>
         </div>
         <div class="top-actions">
@@ -1192,7 +1193,7 @@ def generate_viewer(vault_dir: Path) -> Path:
   <!-- Capture Dialog Modal -->
   <dialog id="captureModal" closedby="any" style="max-width: 580px;">
     <div class="modal-header">
-      <h3 style="font-size: 16px; font-weight: 600;">Capture to WideWeb</h3>
+      <h3 style="font-size: 16px; font-weight: 600;">Capture to Webtack</h3>
       <button class="modal-close" onclick="document.getElementById('captureModal').close()">✕</button>
     </div>
     <div class="capture-form">
@@ -1221,7 +1222,7 @@ def generate_viewer(vault_dir: Path) -> Path:
         </div>
         <div class="form-actions">
           <div class="bookmarklet-box">
-            Bookmarklet: <a class="bookmarklet-link" href="javascript:(function(){{const u=location.href,t=document.title,s=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(s),'_blank');}})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WideWeb</a>
+            Bookmarklet: <a class="bookmarklet-link" href="javascript:(function(){{const u=location.href,t=document.title,s=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(s),'_blank');}})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to Webtack</a>
           </div>
           <button type="submit" class="submit-btn" id="capLinkSubmit">Save Link</button>
         </div>
@@ -1360,7 +1361,7 @@ def generate_viewer(vault_dir: Path) -> Path:
     <div class="meta-dialog-body" id="metadataModalBody"></div>
   </dialog>
 
-  <div class="toast" id="toast">✨ Saved to WideWeb vault!</div>
+  <div class="toast" id="toast">✨ Saved to Webtack vault!</div>
 
   <script>
     const ATOMS = {atoms_json_str};
@@ -1542,7 +1543,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           showToast('💾 Exported vault_backup.json');
           return;
         }}
-        alert('Digest, llms.txt, and CSV exports require running WideWeb with the local server:\\n\\nDouble-click "Launch WideWeb.command" or run:\\npython3 curate.py view --server');
+        alert('Digest, llms.txt, and CSV exports require running Webtack with the local server:\\n\\nDouble-click "Launch Webtack.command" or run:\\npython3 curate.py view --server');
         return;
       }}
       document.getElementById('exportMenu').classList.remove('show');
@@ -1624,7 +1625,7 @@ def generate_viewer(vault_dir: Path) -> Path:
       }}
 
       if (!isHttp) {{
-        alert('Instant web capture requires WideWeb to be running locally via:\\n\\npython3 curate.py view --server\\n\\n(Currently running as a static file:// document).');
+        alert('Instant web capture requires Webtack to be running locally via:\\n\\npython3 curate.py view --server\\n\\n(Currently running as a static file:// document).');
         return;
       }}
 
@@ -1652,7 +1653,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           alert('Error saving atom: ' + (res.error || 'Unknown error'));
         }}
       }} catch (err) {{
-        alert('Network error connecting to WideWeb backend: ' + err.message);
+        alert('Network error connecting to Webtack backend: ' + err.message);
       }} finally {{
         submitBtn.textContent = origText;
         submitBtn.disabled = false;
@@ -1985,7 +1986,7 @@ def generate_viewer(vault_dir: Path) -> Path:
       }}
 
       // SYSTEM ENVELOPE (Header Strip)
-      const schemaUrl = raw['$schema'] || 'https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json';
+      const schemaUrl = raw['$schema'] || 'https://raw.githubusercontent.com/dn0c/webtack/main/schema/atom.schema.json';
       const envelopeHtml = `
         <div class="system-envelope-bar" style="background:var(--bg); border:1px dashed var(--border); border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; font-size:12px;">
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -1998,7 +1999,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           <div style="display:flex; align-items:center; gap:12px; font-size:11.5px; color:var(--muted);">
             <span>Captured: <strong style="color:var(--text);">${{escapeHtml(createdDateStr || '—')}}</strong></span>
             ${{updatedDateStr ? `<span>Updated: <strong style="color:var(--text);">${{escapeHtml(updatedDateStr)}}</strong></span>` : ''}}
-            <a href="${{escapeHtml(schemaUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;" title="WideWeb Atom Spec">Schema ↗</a>
+            <a href="${{escapeHtml(schemaUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;" title="Webtack Atom Spec">Schema ↗</a>
           </div>
         </div>
       `;
@@ -2327,7 +2328,7 @@ def generate_export_page(vault_dir: Path) -> Path:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WideWeb — Data Portability & Knowledge Exports</title>
+  <title>Webtack — Data Portability & Knowledge Exports</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -2727,7 +2728,7 @@ def generate_export_page(vault_dir: Path) -> Path:
     <header>
       <div class="top-bar">
         <div class="logo-area">
-          <a href="index.html" class="logo">WideWeb</a>
+          <a href="index.html" class="logo">Webtack</a>
           <span class="subtitle">data portability hub</span>
         </div>
         <div class="top-actions">
@@ -2739,7 +2740,7 @@ def generate_export_page(vault_dir: Path) -> Path:
       <div class="hero-banner">
         <h1 class="hero-title">Knowledge Exports & Data Portability</h1>
         <p class="hero-desc">
-          WideWeb is built on the Content Sidecar pattern: files on your local drive are the canonical source of truth. Your knowledge is never trapped inside proprietary cloud databases or walled gardens. Export your curated library into open standards for AI synthesis, personal knowledge management, browsers, and research.
+          Webtack is built on the Content Sidecar pattern: files on your local drive are the canonical source of truth. Your knowledge is never trapped inside proprietary cloud databases or walled gardens. Export your curated library into open standards for AI synthesis, personal knowledge management, browsers, and research.
         </p>
         <div class="hero-stats-row">
           <div class="hero-stat">
@@ -2983,7 +2984,7 @@ def generate_export_page(vault_dir: Path) -> Path:
           showToast('💾 Exported ' + filename);
           return;
         }}
-        alert('Server generation is required for this format:\\n\\nDouble-click "Launch WideWeb.command" or run:\\npython3 curate.py view --server\\n\\nOr run via CLI:\\npython3 curate.py export --target ' + target);
+        alert('Server generation is required for this format:\\n\\nDouble-click "Launch Webtack.command" or run:\\npython3 curate.py view --server\\n\\nOr run via CLI:\\npython3 curate.py export --target ' + target);
         return;
       }}
       showToast('📥 Preparing ' + filename + ' download...');
@@ -3078,7 +3079,7 @@ def generate_export_page(vault_dir: Path) -> Path:
     return export_html_path
 
 
-class WideWebCaptureHandler(SimpleHTTPRequestHandler):
+class WebtackCaptureHandler(SimpleHTTPRequestHandler):
     """Local HTTP Server that serves static vault files and handles /api/capture & /api/export requests."""
     vault_dir = None
 
@@ -3138,13 +3139,13 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
                     filename = "arena_export.csv"
                 elif target in ("pinterest-csv", "pinterest"):
                     out_path = export_dir / "pinterest_pins.csv"
-                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="pinterest-csv", out=str(out_path), board="WideWeb")
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="pinterest-csv", out=str(out_path), board="Webtack")
                     curate.cmd_export(args)
                     mime = "text/csv; charset=utf-8"
                     filename = "pinterest_pins.csv"
                 elif target in ("raindrop-csv", "raindrop"):
                     out_path = export_dir / "raindrop_export.csv"
-                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="raindrop-csv", out=str(out_path), folder="WideWeb")
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="raindrop-csv", out=str(out_path), folder="Webtack")
                     curate.cmd_export(args)
                     mime = "text/csv; charset=utf-8"
                     filename = "raindrop_export.csv"
@@ -3337,14 +3338,14 @@ class WideWebCaptureHandler(SimpleHTTPRequestHandler):
 
 
 def run_viewer_server(vault_dir: Path, port: int = 8080, open_browser: bool = True):
-    """Run the local WideWeb HTTP server for instant web viewing and live in-browser capture."""
+    """Run the local Webtack HTTP server for instant web viewing and live in-browser capture."""
     vault_dir = Path(vault_dir).resolve()
     generate_viewer(vault_dir)
     os.chdir(vault_dir)
-    WideWebCaptureHandler.vault_dir = vault_dir
-    server = HTTPServer(("127.0.0.1", port), WideWebCaptureHandler)
+    WebtackCaptureHandler.vault_dir = vault_dir
+    server = HTTPServer(("127.0.0.1", port), WebtackCaptureHandler)
     url = f"http://127.0.0.1:{port}/index.html"
-    print(f"\n🚀 WideWeb Live Vault & Capture running at: {url}")
+    print(f"\n🚀 Webtack Live Vault & Capture running at: {url}")
     print(f"   • Press 'c' in the browser to quick-capture links, quotes, or notes")
     print(f"   • Press 'Ctrl+C' in terminal to stop server")
     if open_browser:
@@ -3352,12 +3353,12 @@ def run_viewer_server(vault_dir: Path, port: int = 8080, open_browser: bool = Tr
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nWideWeb server stopped.")
+        print("\nWebtack server stopped.")
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="WideWeb Visual Gallery Viewer")
+    parser = argparse.ArgumentParser(description="Webtack Visual Gallery Viewer")
     default_vault = Path("vault") if Path("vault").exists() else Path("fixtures/demo_vault")
     parser.add_argument("--vault", default=str(default_vault), help=f"Path to vault directory (default: {default_vault})")
     parser.add_argument("--server", action="store_true", help="Launch interactive HTTP server with live in-browser capture")
@@ -3370,6 +3371,6 @@ if __name__ == "__main__":
         run_viewer_server(v_dir, port=args.port, open_browser=not args.no_browser)
     else:
         out = generate_viewer(v_dir)
-        print(f"✨ Regenerated WideWeb viewer at: {out}")
+        print(f"✨ Regenerated Webtack viewer at: {out}")
         if not args.no_browser:
             webbrowser.open(f"file://{out.resolve()}")

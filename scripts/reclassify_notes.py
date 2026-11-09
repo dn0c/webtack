@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-WideWeb — Reclassify and Clean Up "Notes" Atoms
-Converts misclassified text/link blocks imported into WideWeb:
+Webtack — Reclassify and Clean Up "Notes" Atoms
+Converts misclassified text/link blocks imported into Webtack:
 - 18 Atoms -> 'quote'
 - 3 Atoms  -> 'bookmark'
 - 2 Atoms  -> 'image'
@@ -28,7 +28,7 @@ from scripts.sync_public_gcs import get_public_atoms, generate_curation_export
 
 VAULT_DIR = BASE_DIR / "vault"
 DB_PATH = VAULT_DIR / "vault.db"
-SCHEMA_URL = "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json"
+SCHEMA_URL = "https://raw.githubusercontent.com/dn0c/webtack/main/schema/atom.schema.json"
 
 # 1. Duplicates to merge into primary atoms and delete
 DUPLICATES_TO_MERGE = {
@@ -212,7 +212,7 @@ def get_atom_folder(atom_id: str, created_at: str) -> Path:
 
 
 def main():
-    print("🚀 Starting WideWeb 'notes' atoms reclassification & cleanup...")
+    print("🚀 Starting Webtack 'notes' atoms reclassification & cleanup...")
     print(f"📦 Database: {DB_PATH}")
 
     # 1. Backup DB

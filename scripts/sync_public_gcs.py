@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Google Cloud Storage Sync Wrapper
+Webtack — Google Cloud Storage Sync Wrapper
 Delegates to integrations/gcs/sync.py
 """
 

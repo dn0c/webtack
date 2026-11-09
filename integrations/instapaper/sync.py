@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-WideWeb — Instapaper Inbound Sync Integration
-Pulls newly bookmarked items from Instapaper (unread) into WideWeb atoms with full readability text.
+Webtack — Instapaper Inbound Sync Integration
+Pulls newly bookmarked items from Instapaper (unread) into Webtack atoms with full readability text.
 """
 
 import os
@@ -160,7 +160,7 @@ def sync_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Sync unread Instapaper bookmarks into WideWeb")
+    parser = argparse.ArgumentParser(description="Sync unread Instapaper bookmarks into Webtack")
     parser.add_argument("--vault", default="vault", help="Path to vault directory (default: vault)")
     parser.add_argument("--limit", type=int, default=25, help="Max items to fetch (default: 25)")
     parser.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier")

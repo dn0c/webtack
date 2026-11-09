@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-WideWeb Model Context Protocol (MCP) Server.
+Webtack Model Context Protocol (MCP) Server.
 Enables AI tools (Claude Desktop, Antigravity, Cursor, ChatGPT) to search, read,
-and curate atoms directly from the WideWeb vault.
+and curate atoms directly from the Webtack vault.
 """
 
 import os
@@ -13,11 +13,11 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 # Initialize MCP server
-app = MCPServer("WideWeb Vault")
+app = MCPServer("Webtack Vault")
 
 
 def get_vault_dir() -> Path:
-    env_dir = os.environ.get("WIDEWEB_VAULT")
+    env_dir = os.environ.get("WEBTACK_VAULT") or os.environ.get("WIDEWEB_VAULT")
     if env_dir:
         return Path(env_dir).resolve()
     default_v = Path(__file__).resolve().parent / "vault"
@@ -36,7 +36,7 @@ def get_db():
 
 @app.tool()
 def search_vault(query: str = "", kind: str = "", tag: str = "", visibility: str = "", limit: int = 15) -> list[dict]:
-    """Search the WideWeb curation vault by keyword, semantic title, spoken dialogue, article text, notes, or tags."""
+    """Search the Webtack curation vault by keyword, semantic title, spoken dialogue, article text, notes, or tags."""
     conn, vault_dir = get_db()
     sql = "SELECT id, kind, created_at, atom_title, author, source_url, destination_url, tags, notes, text_content, visibility FROM atoms WHERE 1=1"
     params = []
@@ -140,13 +140,13 @@ def get_article(atom_id: str) -> str:
 
 @app.tool()
 def list_recent(limit: int = 15, kind: str = "") -> list[dict]:
-    """List the most recently captured atoms in the WideWeb vault."""
+    """List the most recently captured atoms in the Webtack vault."""
     return search_vault(query="", kind=kind, limit=limit)
 
 
 @app.tool()
 def save_note(text: str, title: str = "", tags: str = "") -> dict:
-    """Save a personal note or memo directly into the WideWeb vault."""
+    """Save a personal note or memo directly into the Webtack vault."""
     script_dir = str(Path(__file__).resolve().parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
@@ -168,7 +168,7 @@ def save_note(text: str, title: str = "", tags: str = "") -> dict:
 
 @app.tool()
 def save_bookmark(url: str, title: str = "", tags: str = "") -> dict:
-    """Save a bookmark pointer into the WideWeb vault."""
+    """Save a bookmark pointer into the Webtack vault."""
     script_dir = str(Path(__file__).resolve().parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
@@ -193,7 +193,7 @@ def save_bookmark(url: str, title: str = "", tags: str = "") -> dict:
 
 
 def main():
-    """Run the WideWeb MCP server via stdio transport."""
+    """Run the Webtack MCP server via stdio transport."""
     app.run()
 
 

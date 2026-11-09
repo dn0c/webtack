@@ -1,4 +1,4 @@
-# WideWeb User Vault (Personal clippings, media, and search index)
+# Webtack User Vault (Personal clippings, media, and search index)
 vault/
 *.db
 *.sqlite3
@@ -37,3 +37,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Compiled Local Binaries
+scripts/bin/

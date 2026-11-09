@@ -1,12 +1,12 @@
-# WideWeb Project Memory & Decision Log
+# Webtack Project Memory & Decision Log
 
-This document records the foundational architecture, schema evolutions, sync pipelines, export standards, and operational conventions for the WideWeb project. It serves as persistent context across agent sessions and development workstreams.
+This document records the foundational architecture, schema evolutions, sync pipelines, export standards, and operational conventions for the Webtack project (originally WideWeb, rebranded to Webtack in November 2026). It serves as persistent context across agent sessions and development workstreams.
 
 ---
 
 ## 1. System Architecture & Core Philosophy
 
-- **Local-First & Platform Independent**: WideWeb liberates personal knowledge curation from closed platforms (Are.na, Instapaper, Pinboard, Raindrop). Captures are preserved as permanent, human-readable local artifacts.
+- **Local-First & Platform Independent**: Webtack liberates personal knowledge curation from closed platforms (Are.na, Instapaper, Pinboard, Raindrop). Captures are preserved as permanent, human-readable local artifacts.
 - **Content Sidecar Pattern**: The filesystem is the single canonical source of truth. Every curated atom resides in its own date-partitioned directory:
   ```text
   vault/atoms/YYYY/MM/atm_YYYYMMDDHHMMSS_xxxxxx/
@@ -43,6 +43,23 @@ This document records the foundational architecture, schema evolutions, sync pip
 
 ## 3. Key Architectural Decisions Log
 
+### [2026-11-08] Decouple Platform Connectors to `integrations/` & Universal AI Enrichment
+
+#### Decision: Decouple Service-Specific Logic to `integrations/`
+- **Context**: `curate.py`, `inbound_sync.py`, and `ai_enrich.py` previously contained ~350+ lines of Are.na channel scraping, block type translation, and API push requests, as well as hardcoded Instapaper API endpoints. This bloated the core CLI and added foreign platform dependencies for general users.
+- **Decision**: 
+  1. Relocate all platform-specific intake, sync, and back-sync scripts into `integrations/`:
+     - `integrations/arena/` (`import_channel.py`, `sync.py`, `sync_alt_text.py`)
+     - `integrations/instapaper/` (`sync.py`)
+     - `integrations/gcs/` (`sync.py`)
+  2. Create a clean, universal `enrich.py` module with a 5-tier resolution engine:
+     - Tier 1: Embedded EXIF/IPTC image metadata (zero keys, zero network)
+     - Tier 2: Upstream web page scraping (`og:image:alt`, `<figcaption>`, `img[alt]`)
+     - Tier 3: Multi-provider Cloud Vision (Gemini, OpenAI, Anthropic, Groq, OpenRouter)
+     - Tier 4: Native macOS Vision via Apple Neural Engine (`VNRecognizeTextRequest` + `VNClassifyImageRequest`, offline fallback, zero keys)
+     - Tier 5: Clean fallback to atom title / description
+  3. Streamline `curate.py`: `import-arena` delegates cleanly to `integrations/arena/import_channel.py`, and `cmd_image` no longer automatically pushes upstream to external platforms on capture.
+
 ### [2026-11-05] Schema v3 Refinements & Consolidations
 
 #### Decision 1: Consolidate `link` into `bookmark`
@@ -65,7 +82,7 @@ This document records the foundational architecture, schema evolutions, sync pip
 #### Decision 3: Delete `content.cover_image.public_url`
 - **Context**: The schema contained an optional `public_url` under `cover_image`.
 - **Decision**: Remove `public_url` from the schema.
-- **Rationale**: Vault audit confirmed 0 items used this field. WideWeb dynamically constructs public asset URLs on export or cloud sync (e.g. `https://storage.googleapis.com/<bucket>/atoms/.../cover.jpg`) rather than storing hardcoded bucket URLs in canonical metadata.
+- **Rationale**: Vault audit confirmed 0 items used this field. Webtack dynamically constructs public asset URLs on export or cloud sync (e.g. `https://storage.googleapis.com/<bucket>/atoms/.../cover.jpg`) rather than storing hardcoded bucket URLs in canonical metadata.
 
 #### Decision 4: Retain `relative_path` across Content Slots
 - **Context**: Evaluated whether `relative_path` (`atoms/YYYY/MM/<id>/<file>`) provides high semantic signal versus pure operational plumbing.
@@ -90,10 +107,10 @@ This document records the foundational architecture, schema evolutions, sync pip
 - **Decision**: Bake egress classification directly into `curation.visibility` on every atom with three explicit tiers:
   1. **`public` (Digital Garden & Open Web)**:
      - **Intent**: Essays, bookmarks, artwork, and videos intended for open web syndication and public discovery.
-     - **Egress Behavior**: Synced to Google Cloud Storage (`gs://wideweb-assets-drew`), included in `curation_public.json` for `drewshannon.net/garden`, syndicated in RSS feeds, and included in public export targets.
+     - **Egress Behavior**: Synced to Google Cloud Storage (`gs://webtack-assets-drew`), included in `curation_public.json` for `drewshannon.net/garden`, syndicated in RSS feeds, and included in public export targets.
   2. **`shared` (Trusted Circle & Collaborative)**:
      - **Intent**: Material curated for a trusted inner circle (family, project collaborators, client deliverables) that should not be indexed by Google or exposed to random site visitors.
-     - **Egress Behavior**: Strictly excluded from public GCS sync and digital garden manifests. Selectively exportable via `curate.py export --visibility shared` (e.g. generating a dedicated Raindrop folder or Obsidian sub-vault for a teammate). Prepares WideWeb for future authenticated sharing portals without schema rewrites.
+     - **Egress Behavior**: Strictly excluded from public GCS sync and digital garden manifests. Selectively exportable via `curate.py export --visibility shared` (e.g. generating a dedicated Raindrop folder or Obsidian sub-vault for a teammate). Prepares Webtack for future authenticated sharing portals without schema rewrites.
   3. **`private` (Zero-Egress Local Vault)**:
      - **Intent**: Confidential journal entries, draft notes, sensitive health/financial bookmarks, internal receipts.
      - **Egress Behavior**: Never leaves the local machine. Defense-in-depth enforcement: excluded from SQLite public queries, and explicitly regex-blocked in `sync_assets_to_gcs` from ever uploading to cloud buckets. Searchable and readable solely inside the local masonry viewer (`viewer.py` on `127.0.0.1:8080`).
@@ -115,7 +132,7 @@ This document records the foundational architecture, schema evolutions, sync pip
 ## 4. Ingestion, Provenance & Synchronization Ecosystem
 
 ### Inbound Ingestion Pipelines (`curate.py pull`)
-WideWeb features automated, deduplicated sync engines for external services:
+Webtack features automated, deduplicated sync engines for external services:
 1. **Instapaper Ingestion**:
    - Pulls unread bookmarks and reading highlights via the Instapaper Full API.
    - Extracts and saves full offline readability text directly from Instapaper's `/api/1/bookmarks/get_text` endpoint into `article.md`.
@@ -123,7 +140,7 @@ WideWeb features automated, deduplicated sync engines for external services:
 2. **Are.na Ingestion**:
    - Ingests blocks from channels or user feeds.
    - Parses "Via:" and "Source:" notes to recover canonical external web links while retaining the Are.na block link in `source.capture_url`.
-   - Two-Way Sync: AI-generated alt text created in WideWeb is synced back upstream to Are.na block descriptions (`ai_enrich.py`).
+   - Two-Way Sync: AI-generated alt text created in Webtack is synced back upstream to Are.na block descriptions (`ai_enrich.py`).
 3. **YouTube Ingestion & Transcription (`curate.py backfill-transcripts`)**:
    - Ingests video bookmarks and channel playlists.
    - **Local-First Architecture**: Routine captures (<5/day) use `youtube-transcript-api` with local `cookies.txt` (gitignored), completely free and private.
@@ -159,13 +176,13 @@ To ensure sub-second first-screen loads for a 13,000+ item vault without browser
 ### Lazy-Loaded Assets & Cloud Offloading
 - **Decoupled Article Bodies (`article_url`)**:
   - Full-text markdown bodies (`article.md`) are NOT inlined into `curation_public.json` (saving over 120MB+ of payload).
-  - Synced to `https://storage.googleapis.com/wideweb-assets-drew/atoms/YYYY/MM/<id>/article.md`.
+  - Synced to `https://storage.googleapis.com/webtack-assets-drew/atoms/YYYY/MM/<id>/article.md`.
   - The reader modal fetches `article_url` on-demand only when a user clicks an article card.
 - **Decoupled Raw Schema Inspection (`atom_url`)**:
-  - For items outside the initial 72, raw JSON is fetched on-demand from `https://storage.googleapis.com/wideweb-assets-drew/atoms/YYYY/MM/<id>/atom.json?v={timestamp}` with asset cache-busting.
+  - For items outside the initial 72, raw JSON is fetched on-demand from `https://storage.googleapis.com/webtack-assets-drew/atoms/YYYY/MM/<id>/atom.json?v={timestamp}` with asset cache-busting.
 
 ### Google Cloud Storage (GCS) Pipeline
-- **Bucket**: `gs://wideweb-assets-drew` (overrideable with `WIDEWEB_GCS_BUCKET`).
+- **Bucket**: `gs://webtack-assets-drew` (overrideable with `WEBTACK_GCS_BUCKET` or `WIDEWEB_GCS_BUCKET`).
 - **CORS Configuration (`scripts/gcs_cors.json`)**:
   - Configured with `origin: ["*"]`, methods `["GET", "HEAD", "OPTIONS"]`, and `maxAgeSeconds: 3600`.
   - Allows `drewshannon.net`, Ghost theme client scripts, and local development servers to fetch manifests and Markdown via client-side `fetch()`.
@@ -174,7 +191,7 @@ To ensure sub-second first-screen loads for a 13,000+ item vault without browser
   - Cache-Control set to `public, max-age=120` (2 minutes) to ensure readers receive recent curations without serving stale indices.
   - Automatic fallback to `gcloud storage cp` CLI when API tokens are unavailable.
 - **Asset Syncing (`curate.py sync` / `sync_assets_to_gcs`)**:
-  - Uses `gcloud storage rsync` to mirror `cover.jpg`, `article.md`, and `atom.json` to `gs://wideweb-assets-drew/atoms/`.
+  - Uses `gcloud storage rsync` to mirror `cover.jpg`, `article.md`, and `atom.json` to `gs://webtack-assets-drew/atoms/`.
   - Filter regex strictly excludes internal memos (`note.md`), verbatim quotes (`quote.md`), caption files (`transcript.txt`, `transcript.json`), system clutter (`.DS_Store`), and explicit private atoms.
 
 ---
@@ -182,7 +199,7 @@ To ensure sub-second first-screen loads for a 13,000+ item vault without browser
 ## 6. Multi-Format Export Engine & AI Protocols
 
 ### Export Center (`curate.py export` & `/export.html`)
-WideWeb features a dedicated local export engine that serializes the vault into 12 industry-standard targets:
+Webtack features a dedicated local export engine that serializes the vault into 12 industry-standard targets:
 1. **`digest`**: Unified single-file Markdown compendium for deep personal reading or offline search.
 2. **`llms-txt`**: Adheres to the emerging `llms.txt` and `llms-full.txt` standard, providing LLMs with a low-token index of curated knowledge.
 3. **`obsidian` / `logseq`**: Discrete Markdown notes with YAML frontmatter, tags, and inline media links.
@@ -196,7 +213,7 @@ WideWeb features a dedicated local export engine that serializes the vault into 
 11. **`jsonl`**: Newline-delimited JSON envelopes optimized for LangChain, LlamaIndex, and vector embedding pipelines.
 12. **`json`**: Complete, unpruned disaster recovery backup dump of all raw envelopes.
 
-### Model Context Protocol (MCP) Server (`wideweb_mcp.py`)
+### Model Context Protocol (MCP) Server (`webtack_mcp.py`)
 - Provides a native Model Context Protocol server exposing tools (`list_atoms`, `get_atom`, `search_atoms`, `read_article`) to AI clients (Claude Desktop, Gemini CLI, Antigravity).
 
 ---
@@ -218,26 +235,27 @@ WideWeb features a dedicated local export engine that serializes the vault into 
 ## 8. Key Workstream Assets & External References
 
 - **Canonical JSON Schema**: `schema/atom.schema.json`
-- **Interactive Google Sheet Data Dictionary**: [WideWeb - Schema Dictionary & Architecture](https://docs.google.com/spreadsheets/d/1V7nKitvW7cumwtzG4PFLMOFTApJWTuow4J32ks5vMm0/edit)
+- **Interactive Google Sheet Data Dictionary**: [Webtack - Schema Dictionary & Architecture](https://docs.google.com/spreadsheets/d/1V7nKitvW7cumwtzG4PFLMOFTApJWTuow4J32ks5vMm0/edit)
   - Tab 1: `Schema Dictionary` (53 fields & subfields)
   - Tab 2: `Kind Matrix` (7 kinds, slots, sidecars, vault counts)
   - Tab 3: `Proposed Changes` (Decision log and proposal scratchpad)
 - **Primary CLI**: `curate.py` (`bookmark`, `article`, `link`, `quote`, `note`, `image`, `video`, `reindex`, `sync`, `enrich`)
 - **Local Masonry Viewer**: `viewer.py` (served at `http://127.0.0.1:8080`)
-- **AI Vision Pipeline**: `ai_enrich.py` (Gemini Flash multimodal alt text + Are.na upstream sync)
-- **Local MCP Server**: `wideweb_mcp.py`
+- **AI Vision Pipeline**: `enrich.py` / `ai_enrich.py` (multi-provider alt text + Are.na upstream sync)
+- **Local MCP Server**: `webtack_mcp.py`
+- **Official Website**: https://webtack.net
 
 ---
 
 ## 9. Open Source Standards & Release Preparation (Nov 2026)
 
 - **Dual-Licensing Strategy**:
-  - **Tooling & CLI** (`curate.py`, `viewer.py`, `wideweb_mcp.py`): **MIT License** (permissive, commercial & personal use).
+  - **Tooling & CLI** (`curate.py`, `viewer.py`, `webtack_mcp.py`): **MIT License** (permissive, commercial & personal use).
   - **Atom Schema & Spec** (`schema/atom.schema.json`): **Creative Commons Zero v1.0 Universal (CC0 1.0)** (dedicated to the public domain so third-party implementations have zero copyright encumbrance).
 - **Environment & Path Decoupling**:
   - Replaced hardcoded machine paths (`/Users/drew/...`) with portable binary discovery (`get_gcloud_bin()` searching PATH and standard SDK directories).
-  - Decoupled cloud bucket names (`DEFAULT_GCS_BUCKET = os.environ.get("WIDEWEB_GCS_BUCKET", "")`). Personal bucket is configured locally via `.env`.
-  - Added [`.env.example`](.env.example) with documented variables (`WIDEWEB_VAULT`, `WIDEWEB_GCS_BUCKET`, `GEMINI_API_KEY`, etc.).
+  - Decoupled cloud bucket names (`DEFAULT_GCS_BUCKET = os.environ.get("WEBTACK_GCS_BUCKET", "")`). Personal bucket is configured locally via `.env`.
+  - Added [`.env.example`](.env.example) with documented variables (`WEBTACK_VAULT`, `WEBTACK_GCS_BUCKET`, `GEMINI_API_KEY`, etc.).
 - **Dynamic Privacy Egress Protection**:
   - Replaced brittle hardcoded exclusion IDs in GCS rsync with `get_non_public_atom_ids(vault_dir)`, which queries SQLite dynamically for all atoms where `visibility != 'public'` (`shared` and `private`) and regex-excludes them from cloud synchronization.
 - **Repository Sanitization**:

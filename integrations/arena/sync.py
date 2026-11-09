@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-WideWeb — Are.na Feed Inbound Sync Integration
-Pulls recently curated blocks across all Are.na channels for a user into WideWeb atoms.
+Webtack — Are.na Feed Inbound Sync Integration
+Pulls recently curated blocks across all Are.na channels for a user into Webtack atoms.
 """
 
 import os
@@ -55,7 +55,7 @@ def get_arena_user_id(token: str) -> str | None:
     try:
         resp = requests.get(
             "https://api.are.na/v3/me",
-            headers={"Authorization": f"Bearer {token}", "User-Agent": "WideWeb/1.0"},
+            headers={"Authorization": f"Bearer {token}", "User-Agent": "Webtack/1.0"},
             timeout=10
         )
         if resp.status_code == 200:
@@ -119,7 +119,7 @@ def sync_arena(vault_dir: Path, limit: int = 100, visibility: str = "public") ->
     url = f"https://api.are.na/v3/users/{user_id}/contents?per={limit}"
     headers = {
         "Authorization": f"Bearer {token}",
-        "User-Agent": "Mozilla/5.0 WideWeb/1.0"
+        "User-Agent": "Mozilla/5.0 Webtack/1.0"
     }
 
     try:
@@ -272,8 +272,8 @@ def sync_arena(vault_dir: Path, limit: int = 100, visibility: str = "public") ->
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Sync recent Are.na blocks into WideWeb")
-    parser.add_argument("--vault", default="vault", help="Path to WideWeb vault directory (default: vault)")
+    parser = argparse.ArgumentParser(description="Sync recent Are.na blocks into Webtack")
+    parser.add_argument("--vault", default="vault", help="Path to Webtack vault directory (default: vault)")
     parser.add_argument("--limit", type=int, default=100, help="Max blocks to fetch (default: 100)")
     parser.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier")
     args = parser.parse_args()

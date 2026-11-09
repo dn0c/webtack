@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WideWeb — Backfill YouTube Channel Authors
+Webtack — Backfill YouTube Channel Authors
 
 Populates missing channel author attribution for YouTube video atoms using
 the raw Are.na JSON dumps (embed.author_name) in vault/import/arena_*.json.
@@ -9,7 +9,7 @@ Also cleans up atoms where the author was erroneously set to "drew. shannon".
 Updates:
 1. SQLite database atoms table (author, updated_at, raw_json)
 2. On-disk atom.json (source.author, updated_at)
-3. Regenerates curation exports and WideWeb viewer (index.html / export.html)
+3. Regenerates curation exports and Webtack viewer (index.html / export.html)
 """
 
 import sys
@@ -215,9 +215,9 @@ def main():
     out_file = generate_curation_export(VAULT_DIR, pub_rows)
     print(f"✅ Generated {out_file}")
 
-    print("\n✨ Regenerating WideWeb viewer (index.html / export.html)...")
+    print("\n✨ Regenerating Webtack viewer (index.html / export.html)...")
     generate_viewer(VAULT_DIR)
-    print("✨ WideWeb viewer updated successfully!")
+    print("✨ Webtack viewer updated successfully!")
 
 
 if __name__ == "__main__":
