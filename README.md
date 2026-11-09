@@ -1,5 +1,11 @@
 # Webtack
 
+[![CI](https://github.com/dn0c/webtack/actions/workflows/ci.yml/badge.svg)](https://github.com/dn0c/webtack/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Schema: v3](https://img.shields.io/badge/schema-v3%20(CC0)-green.svg)](SPECIFICATION.md)
+[![Website](https://img.shields.io/badge/website-webtack.net-black.svg)](https://webtack.net)
+
 A local-first, durable web curation and bookmarking framework using the **Content Sidecar** pattern.  
 **Website:** [https://webtack.net](https://webtack.net)
 
