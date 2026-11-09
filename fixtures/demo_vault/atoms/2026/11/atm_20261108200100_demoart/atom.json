@@ -1,0 +1,56 @@
+{
+  "id": "atm_20261108200100_demoart",
+  "kind": "article",
+  "version": 3,
+  "created_at": "2026-11-08T20:01:00Z",
+  "updated_at": "2026-11-08T20:01:00Z",
+  "source": {
+    "source_url": "https://www.theatlantic.com/magazine/archive/1945/07/as-we-may-think/303881/",
+    "source_title": "As We May Think",
+    "site_name": "The Atlantic",
+    "author": "Vannevar Bush",
+    "published_at": "1945-07-01T00:00:00Z",
+    "favicon": "https://www.theatlantic.com/favicon.ico",
+    "capture_method": "cli"
+  },
+  "curation": {
+    "atom_title": "As We May Think",
+    "description": "Vannevar Bush's seminal 1945 essay introducing the Memex\u2014an individualized desk anticipating hypertext, personal computing, and the web.",
+    "tags": [
+      "hypertext",
+      "memex",
+      "computing-history",
+      "philosophy"
+    ],
+    "collections": [
+      "Foundational Texts",
+      "Web History"
+    ],
+    "visibility": "public",
+    "favorite": true
+  },
+  "content": {
+    "cover_image": {
+      "file": "cover.jpg",
+      "relative_path": "cover.jpg",
+      "mime_type": "image/jpeg",
+      "dimensions": {
+        "width": 800,
+        "height": 450
+      },
+      "aspect_ratio": 1.7778,
+      "blurhash": "L13SO~tSx]o#.Aj[j[j]%hayWAj[",
+      "color_palette": [
+        "#1e293b",
+        "#0f172a"
+      ],
+      "alt_text": "Preview card for As We May Think"
+    },
+    "article": {
+      "file": "article.md",
+      "relative_path": "article.md",
+      "word_count": 310,
+      "byline": "Vannevar Bush"
+    }
+  }
+}

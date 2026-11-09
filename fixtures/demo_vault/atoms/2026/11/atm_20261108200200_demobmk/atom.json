@@ -1,0 +1,48 @@
+{
+  "id": "atm_20261108200200_demobmk",
+  "kind": "bookmark",
+  "version": 3,
+  "created_at": "2026-11-08T20:02:00Z",
+  "updated_at": "2026-11-08T20:02:00Z",
+  "source": {
+    "source_url": "https://archive.org/web/",
+    "source_title": "Wayback Machine",
+    "site_name": "Internet Archive",
+    "author": "Brewster Kahle",
+    "published_at": "1996-05-10T00:00:00Z",
+    "favicon": "https://archive.org/favicon.ico",
+    "capture_method": "bookmarklet"
+  },
+  "curation": {
+    "atom_title": "Internet Archive: Wayback Machine",
+    "description": "A digital library of Internet sites and cultural artifacts, providing permanent universal access to historical web pages.",
+    "tags": [
+      "web-archiving",
+      "preservation",
+      "digital-commons"
+    ],
+    "collections": [
+      "Preservation Tools"
+    ],
+    "visibility": "public",
+    "favorite": true
+  },
+  "content": {
+    "cover_image": {
+      "file": "cover.jpg",
+      "relative_path": "cover.jpg",
+      "mime_type": "image/jpeg",
+      "dimensions": {
+        "width": 800,
+        "height": 450
+      },
+      "aspect_ratio": 1.7778,
+      "blurhash": "LK1qW*kDkCfmkvflfQflkYfQf6fk",
+      "color_palette": [
+        "#0d47a1",
+        "#012456"
+      ],
+      "alt_text": "Preview card for Wayback Machine"
+    }
+  }
+}

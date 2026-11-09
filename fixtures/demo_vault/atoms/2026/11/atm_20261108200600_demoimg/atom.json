@@ -1,0 +1,48 @@
+{
+  "id": "atm_20261108200600_demoimg",
+  "kind": "image",
+  "version": 3,
+  "created_at": "2026-11-08T20:06:00Z",
+  "updated_at": "2026-11-08T20:06:00Z",
+  "source": {
+    "source_url": "https://en.wikipedia.org/wiki/Memex",
+    "source_title": "Memex Desk Diagram",
+    "site_name": "Wikipedia",
+    "author": "Alfred D. Crimi",
+    "published_at": "1945-11-19T00:00:00Z",
+    "capture_method": "cli"
+  },
+  "curation": {
+    "atom_title": "The Memex Desk Diagram (1945)",
+    "description": "Life Magazine illustration depicting the Memex desk conceived by Vannevar Bush in 'As We May Think'.",
+    "tags": [
+      "memex",
+      "diagram",
+      "vannevar-bush",
+      "life-magazine"
+    ],
+    "collections": [
+      "Historical Artifacts"
+    ],
+    "visibility": "public",
+    "favorite": false
+  },
+  "content": {
+    "cover_image": {
+      "file": "cover.jpg",
+      "relative_path": "cover.jpg",
+      "mime_type": "image/jpeg",
+      "dimensions": {
+        "width": 800,
+        "height": 450
+      },
+      "aspect_ratio": 1.7778,
+      "blurhash": "L46sqDs=s=sr{ojbjbn+-DayWUj[",
+      "color_palette": [
+        "#4a044e",
+        "#1e1b4b"
+      ],
+      "alt_text": "Preview card for The Memex Desk (1945)"
+    }
+  }
+}

@@ -6,6 +6,25 @@ Decouples capture and long-term storage from proprietary platforms. The filesyst
 
 ---
 
+## Quickstart (Try it in 60 seconds)
+
+Clone the repository and view the included specimen vault:
+
+```bash
+# 1. Clone repository & install dependencies
+git clone https://github.com/dn0c/wideweb.git
+cd wideweb
+pip install -r requirements.txt
+
+# 2. Open the visual gallery viewer (auto-indexes the demo vault)
+python3 viewer.py --vault fixtures/demo_vault
+
+# 3. Or launch the local server with 1-click browser capture
+python3 viewer.py --vault fixtures/demo_vault --server
+```
+
+---
+
 ## The 7 Kinds of Atoms
 
 WideWeb categorizes every curated piece of content into an explicit semantic `kind`:

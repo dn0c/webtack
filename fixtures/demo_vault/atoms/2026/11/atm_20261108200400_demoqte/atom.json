@@ -1,0 +1,38 @@
+{
+  "id": "atm_20261108200400_demoqte",
+  "kind": "quote",
+  "version": 3,
+  "created_at": "2026-11-08T20:04:00Z",
+  "updated_at": "2026-11-08T20:04:00Z",
+  "source": {
+    "source_url": "https://archive.org/details/literarymachines0000nels",
+    "source_title": "Literary Machines",
+    "site_name": "Project Xanadu",
+    "author": "Ted Nelson",
+    "published_at": "1981-01-01T00:00:00Z",
+    "capture_method": "cli"
+  },
+  "curation": {
+    "atom_title": "Ted Nelson on Files as Clumsy Containers",
+    "description": "From Literary Machines (1981). Nelson critiques rigid hierarchical filesystem folders as insufficient for associative thought.",
+    "tags": [
+      "ted-nelson",
+      "hypertext",
+      "information-architecture",
+      "quotes"
+    ],
+    "collections": [
+      "Notable Quotes"
+    ],
+    "visibility": "public",
+    "favorite": false
+  },
+  "content": {
+    "text": {
+      "file": "quote.md",
+      "relative_path": "quote.md",
+      "excerpt": "A file is only a clumsy container for thoughts. The true structure of ideas is non-linear, interconnected, and deeply associative.",
+      "word_count": 21
+    }
+  }
+}

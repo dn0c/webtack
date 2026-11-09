@@ -1,0 +1,34 @@
+{
+  "id": "atm_20261108200500_demonot",
+  "kind": "note",
+  "version": 3,
+  "created_at": "2026-11-08T20:05:00Z",
+  "updated_at": "2026-11-08T20:05:00Z",
+  "source": {
+    "source_url": null,
+    "capture_method": "cli"
+  },
+  "curation": {
+    "atom_title": "Seven Ideals of Local-First Software",
+    "description": "Reflections on Ink & Switch's foundational 2019 paper and how the Content Sidecar pattern achieves longevity and ownership.",
+    "tags": [
+      "local-first",
+      "architecture",
+      "data-ownership",
+      "manifesto"
+    ],
+    "collections": [
+      "Architecture Notes"
+    ],
+    "visibility": "public",
+    "favorite": true
+  },
+  "content": {
+    "text": {
+      "file": "note.md",
+      "relative_path": "note.md",
+      "excerpt": "Seven ideals of local-first software: no spinners, multi-device, offline-capable, collaboration, longevity, privacy, user ownership.",
+      "word_count": 158
+    }
+  }
+}

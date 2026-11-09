@@ -1,0 +1,2223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WideWeb Vault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --bg: #FAF8F5;
+      --card-bg: #FFFFFF;
+      --text: #1C1B19;
+      --muted: #797670;
+      --border: #E8E5DF;
+      --accent: #2B4C7E;
+      --tag-bg: #F0EDE6;
+      --tag-text: #4F4B43;
+      --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
+      --radius: 12px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141413;
+        --card-bg: #1F1E1B;
+        --text: #F2EFE9;
+        --muted: #9E9A91;
+        --border: #2D2B27;
+        --accent: #7EA6E0;
+        --tag-bg: #2B2925;
+        --tag-text: #C4BFB5;
+        --shadow: 0 2px 6px rgba(0,0,0,0.25);
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 32px 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .logo-area {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .logo {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-hub-btn {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .nav-hub-btn:hover {
+      background: var(--tag-bg);
+      border-color: var(--muted);
+      transform: translateY(-1px);
+    }
+    .export-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .export-btn {
+      background: var(--tag-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .export-btn:hover {
+      background: var(--border);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+    .export-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      width: 290px;
+      padding: 6px;
+      z-index: 200;
+    }
+    .export-menu.show {
+      display: block;
+    }
+    .export-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--text);
+      transition: background 0.12s ease;
+      cursor: pointer;
+    }
+    .export-item:hover {
+      background: var(--tag-bg);
+    }
+    .export-item-icon {
+      font-size: 16px;
+      line-height: 1.2;
+    }
+    .export-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .export-item-desc {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+      line-height: 1.3;
+    }
+    .capture-btn {
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .capture-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    .stats-badge {
+      font-size: 13px;
+      color: var(--muted);
+      background: var(--tag-bg);
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+    .controls {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .filter-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tab-btn:hover {
+      color: var(--text);
+      border-color: var(--text);
+    }
+    .tab-btn.active {
+      background: var(--text);
+      color: var(--bg);
+      border-color: var(--text);
+    }
+    .tab-badge {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+    .search-box {
+      position: relative;
+      min-width: 260px;
+    }
+    .search-box input {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px 8px 34px;
+      border-radius: 20px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .search-box input:focus {
+      border-color: var(--accent);
+    }
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    
+    /* Masonry Layout */
+    .masonry {
+      columns: 4 300px;
+      column-gap: 20px;
+    }
+    @media (max-width: 1000px) {
+      .masonry { columns: 2 280px; }
+    }
+    @media (max-width: 600px) {
+      .masonry { columns: 1 auto; }
+    }
+    
+    .card {
+      break-inside: avoid;
+      margin-bottom: 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      cursor: pointer;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border-color: var(--accent);
+    }
+    .card-header {
+      padding: 14px 16px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .kind-pill {
+      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+    }
+    .kind-article { color: #2B6CB0; background: rgba(43,108,176,0.1); }
+    .kind-bookmark { color: #0D9488; background: rgba(13,148,136,0.1); }
+    .kind-link { color: #0D9488; background: rgba(13,148,136,0.1); }
+    .kind-video { color: #6B46C1; background: rgba(107,70,193,0.1); }
+    .kind-quote { color: #9B2C2C; background: rgba(155,44,44,0.1); }
+    .kind-note { color: #7B341E; background: rgba(123,52,30,0.1); }
+    .kind-image { color: #2C7A7B; background: rgba(44,122,123,0.1); }
+
+    .vis-badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .vis-badge.vis-private {
+      background: rgba(229, 62, 62, 0.12);
+      color: #E53E3E;
+      border: 1px solid rgba(229, 62, 62, 0.25);
+    }
+    .vis-badge.vis-shared {
+      background: rgba(214, 158, 46, 0.12);
+      color: #D69E2E;
+      border: 1px solid rgba(214, 158, 46, 0.25);
+    }
+    .vis-badge.vis-public {
+      background: rgba(56, 161, 105, 0.12);
+      color: #38A169;
+      border: 1px solid rgba(56, 161, 105, 0.25);
+    }
+    .vis-tab-btn {
+      background: transparent;
+      border: none;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+    .vis-tab-btn:hover {
+      color: var(--text);
+    }
+    .vis-tab-btn.active {
+      background: var(--bg);
+      color: var(--text);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .card-cover {
+      width: 100%;
+      display: block;
+      background: var(--tag-bg);
+      object-fit: cover;
+    }
+    .card-body {
+      padding: 14px 16px;
+      flex-grow: 1;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.35;
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+    .card-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+    .card-title a:hover {
+      text-decoration: underline;
+    }
+    .quote-content {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 18px;
+      line-height: 1.45;
+      margin-bottom: 12px;
+      font-style: italic;
+      color: var(--text);
+    }
+    .author-byline {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .card-notes {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+      margin-bottom: 12px;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-notes.markdown-body p, .card-notes.markdown-body ul, .card-notes.markdown-body ol {
+      margin: 0 0 6px 0;
+    }
+    .card-notes.markdown-body p:last-child {
+      margin-bottom: 0;
+    }
+    .card-notes.markdown-body a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    .card-notes.markdown-body code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: var(--tag-bg);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    .meta-notes-banner .markdown-body p {
+      margin: 0 0 8px 0;
+    }
+    .meta-notes-banner .markdown-body p:last-child {
+      margin-bottom: 0;
+    }
+    .meta-notes-banner .markdown-body ul, .meta-notes-banner .markdown-body ol {
+      margin: 4px 0 8px 18px;
+      padding: 0;
+    }
+    .meta-notes-banner .markdown-body a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    .meta-notes-banner .markdown-body code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.06);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .card-footer {
+      padding: 10px 16px 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-decoration: none;
+    }
+    .read-btn {
+      background: var(--accent);
+      color: #FFF;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: opacity 0.15s ease;
+    }
+    .read-btn:hover {
+      opacity: 0.9;
+    }
+    .palette-dots {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .palette-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+
+    /* Dialog Modals */
+    dialog {
+      max-width: 760px;
+      width: 90%;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--card-bg);
+      color: var(--text);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      padding: 0;
+      margin: auto;
+      overflow: hidden;
+    }
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+    }
+    .modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: var(--card-bg);
+      z-index: 10;
+    }
+    .modal-close {
+      background: var(--tag-bg);
+      border: none;
+      color: var(--text);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-body {
+      padding: 32px 36px 48px;
+      max-height: 80vh;
+      overflow-y: auto;
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 19px;
+      line-height: 1.7;
+    }
+    .modal-meta {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 24px;
+      display: flex;
+      gap: 12px;
+    }
+    .modal-body h1 { font-size: 32px; margin-bottom: 12px; line-height: 1.25; font-family: 'Newsreader', Georgia, serif; font-weight: 500; }
+    .modal-body h2 { font-size: 24px; margin-top: 32px; margin-bottom: 12px; font-weight: 500; }
+    .modal-body p { margin-bottom: 20px; }
+    .modal-body blockquote {
+      border-left: 3px solid var(--accent);
+      padding-left: 20px;
+      margin: 24px 0;
+      font-style: italic;
+      color: var(--muted);
+    }
+    .modal-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+
+    /* Metadata Inspector Modal Styling */
+    .meta-dialog-body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13.5px;
+      line-height: 1.5;
+      padding: 24px 28px 36px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .meta-headline {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 24px;
+      font-weight: 500;
+      line-height: 1.3;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .meta-byline {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+      margin-bottom: 18px;
+    }
+    .meta-actions-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .meta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid var(--border);
+      background: var(--tag-bg);
+      color: var(--text);
+    }
+    .meta-btn:hover {
+      border-color: var(--text);
+    }
+    .meta-btn.primary {
+      background: var(--accent);
+      color: #FFF;
+      border-color: var(--accent);
+    }
+    .meta-btn.primary:hover {
+      opacity: 0.9;
+    }
+    .meta-asset-box {
+      display: flex;
+      gap: 18px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 20px;
+      align-items: flex-start;
+    }
+    @media (max-width: 650px) {
+      .meta-asset-box { flex-direction: column; }
+    }
+    .meta-asset-thumb {
+      max-width: 220px;
+      max-height: 160px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+    }
+    .meta-asset-fields {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .meta-field-row {
+      display: flex;
+      gap: 10px;
+    }
+    .meta-field-label {
+      width: 85px;
+      flex-shrink: 0;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .meta-field-value {
+      color: var(--text);
+      word-break: break-all;
+    }
+    .meta-quote-banner {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 19px;
+      line-height: 1.5;
+      font-style: italic;
+      padding: 16px 20px;
+      background: var(--bg);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 20px;
+    }
+    .meta-notes-banner {
+      padding: 14px 16px;
+      background: var(--tag-bg);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--tag-text);
+      margin-bottom: 20px;
+    }
+    .meta-notes-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    /* 4-Tier Schema Layout */
+    .schema-tiers-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .schema-tier-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .schema-tier-card:hover {
+      border-color: var(--accent);
+    }
+    .tier-badge-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tier-number-pill {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .tier-envelope .tier-number-pill {
+      background: var(--tag-bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .tier-curation .tier-number-pill {
+      background: rgba(43, 76, 126, 0.12);
+      color: var(--accent);
+    }
+    .tier-source .tier-number-pill,
+    .tier-provenance .tier-number-pill {
+      background: rgba(180, 83, 9, 0.12);
+      color: #B45309;
+    }
+    .tier-content .tier-number-pill,
+    .tier-payload .tier-number-pill {
+      background: rgba(13, 148, 136, 0.12);
+      color: #0D9488;
+    }
+    @media (prefers-color-scheme: dark) {
+      .tier-curation .tier-number-pill { color: #93C5FD; background: rgba(147, 197, 253, 0.18); }
+      .tier-source .tier-number-pill,
+      .tier-provenance .tier-number-pill { color: #F59E0B; background: rgba(245, 158, 11, 0.18); }
+      .tier-content .tier-number-pill,
+      .tier-payload .tier-number-pill { color: #2DD4BF; background: rgba(45, 212, 191, 0.18); }
+    }
+    .tier-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .tier-tagline {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+    @media (max-width: 600px) {
+      .tier-tagline { display: none; }
+    }
+    .tier-content-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 18px;
+      font-size: 12.5px;
+    }
+    @media (max-width: 600px) {
+      .tier-content-grid { grid-template-columns: 1fr; }
+    }
+    .tier-prop {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      word-break: break-all;
+    }
+    .tier-prop.full-width {
+      grid-column: 1 / -1;
+    }
+    .tier-null {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.7;
+      font-style: italic;
+      padding: 1px 6px;
+      background: var(--tag-bg);
+      border-radius: 4px;
+      display: inline-block;
+      letter-spacing: 0.02em;
+    }
+    .payload-slots-grid,
+    .content-slots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .payload-slot-badge,
+    .content-slot-badge {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 11px;
+    }
+    .payload-slot-badge.active,
+    .content-slot-badge.active {
+      border-color: #0D9488;
+      background: rgba(13, 148, 136, 0.08);
+      color: #0D9488;
+      font-weight: 600;
+    }
+    .payload-slot-badge.inactive,
+    .content-slot-badge.inactive {
+      opacity: 0.55;
+      color: var(--muted);
+    }
+    .tier-k {
+      width: 100px;
+      flex-shrink: 0;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .tier-v {
+      color: var(--text);
+      font-size: 12.5px;
+    }
+    .spec-mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+    }
+    .meta-json-details {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 14px;
+    }
+    .meta-json-summary {
+      padding: 10px 16px;
+      background: var(--tag-bg);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+    .meta-json-summary:hover {
+      background: var(--border);
+    }
+    .meta-json-pre {
+      margin: 0;
+      padding: 16px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+      line-height: 1.45;
+      max-height: 360px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Capture Form Styling */
+    .capture-form {
+      padding: 24px 28px;
+    }
+    .capture-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .cap-tab-btn {
+      background: transparent;
+      border: none;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+    .cap-tab-btn.active {
+      background: var(--tag-bg);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .form-group input, .form-group textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .form-group textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: var(--accent);
+    }
+    .form-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 24px;
+    }
+    .submit-btn {
+      background: var(--accent);
+      color: #FFF;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: opacity 0.15s ease;
+    }
+    .submit-btn:hover { opacity: 0.9; }
+    .bookmarklet-box {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .bookmarklet-link {
+      display: inline-block;
+      padding: 4px 10px;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 500;
+      border: 1px dashed var(--muted);
+      cursor: grab;
+    }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--text);
+      color: var(--bg);
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 100;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="top-bar">
+        <div class="logo-area">
+          <span class="logo">WideWeb</span>
+          <span class="subtitle">local curation vault</span>
+        </div>
+        <div class="top-actions">
+          <div class="stats-badge" id="statsBadge">6 items</div>
+          <a href="export.html" class="nav-hub-btn" title="Open full Knowledge Exports & Data Portability Hub">📦 Export Center</a>
+          <div class="export-dropdown" id="exportDropdown">
+            <button class="export-btn" onclick="toggleExportMenu(event)">📥 Quick Export ▾</button>
+            <div class="export-menu" id="exportMenu">
+              <a href="/api/export?target=digest" download="vault_digest.md" class="export-item" onclick="handleExportClick(event, 'digest')">
+                <span class="export-item-icon">🤖</span>
+                <div>
+                  <div class="export-item-title">NotebookLM Digest (.md)</div>
+                  <div class="export-item-desc">All articles, notes, quotes & transcripts in 1 file</div>
+                </div>
+              </a>
+              <a href="/api/export?target=obsidian" download="vault_obsidian.zip" class="export-item" onclick="handleExportClick(event, 'obsidian')">
+                <span class="export-item-icon">🧠</span>
+                <div>
+                  <div class="export-item-title">Obsidian Archive (.zip)</div>
+                  <div class="export-item-desc">Discrete notes with YAML frontmatter for PKM</div>
+                </div>
+              </a>
+              <a href="/api/export?target=bookmarks-html" download="bookmarks.html" class="export-item" onclick="handleExportClick(event, 'bookmarks-html')">
+                <span class="export-item-icon">🌐</span>
+                <div>
+                  <div class="export-item-title">Universal HTML Bookmarks (.html)</div>
+                  <div class="export-item-desc">Netscape format for Chrome, Safari, Firefox, Arc</div>
+                </div>
+              </a>
+              <a href="/api/export?target=readwise" download="readwise.csv" class="export-item" onclick="handleExportClick(event, 'readwise')">
+                <span class="export-item-icon">⚡</span>
+                <div>
+                  <div class="export-item-title">Readwise CSV (.csv)</div>
+                  <div class="export-item-desc">Highlights format for active recall review</div>
+                </div>
+              </a>
+              <a href="/api/export?target=arena-csv" download="arena_export.csv" class="export-item" onclick="handleExportClick(event, 'arena-csv')">
+                <span class="export-item-icon">🧱</span>
+                <div>
+                  <div class="export-item-title">Are.na CSV (.csv)</div>
+                  <div class="export-item-desc">Format ready for Are.na channel import</div>
+                </div>
+              </a>
+              <a href="/api/export?target=pinterest-csv" download="pinterest_pins.csv" class="export-item" onclick="handleExportClick(event, 'pinterest-csv')">
+                <span class="export-item-icon">📌</span>
+                <div>
+                  <div class="export-item-title">Pinterest Bulk Pins (.csv)</div>
+                  <div class="export-item-desc">Format for Pinterest bulk pin & video upload</div>
+                </div>
+              </a>
+              <a href="/api/export?target=raindrop-csv" download="raindrop_export.csv" class="export-item" onclick="handleExportClick(event, 'raindrop-csv')">
+                <span class="export-item-icon">💧</span>
+                <div>
+                  <div class="export-item-title">Raindrop.io CSV (.csv)</div>
+                  <div class="export-item-desc">Format for Raindrop collections, tags & notes</div>
+                </div>
+              </a>
+              <a href="export.html" class="export-item" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;">
+                <span class="export-item-icon">✨</span>
+                <div>
+                  <div class="export-item-title" style="color: var(--accent);">View All 12 Formats in Hub →</div>
+                  <div class="export-item-desc">BibTeX, RSS Feed, JSONL, llms.txt & more</div>
+                </div>
+              </a>
+            </div>
+          </div>
+          <button class="capture-btn" id="openCaptureBtn" onclick="openCaptureModal()">+ Capture</button>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-filter="all">All <span class="tab-badge" id="badge-all"></span></button>
+          <button class="tab-btn" data-filter="article">Articles <span class="tab-badge" id="badge-article"></span></button>
+          <button class="tab-btn" data-filter="bookmark">Bookmarks <span class="tab-badge" id="badge-bookmark"></span></button>
+          <button class="tab-btn" data-filter="video">Videos <span class="tab-badge" id="badge-video"></span></button>
+          <button class="tab-btn" data-filter="quote">Quotes <span class="tab-badge" id="badge-quote"></span></button>
+          <button class="tab-btn" data-filter="note">Notes <span class="tab-badge" id="badge-note"></span></button>
+          <button class="tab-btn" data-filter="image">Images <span class="tab-badge" id="badge-image"></span></button>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <div class="visibility-tabs" style="display: flex; gap: 2px; background: var(--tag-bg); padding: 3px; border-radius: 8px; border: 1px solid var(--border);">
+            <button class="vis-tab-btn active" data-vis="all">All</button>
+            <button class="vis-tab-btn" data-vis="public" title="Public (Open web projection)">🌐 Public</button>
+            <button class="vis-tab-btn" data-vis="shared" title="Shared (Trusted circle / Family)">👥 Shared</button>
+            <button class="vis-tab-btn" data-vis="private" title="Private (Local vault only)">🔒 Private</button>
+          </div>
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search title, author, tag, text... (Press /)">
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="masonry" id="cardGrid"></div>
+  </div>
+
+  <!-- Capture Dialog Modal -->
+  <dialog id="captureModal" closedby="any" style="max-width: 580px;">
+    <div class="modal-header">
+      <h3 style="font-size: 16px; font-weight: 600;">Capture to WideWeb</h3>
+      <button class="modal-close" onclick="document.getElementById('captureModal').close()">✕</button>
+    </div>
+    <div class="capture-form">
+      <div class="capture-tabs">
+        <button class="cap-tab-btn active" data-tab="article" onclick="switchCaptureTab('article')">📖 Article</button>
+        <button class="cap-tab-btn" data-tab="bookmark" onclick="switchCaptureTab('bookmark')">🔖 Bookmark</button>
+        <button class="cap-tab-btn" data-tab="video" onclick="switchCaptureTab('video')">🎬 Video</button>
+        <button class="cap-tab-btn" data-tab="quote" onclick="switchCaptureTab('quote')">✍️ Quote</button>
+        <button class="cap-tab-btn" data-tab="note" onclick="switchCaptureTab('note')">📝 Note</button>
+        <button class="cap-tab-btn" data-tab="image" onclick="switchCaptureTab('image')">🎨 Image</button>
+      </div>
+
+      <!-- Link / URL Form -->
+      <form id="linkForm" onsubmit="handleCaptureSubmit(event, activeUrlKind)">
+        <div class="form-group">
+          <label>URL</label>
+          <input type="url" id="capUrl" placeholder="https://example.com/essay" required autofocus>
+        </div>
+        <div class="form-group">
+          <label>Custom Title (Optional)</label>
+          <input type="text" id="capLinkTitle" placeholder="Leave blank to auto-scrape">
+        </div>
+        <div class="form-group">
+          <label>Tags (Comma separated)</label>
+          <input type="text" id="capLinkTags" placeholder="systems, design, essay">
+        </div>
+        <div class="form-actions">
+          <div class="bookmarklet-box">
+            Bookmarklet: <a class="bookmarklet-link" href="javascript:(function(){const u=location.href,t=document.title,s=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(s),'_blank');})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WideWeb</a>
+          </div>
+          <button type="submit" class="submit-btn" id="capLinkSubmit">Save Link</button>
+        </div>
+      </form>
+
+      <!-- Video Form -->
+      <form id="videoForm" style="display: none;" onsubmit="handleCaptureSubmit(event, 'video')">
+        <div class="form-group">
+          <label>Video Stream URL (YouTube, Vimeo, etc.)</label>
+          <input type="url" id="capVideoUrl" placeholder="https://www.youtube.com/watch?v=..." required>
+        </div>
+        <div class="form-group">
+          <label>Custom Title (Optional)</label>
+          <input type="text" id="capVideoTitle" placeholder="Leave blank to auto-fetch video title">
+        </div>
+        <div class="form-group">
+          <label>Tags (Comma separated)</label>
+          <input type="text" id="capVideoTags" placeholder="interviews, music-gear, tech">
+        </div>
+        <div class="form-actions">
+          <div style="font-size: 11px; color: var(--muted); line-height: 1.3;">
+            ⚡ Auto-downloads poster thumbnail and fetches full spoken transcript subtitles for search & LLM digest.
+          </div>
+          <button type="submit" class="submit-btn" id="capVideoSubmit">Save Video</button>
+        </div>
+      </form>
+
+      <!-- Quote Form -->
+      <form id="quoteForm" style="display: none;" onsubmit="handleCaptureSubmit(event, 'quote')">
+        <div class="form-group">
+          <label>Quote Excerpt</label>
+          <textarea id="capQuoteText" placeholder="Paste the verbatim quote here..." required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Author</label>
+          <input type="text" id="capQuoteAuthor" placeholder="e.g. Dieter Rams, Paul Graham">
+        </div>
+        <div class="form-group">
+          <label>Source URL (Optional)</label>
+          <input type="url" id="capQuoteSource" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label>Tags (Comma separated)</label>
+          <input type="text" id="capQuoteTags" placeholder="design, philosophy">
+        </div>
+        <div class="form-actions">
+          <div></div>
+          <button type="submit" class="submit-btn" id="capQuoteSubmit">Save Quote</button>
+        </div>
+      </form>
+
+      <!-- Note Form -->
+      <form id="noteForm" style="display: none;" onsubmit="handleCaptureSubmit(event, 'note')">
+        <div class="form-group">
+          <label>Personal Thought or Memo</label>
+          <textarea id="capNoteText" placeholder="Capture your reflection or original thought..." required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Title (Optional)</label>
+          <input type="text" id="capNoteTitle" placeholder="Short memo title">
+        </div>
+        <div class="form-group">
+          <label>Tags (Comma separated)</label>
+          <input type="text" id="capNoteTags" placeholder="ideas, strategy">
+        </div>
+        <div class="form-actions">
+          <div></div>
+          <button type="submit" class="submit-btn" id="capNoteSubmit">Save Note</button>
+        </div>
+      </form>
+
+      <!-- Image Form -->
+      <form id="imageForm" style="display: none;" onsubmit="handleCaptureSubmit(event, 'image')">
+        <div class="form-group">
+          <label>Image URL or Local File Path</label>
+          <input type="text" id="capImageSrc" placeholder="https://.../photo.jpg or ~/Downloads/graphic.png" required>
+        </div>
+        <div class="form-group">
+          <label>Custom Title (Optional)</label>
+          <input type="text" id="capImageTitle" placeholder="Leave blank to use filename or auto-title">
+        </div>
+        <div class="form-group">
+          <label>Source Web URL (Optional)</label>
+          <input type="url" id="capImageSource" placeholder="https://example.com/original-article">
+        </div>
+        <div class="form-group">
+          <label>Author / Creator (Optional)</label>
+          <input type="text" id="capImageAuthor" placeholder="e.g. Graphic Designer, Photographer">
+        </div>
+        <div class="form-group">
+          <label>Alt Text / Visual Description (Optional)</label>
+          <input type="text" id="capImageAlt" placeholder="Accessibility description of what the image depicts">
+        </div>
+        <div class="form-group">
+          <label>Notes (Optional)</label>
+          <textarea id="capImageNotes" placeholder="Context or thoughts on why you saved this image..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Tags (Comma separated)</label>
+          <input type="text" id="capImageTags" placeholder="design, architecture, art">
+        </div>
+        <div class="form-actions">
+          <div style="font-size: 11px; color: var(--muted); line-height: 1.3;">
+            ⚡ Generates visual blurhash preview, computes aspect ratio, and extracts 5-color palette.
+          </div>
+          <button type="submit" class="submit-btn" id="capImageSubmit">Save Image</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Reader Dialog Modal -->
+  <dialog id="readerModal" closedby="any">
+    <div class="modal-header">
+      <div id="modalMeta" class="modal-meta" style="margin-bottom:0;"></div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn" onclick="openMetaFromReader()" style="padding: 4px 10px; font-size: 12px;">ℹ️ View Metadata</button>
+        <button class="modal-close" id="closeModalBtn" onclick="document.getElementById('readerModal').close()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </dialog>
+
+  <!-- Metadata Inspector Dialog Modal -->
+  <dialog id="metadataModal" closedby="any" style="max-width: 840px; width: 92%;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span id="metaKindPill" class="kind-pill"></span>
+        <span id="metaIdPill" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; color: var(--muted); background: var(--tag-bg); padding: 2px 8px; border-radius: 4px;"></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn" id="copyIdBtn" onclick="copyCurrentId()" title="Copy Atom ID">📋 Copy ID</button>
+        <button class="modal-close" onclick="document.getElementById('metadataModal').close()">✕</button>
+      </div>
+    </div>
+    <div class="meta-dialog-body" id="metadataModalBody"></div>
+  </dialog>
+
+  <div class="toast" id="toast">✨ Saved to WideWeb vault!</div>
+
+  <script>
+    const ATOMS = [{"id": "atm_20261108200600_demoimg", "kind": "image", "visibility": "public", "title": "The Memex Desk Diagram (1945)", "notes": "Life Magazine illustration depicting the Memex desk conceived by Vannevar Bush in 'As We May Think'.", "tags": ["memex", "diagram", "vannevar-bush", "life-magazine"], "alt_text": "Preview card for The Memex Desk (1945)", "date": "2026-11-08", "created_at": "2026-11-08T20:06:00Z", "source_url": "https://en.wikipedia.org/wiki/Memex", "author": "Alfred D. Crimi", "cover_path": "cover.jpg", "metadata": {"word_count": null, "aspect_ratio": 1.7778, "blurhash": "L46sqDs=s=sr{ojbjbn+-DayWUj["}, "article_markdown": null, "excerpt": null, "folder_path": "atoms/2026/11/atm_20261108200600_demoimg", "raw": {"id": "atm_20261108200600_demoimg", "kind": "image", "version": 3, "created_at": "2026-11-08T20:06:00Z", "updated_at": "2026-11-08T20:06:00Z", "source": {"source_url": "https://en.wikipedia.org/wiki/Memex", "source_title": "Memex Desk Diagram", "site_name": "Wikipedia", "author": "Alfred D. Crimi", "published_at": "1945-11-19T00:00:00Z", "capture_method": "cli"}, "curation": {"atom_title": "The Memex Desk Diagram (1945)", "description": "Life Magazine illustration depicting the Memex desk conceived by Vannevar Bush in 'As We May Think'.", "tags": ["memex", "diagram", "vannevar-bush", "life-magazine"], "collections": ["Historical Artifacts"], "visibility": "public", "favorite": false}, "content": {"cover_image": {"file": "cover.jpg", "relative_path": "cover.jpg", "mime_type": "image/jpeg", "dimensions": {"width": 800, "height": 450}, "aspect_ratio": 1.7778, "blurhash": "L46sqDs=s=sr{ojbjbn+-DayWUj[", "color_palette": ["#4a044e", "#1e1b4b"], "alt_text": "Preview card for The Memex Desk (1945)"}}}}, {"id": "atm_20261108200500_demonot", "kind": "note", "visibility": "public", "title": "Seven Ideals of Local-First Software", "notes": "Reflections on Ink & Switch's foundational 2019 paper and how the Content Sidecar pattern achieves longevity and ownership.", "tags": ["local-first", "architecture", "data-ownership", "manifesto"], "alt_text": null, "date": "2026-11-08", "created_at": "2026-11-08T20:05:00Z", "source_url": null, "author": null, "cover_path": null, "metadata": {"word_count": 158}, "article_markdown": null, "excerpt": "Seven ideals of local-first software: no spinners, multi-device, offline-capable, collaboration, longevity, privacy, user ownership.", "folder_path": "atoms/2026/11/atm_20261108200500_demonot", "raw": {"id": "atm_20261108200500_demonot", "kind": "note", "version": 3, "created_at": "2026-11-08T20:05:00Z", "updated_at": "2026-11-08T20:05:00Z", "source": {"source_url": null, "capture_method": "cli"}, "curation": {"atom_title": "Seven Ideals of Local-First Software", "description": "Reflections on Ink & Switch's foundational 2019 paper and how the Content Sidecar pattern achieves longevity and ownership.", "tags": ["local-first", "architecture", "data-ownership", "manifesto"], "collections": ["Architecture Notes"], "visibility": "public", "favorite": true}, "content": {"text": {"file": "note.md", "relative_path": "note.md", "excerpt": "Seven ideals of local-first software: no spinners, multi-device, offline-capable, collaboration, longevity, privacy, user ownership.", "word_count": 158}}}}, {"id": "atm_20261108200400_demoqte", "kind": "quote", "visibility": "public", "title": "Ted Nelson on Files as Clumsy Containers", "notes": "From Literary Machines (1981). Nelson critiques rigid hierarchical filesystem folders as insufficient for associative thought.", "tags": ["ted-nelson", "hypertext", "information-architecture", "quotes"], "alt_text": null, "date": "2026-11-08", "created_at": "2026-11-08T20:04:00Z", "source_url": "https://archive.org/details/literarymachines0000nels", "author": "Ted Nelson", "cover_path": null, "metadata": {"word_count": 21}, "article_markdown": null, "excerpt": "A file is only a clumsy container for thoughts. The true structure of ideas is non-linear, interconnected, and deeply associative.", "folder_path": "atoms/2026/11/atm_20261108200400_demoqte", "raw": {"id": "atm_20261108200400_demoqte", "kind": "quote", "version": 3, "created_at": "2026-11-08T20:04:00Z", "updated_at": "2026-11-08T20:04:00Z", "source": {"source_url": "https://archive.org/details/literarymachines0000nels", "source_title": "Literary Machines", "site_name": "Project Xanadu", "author": "Ted Nelson", "published_at": "1981-01-01T00:00:00Z", "capture_method": "cli"}, "curation": {"atom_title": "Ted Nelson on Files as Clumsy Containers", "description": "From Literary Machines (1981). Nelson critiques rigid hierarchical filesystem folders as insufficient for associative thought.", "tags": ["ted-nelson", "hypertext", "information-architecture", "quotes"], "collections": ["Notable Quotes"], "visibility": "public", "favorite": false}, "content": {"text": {"file": "quote.md", "relative_path": "quote.md", "excerpt": "A file is only a clumsy container for thoughts. The true structure of ideas is non-linear, interconnected, and deeply associative.", "word_count": 21}}}}, {"id": "atm_20261108200300_demovid", "kind": "video", "visibility": "public", "title": "The Mother of All Demos (1968)", "notes": "Douglas Engelbart and the SRI team unveil the mouse, windowing, hypermedia, text editing, video conferencing, and collaborative computing.", "tags": ["computing-history", "interfaces", "doug-engelbart", "demo"], "alt_text": "Preview card for The Mother of All Demos", "date": "2026-11-08", "created_at": "2026-11-08T20:03:00Z", "source_url": "https://www.youtube.com/watch?v=yJDv-zdhzMY", "author": "Douglas Engelbart", "cover_path": "cover.jpg", "metadata": {"word_count": null, "aspect_ratio": 1.7778, "blurhash": "LMHlIxxFoes.}UoKfQoKxYfQayjt"}, "article_markdown": null, "excerpt": "[00:00:05] If in your office, you as an intellectual worker, were supplied with a computer display.\n[00:00:15] Backed up by a computer that was alive for you all day, and was instantly responsive to every action you had.\n[00:00:25] How much value could you derive from that?\n[00:00:40] Today, we will demonstrate the NLS system developed at the Augmentation Research Center.\n[00:01:02] We have here what we call the mouse, and a chord keyset for rapid textual manipulation.\n", "folder_path": "atoms/2026/11/atm_20261108200300_demovid", "raw": {"id": "atm_20261108200300_demovid", "kind": "video", "version": 3, "created_at": "2026-11-08T20:03:00Z", "updated_at": "2026-11-08T20:03:00Z", "source": {"source_url": "https://www.youtube.com/watch?v=yJDv-zdhzMY", "source_title": "Douglas Engelbart: The Mother of All Demos (1968)", "site_name": "YouTube", "author": "Douglas Engelbart", "published_at": "1968-12-09T00:00:00Z", "favicon": "https://www.youtube.com/s/desktop/favicon.ico", "capture_method": "cli"}, "curation": {"atom_title": "The Mother of All Demos (1968)", "description": "Douglas Engelbart and the SRI team unveil the mouse, windowing, hypermedia, text editing, video conferencing, and collaborative computing.", "tags": ["computing-history", "interfaces", "doug-engelbart", "demo"], "collections": ["Foundational Texts", "Talks"], "visibility": "public", "favorite": true}, "content": {"cover_image": {"file": "cover.jpg", "relative_path": "cover.jpg", "mime_type": "image/jpeg", "dimensions": {"width": 800, "height": 450}, "aspect_ratio": 1.7778, "blurhash": "LMHlIxxFoes.}UoKfQoKxYfQayjt", "color_palette": ["#b45309", "#78350f"], "alt_text": "Preview card for The Mother of All Demos"}, "video": {"provider": "youtube", "embed_url": "https://www.youtube.com/embed/yJDv-zdhzMY", "duration_seconds": 6000, "transcript_file": "transcript.txt", "transcript_language": "en", "transcript_is_generated": false, "has_transcript": true}}}}, {"id": "atm_20261108200200_demobmk", "kind": "bookmark", "visibility": "public", "title": "Internet Archive: Wayback Machine", "notes": "A digital library of Internet sites and cultural artifacts, providing permanent universal access to historical web pages.", "tags": ["web-archiving", "preservation", "digital-commons"], "alt_text": "Preview card for Wayback Machine", "date": "2026-11-08", "created_at": "2026-11-08T20:02:00Z", "source_url": "https://archive.org/web/", "author": "Brewster Kahle", "cover_path": "cover.jpg", "metadata": {"word_count": null, "aspect_ratio": 1.7778, "blurhash": "LK1qW*kDkCfmkvflfQflkYfQf6fk"}, "article_markdown": null, "excerpt": null, "folder_path": "atoms/2026/11/atm_20261108200200_demobmk", "raw": {"id": "atm_20261108200200_demobmk", "kind": "bookmark", "version": 3, "created_at": "2026-11-08T20:02:00Z", "updated_at": "2026-11-08T20:02:00Z", "source": {"source_url": "https://archive.org/web/", "source_title": "Wayback Machine", "site_name": "Internet Archive", "author": "Brewster Kahle", "published_at": "1996-05-10T00:00:00Z", "favicon": "https://archive.org/favicon.ico", "capture_method": "bookmarklet"}, "curation": {"atom_title": "Internet Archive: Wayback Machine", "description": "A digital library of Internet sites and cultural artifacts, providing permanent universal access to historical web pages.", "tags": ["web-archiving", "preservation", "digital-commons"], "collections": ["Preservation Tools"], "visibility": "public", "favorite": true}, "content": {"cover_image": {"file": "cover.jpg", "relative_path": "cover.jpg", "mime_type": "image/jpeg", "dimensions": {"width": 800, "height": 450}, "aspect_ratio": 1.7778, "blurhash": "LK1qW*kDkCfmkvflfQflkYfQf6fk", "color_palette": ["#0d47a1", "#012456"], "alt_text": "Preview card for Wayback Machine"}}}}, {"id": "atm_20261108200100_demoart", "kind": "article", "visibility": "public", "title": "As We May Think", "notes": "Vannevar Bush's seminal 1945 essay introducing the Memex\u2014an individualized desk anticipating hypertext, personal computing, and the web.", "tags": ["hypertext", "memex", "computing-history", "philosophy"], "alt_text": "Preview card for As We May Think", "date": "2026-11-08", "created_at": "2026-11-08T20:01:00Z", "source_url": "https://www.theatlantic.com/magazine/archive/1945/07/as-we-may-think/303881/", "author": "Vannevar Bush", "cover_path": "cover.jpg", "metadata": {"word_count": 310, "aspect_ratio": 1.7778, "blurhash": "L13SO~tSx]o#.Aj[j[j]%hayWAj["}, "article_markdown": "# As We May Think\n\n*By Vannevar Bush \u2014 The Atlantic Monthly, July 1945*\n\nThis has not been a scientist's war; it has been a war in which all have had a part. The scientists, burying their old professional competition in the demand of a common cause, have shared greatly and learned much.\n\nNow, as peace approaches, one asks where they will find objectives worthy of their best.\n\n## The Memex\n\nConsider a future device for individual use, which is a sort of mechanized private file and library. It needs a name, and, to coin one at random, \"memex\" will do. A memex is a device in which an individual stores all his books, records, and communications, and which is mechanized so that it may be consulted with exceeding speed and flexibility. It is an enlarged intimate supplement to his memory.\n\nIt consists of a desk, and while it can presumably be operated from a distance, it is primarily the piece of furniture at which he works. On the top are slanting translucent screens, on which material can be projected for convenient reading. There is a keyboard, and sets of buttons and levers. Otherwise it looks like an ordinary desk.\n\n### Associative Trails\n\nThe human mind does not work that way. It operates by association. With one item in its grasp, it snaps instantly to the next that is suggested by the association of thoughts, in accordance with some intricate web of trails carried by the cells of the brain. It has other characteristics, of course; trails that are not frequently followed are prone to fade, items are not fully recoverable, yet the speed of action, the intricacy of trails, the detail of mental pictures, is an awe-inspiring thing.\n\nMan cannot hope fully to duplicate this mental process artificially, but he certainly ought to be able to learn from it.\n", "excerpt": null, "folder_path": "atoms/2026/11/atm_20261108200100_demoart", "raw": {"id": "atm_20261108200100_demoart", "kind": "article", "version": 3, "created_at": "2026-11-08T20:01:00Z", "updated_at": "2026-11-08T20:01:00Z", "source": {"source_url": "https://www.theatlantic.com/magazine/archive/1945/07/as-we-may-think/303881/", "source_title": "As We May Think", "site_name": "The Atlantic", "author": "Vannevar Bush", "published_at": "1945-07-01T00:00:00Z", "favicon": "https://www.theatlantic.com/favicon.ico", "capture_method": "cli"}, "curation": {"atom_title": "As We May Think", "description": "Vannevar Bush's seminal 1945 essay introducing the Memex\u2014an individualized desk anticipating hypertext, personal computing, and the web.", "tags": ["hypertext", "memex", "computing-history", "philosophy"], "collections": ["Foundational Texts", "Web History"], "visibility": "public", "favorite": true}, "content": {"cover_image": {"file": "cover.jpg", "relative_path": "cover.jpg", "mime_type": "image/jpeg", "dimensions": {"width": 800, "height": 450}, "aspect_ratio": 1.7778, "blurhash": "L13SO~tSx]o#.Aj[j[j]%hayWAj[", "color_palette": ["#1e293b", "#0f172a"], "alt_text": "Preview card for As We May Think"}, "article": {"file": "article.md", "relative_path": "article.md", "word_count": 310, "byline": "Vannevar Bush"}}}}];
+    const COUNTS = {"all": 6, "article": 1, "bookmark": 1, "video": 1, "quote": 1, "note": 1, "image": 1, "file": 0};
+
+    let activeFilter = 'all';
+    let activeVisibility = 'all';
+    let searchQuery = '';
+
+    // Set badge counts
+    function updateBadges() {
+      for (const [k, v] of Object.entries(COUNTS)) {
+        const b = document.getElementById(`badge-${k}`);
+        if (b) b.textContent = `(${v})`;
+      }
+      document.getElementById('statsBadge').textContent = `${ATOMS.length} items saved`;
+    }
+    updateBadges();
+
+    function renderCards() {
+      const grid = document.getElementById('cardGrid');
+      grid.innerHTML = '';
+
+      const filtered = ATOMS.filter(a => {
+        if (activeFilter !== 'all' && a.kind !== activeFilter) return false;
+        if (activeVisibility !== 'all' && (a.visibility || 'public') !== activeVisibility) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const matchTitle = (a.title || '').toLowerCase().includes(q);
+          const matchAuthor = (a.author || '').toLowerCase().includes(q);
+          const matchExcerpt = (a.excerpt || '').toLowerCase().includes(q);
+          const matchNotes = (a.notes || '').toLowerCase().includes(q);
+          const matchTags = (a.tags || []).some(t => t.toLowerCase().includes(q));
+          if (!matchTitle && !matchAuthor && !matchExcerpt && !matchNotes && !matchTags) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 60px 0; color: var(--muted);">No matching atoms found.</div>';
+        return;
+      }
+
+      filtered.forEach(atom => {
+        const card = document.createElement('div');
+        card.className = `card card-${atom.kind}`;
+
+        let coverHtml = '';
+        if (atom.cover_path) {
+          const ratio = atom.metadata && atom.metadata.aspect_ratio ? `style="aspect-ratio: ${atom.metadata.aspect_ratio};"` : '';
+          const altLabel = escapeHtml(atom.alt_text || atom.title || 'Visual asset');
+          coverHtml = `<img class="card-cover" src="${atom.cover_path}" ${ratio} loading="lazy" alt="${altLabel}" title="${altLabel}">`;
+        }
+
+        let bodyHtml = '';
+        if (atom.kind === 'quote') {
+          bodyHtml = `
+            <div class="card-body">
+              <div class="quote-content">“${escapeHtml(atom.excerpt || atom.title)}”</div>
+              ${atom.author ? `<div class="author-byline">— ${escapeHtml(atom.author)}</div>` : ''}
+              ${atom.notes ? `<div class="card-notes markdown-body">${renderMarkdown(atom.notes)}</div>` : ''}
+            </div>
+          `;
+        } else if (atom.kind === 'note') {
+          bodyHtml = `
+            <div class="card-body">
+              <div class="card-title">${escapeHtml(atom.title)}</div>
+              <div class="card-notes markdown-body" style="-webkit-line-clamp: 8;">${renderMarkdown(atom.excerpt || '')}</div>
+            </div>
+          `;
+        } else if (atom.kind === 'image') {
+          const altDisplay = atom.alt_text ? `<div style="font-size:11.5px; color:var(--muted); margin-top:4px;"><span style="font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.04em;">alt:</span> “${escapeHtml(atom.alt_text)}”</div>` : `<div style="font-size:11.5px; color:var(--muted); margin-top:4px;"><span style="font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.04em;">alt:</span> <span class="tier-null">null</span></div>`;
+          const targetLink = atom.source_url;
+          bodyHtml = `
+            <div class="card-body">
+              <div class="card-title">
+                ${targetLink ? `<a href="${targetLink}" target="_blank" rel="noopener">${escapeHtml(atom.title)}</a>` : escapeHtml(atom.title)}
+              </div>
+              ${atom.author ? `<div class="author-byline">${escapeHtml(atom.author)}</div>` : ''}
+              ${altDisplay}
+              ${atom.notes ? `<div class="card-notes markdown-body">${renderMarkdown(atom.notes)}</div>` : ''}
+            </div>
+          `;
+        } else {
+          const targetLink = atom.source_url;
+          bodyHtml = `
+            <div class="card-body">
+              <div class="card-title">
+                ${targetLink ? `<a href="${targetLink}" target="_blank" rel="noopener">${escapeHtml(atom.title)}</a>` : escapeHtml(atom.title)}
+              </div>
+              ${atom.author ? `<div class="author-byline">${escapeHtml(atom.author)}</div>` : ''}
+              ${atom.notes ? `<div class="card-notes markdown-body">${renderMarkdown(atom.notes)}</div>` : ''}
+            </div>
+          `;
+        }
+
+        let tagsHtml = (atom.tags || []).map(t => `<span class="tag">#${t}</span>`).join('');
+        let extrasHtml = '';
+        const rawContent = (atom.raw && (atom.raw.content || atom.raw.payload)) || {};
+        if (atom.kind === 'video' || (rawContent.video && rawContent.video.embed_url)) {
+          extrasHtml = `<button class="read-btn" style="background:#6B46C1;" onclick="openVideoPlayer('${atom.id}')">▶ Play</button>`;
+        } else if (atom.kind === 'article' || atom.article_markdown) {
+          extrasHtml = `<button class="read-btn" onclick="openReader('${atom.id}')">📖 Read</button>`;
+        } else if (atom.kind === 'note') {
+          extrasHtml = `<button class="read-btn" style="background:#4A5568;" onclick="openReader('${atom.id}')">📝 Open</button>`;
+        } else if (atom.kind === 'bookmark' && atom.source_url) {
+          const visitUrl = atom.source_url;
+          extrasHtml = `<a class="read-btn" style="background:transparent; border:1px solid var(--border); color:var(--text); text-decoration:none;" href="${visitUrl}" target="_blank" rel="noopener">↗ Visit</a>`;
+        } else if (atom.metadata && atom.metadata.color_palette && atom.metadata.color_palette.length) {
+          extrasHtml = `<div class="palette-dots">` + atom.metadata.color_palette.map(c => `<div class="palette-dot" style="background:${c}" title="${c}"></div>`).join('') + `</div>`;
+        } else if (atom.metadata && atom.metadata.word_count) {
+          extrasHtml = `<span style="color:var(--muted);">${atom.metadata.word_count}w</span>`;
+        }
+
+        let visBadgeHtml = '';
+        if (atom.visibility === 'private') {
+          visBadgeHtml = `<span class="vis-badge vis-private" title="Private (Local vault only)">🔒 private</span>`;
+        } else if (atom.visibility === 'shared') {
+          visBadgeHtml = `<span class="vis-badge vis-shared" title="Shared (Trusted circle / Family)">👥 shared</span>`;
+        }
+
+        card.innerHTML = `
+          <div class="card-header">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="kind-pill kind-${atom.kind}">${atom.kind}</span>
+              ${visBadgeHtml}
+            </div>
+            <span>${atom.date}</span>
+          </div>
+          ${coverHtml}
+          ${bodyHtml}
+          <div class="card-footer">
+            <div class="tags">${tagsHtml}</div>
+            <div>${extrasHtml}</div>
+          </div>
+        `;
+
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('a') || e.target.closest('button')) {
+            return;
+          }
+          openMetadataModal(atom.id);
+        });
+
+        grid.appendChild(card);
+      });
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    function openCaptureModal() {
+      document.getElementById('captureModal').showModal();
+    }
+
+    function toggleExportMenu(e) {
+      e.stopPropagation();
+      const m = document.getElementById('exportMenu');
+      m.classList.toggle('show');
+    }
+
+    function handleExportClick(e, target) {
+      const isHttp = window.location.protocol.startsWith('http');
+      if (!isHttp) {
+        if (target === 'json') {
+          e.preventDefault();
+          const blob = new Blob([JSON.stringify(ATOMS, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'vault_backup.json';
+          a.click();
+          URL.revokeObjectURL(url);
+          document.getElementById('exportMenu').classList.remove('show');
+          showToast('💾 Exported vault_backup.json');
+          return;
+        }
+        alert('Digest, llms.txt, and CSV exports require running WideWeb with the local server:\n\nDouble-click "Launch WideWeb.command" or run:\npython3 curate.py view --server');
+        return;
+      }
+      document.getElementById('exportMenu').classList.remove('show');
+      showToast(`📥 Preparing ${target} download...`);
+    }
+
+    window.addEventListener('click', (e) => {
+      const m = document.getElementById('exportMenu');
+      if (m && !m.contains(e.target)) {
+        m.classList.remove('show');
+      }
+    });
+
+    let activeUrlKind = 'article';
+    function switchCaptureTab(tab) {
+      document.querySelectorAll('.cap-tab-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.querySelector(`.cap-tab-btn[data-tab="${tab}"]`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const isUrl = (tab === 'article' || tab === 'bookmark');
+      document.getElementById('linkForm').style.display = isUrl ? 'block' : 'none';
+      document.getElementById('videoForm').style.display = tab === 'video' ? 'block' : 'none';
+      document.getElementById('quoteForm').style.display = tab === 'quote' ? 'block' : 'none';
+      document.getElementById('noteForm').style.display = tab === 'note' ? 'block' : 'none';
+      document.getElementById('imageForm').style.display = tab === 'image' ? 'block' : 'none';
+
+      if (isUrl) {
+        activeUrlKind = tab;
+        document.getElementById('capLinkSubmit').textContent = tab === 'article' ? 'Save Article' : 'Save Bookmark';
+        document.getElementById('capUrl').placeholder = tab === 'article' ? 'https://example.com/essay' : 'https://linear.app';
+      }
+    }
+
+    function cleanTags(str) {
+      if (!str) return null;
+      return str.split(',')
+        .map(s => s.trim().replace(/^#+/, '').toLowerCase().replace(/[\s_]+/g, '-').replace(/[^a-z0-9.-]/g, '').replace(/^-+|-+$/g, ''))
+        .filter(Boolean)
+        .join(',');
+    }
+
+    async function handleCaptureSubmit(e, kind) {
+      e.preventDefault();
+      
+      const isHttp = window.location.protocol.startsWith('http');
+      let payload = { kind };
+      let submitBtn = null;
+
+      if (kind === 'article' || kind === 'bookmark' || kind === 'link') {
+        submitBtn = document.getElementById('capLinkSubmit');
+        payload.url = document.getElementById('capUrl').value.trim();
+        payload.title = document.getElementById('capLinkTitle').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capLinkTags').value);
+      } else if (kind === 'video') {
+        submitBtn = document.getElementById('capVideoSubmit');
+        payload.url = document.getElementById('capVideoUrl').value.trim();
+        payload.title = document.getElementById('capVideoTitle').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capVideoTags').value);
+      } else if (kind === 'quote') {
+        submitBtn = document.getElementById('capQuoteSubmit');
+        payload.quote = document.getElementById('capQuoteText').value.trim();
+        payload.author = document.getElementById('capQuoteAuthor').value.trim() || null;
+        payload.source = document.getElementById('capQuoteSource').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capQuoteTags').value);
+      } else if (kind === 'note') {
+        submitBtn = document.getElementById('capNoteSubmit');
+        payload.text = document.getElementById('capNoteText').value.trim();
+        payload.title = document.getElementById('capNoteTitle').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capNoteTags').value);
+      } else if (kind === 'image') {
+        submitBtn = document.getElementById('capImageSubmit');
+        payload.src = document.getElementById('capImageSrc').value.trim();
+        payload.title = document.getElementById('capImageTitle').value.trim() || null;
+        payload.source = document.getElementById('capImageSource').value.trim() || null;
+        payload.author = document.getElementById('capImageAuthor').value.trim() || null;
+        payload.alt = document.getElementById('capImageAlt').value.trim() || null;
+        payload.notes = document.getElementById('capImageNotes').value.trim() || null;
+        payload.tags = cleanTags(document.getElementById('capImageTags').value);
+      }
+
+      if (!isHttp) {
+        alert('Instant web capture requires WideWeb to be running locally via:\n\npython3 curate.py view --server\n\n(Currently running as a static file:// document).');
+        return;
+      }
+
+      const origText = submitBtn.textContent;
+      submitBtn.textContent = 'Saving...';
+      submitBtn.disabled = true;
+
+      try {
+        const resp = await fetch('/api/capture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const res = await resp.json();
+        if (res.success && res.atom) {
+          ATOMS.unshift(res.atom);
+          COUNTS.all++;
+          COUNTS[res.atom.kind] = (COUNTS[res.atom.kind] || 0) + 1;
+          updateBadges();
+          renderCards();
+          document.getElementById('captureModal').close();
+          showToast(`✨ Saved "${res.atom.title}" to vault!`);
+          e.target.reset();
+        } else {
+          alert('Error saving atom: ' + (res.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Network error connecting to WideWeb backend: ' + err.message);
+      } finally {
+        submitBtn.textContent = origText;
+        submitBtn.disabled = false;
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function truncateUrl(url, maxLen = 42) {
+      if (!url) return '';
+      if (url.length <= maxLen) return url;
+      return url.slice(0, maxLen) + '...';
+    }
+
+    function copyCurrentId() {
+      if (!window.currentMetaAtomId) return;
+      navigator.clipboard.writeText(window.currentMetaAtomId).then(() => {
+        const btn = document.getElementById('copyIdBtn');
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.textContent = orig, 1800);
+      });
+    }
+
+    function copyAtomJson(atomId) {
+      const atom = ATOMS.find(a => a.id === atomId);
+      if (!atom || !atom.raw) return;
+      navigator.clipboard.writeText(JSON.stringify(atom.raw, null, 2)).then(() => {
+        const btn = document.getElementById('metaCopyJsonBtn');
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = '✓ JSON Copied!';
+          setTimeout(() => btn.textContent = orig, 1800);
+        }
+      });
+    }
+
+    function openReaderFromMeta(atomId) {
+      document.getElementById('metadataModal').close();
+      openReader(atomId);
+    }
+
+    function formatSeconds(seconds) {
+      const s = Math.floor(seconds);
+      const m = Math.floor(s / 60);
+      const sRem = s % 60;
+      const h = Math.floor(m / 60);
+      const mRem = m % 60;
+      if (h > 0) return `${h}:${String(mRem).padStart(2, '0')}:${String(sRem).padStart(2, '0')}`;
+      return `${m}:${String(sRem).padStart(2, '0')}`;
+    }
+
+    function openVideoFromMeta(atomId) {
+      document.getElementById('metadataModal').close();
+      openVideoPlayer(atomId);
+    }
+
+    function playVideoAtTime(atomId, seconds) {
+      document.getElementById('metadataModal').close();
+      openVideoPlayer(atomId, seconds);
+    }
+
+    function openVideoPlayer(atomId, startTime = 0) {
+      const atom = ATOMS.find(a => a.id === atomId);
+      if (!atom) return;
+
+      const rawContent = (atom.raw && (atom.raw.content || atom.raw.payload)) || {};
+      const video = rawContent.video || {};
+      const videoSrc = atom.source_url || '';
+      let embedUrl = video.embed_url || (videoSrc.includes('watch?v=') ? videoSrc.replace("watch?v=", "embed/") : null);
+      if (!embedUrl) return;
+
+      if (startTime > 0) {
+        embedUrl += (embedUrl.includes('?') ? '&' : '?') + 'start=' + Math.floor(startTime) + '&autoplay=1';
+      } else {
+        embedUrl += (embedUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+      }
+
+      window.currentReaderAtomId = atomId;
+
+      const modal = document.getElementById('readerModal');
+      const body = document.getElementById('modalBody');
+      const meta = document.getElementById('modalMeta');
+
+      meta.innerHTML = `
+        <span><strong>${atom.author || 'YouTube'}</strong></span>
+        <span>•</span>
+        <span>${atom.date}</span>
+        <span>•</span>
+        <span>Video (${video.provider || 'Stream'})${startTime > 0 ? ` • From ${formatSeconds(startTime)}` : ''}</span>
+      `;
+
+      body.innerHTML = `
+        <h1 style="font-size:22px; margin-bottom:16px; font-family:'Inter', sans-serif; font-weight:600; line-height:1.3;">${escapeHtml(atom.title)}</h1>
+        <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px; margin-bottom:20px; background:#000; box-shadow:0 4px 16px rgba(0,0,0,0.2);">
+          <iframe src="${embedUrl}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        ${atom.notes ? `<div class="meta-notes-banner" style="margin-top:16px;">${escapeHtml(atom.notes)}</div>` : ''}
+      `;
+      modal.showModal();
+    }
+
+    function openMetaFromReader() {
+      document.getElementById('readerModal').close();
+      if (window.currentReaderAtomId) {
+        openMetadataModal(window.currentReaderAtomId);
+      }
+    }
+
+    function renderMarkdown(md) {
+      if (!md) return '';
+      if (window.marked && typeof window.marked.parse === 'function') {
+        return window.marked.parse(md);
+      }
+      return `<pre style="white-space:pre-wrap;">${escapeHtml(md)}</pre>`;
+    }
+
+    function openReader(atomId) {
+      const atom = ATOMS.find(a => a.id === atomId);
+      const content = atom ? (atom.article_markdown || (atom.kind === 'note' ? atom.excerpt : null)) : null;
+      if (!atom || !content) return;
+
+      window.currentReaderAtomId = atomId;
+
+      const modal = document.getElementById('readerModal');
+      const body = document.getElementById('modalBody');
+      const meta = document.getElementById('modalMeta');
+
+      const wordCount = atom.metadata && atom.metadata.word_count ? `${atom.metadata.word_count} words` : '';
+      const readTime = atom.metadata && atom.metadata.word_count ? `~${Math.ceil(atom.metadata.word_count / 225)} min read` : '';
+
+      meta.innerHTML = `
+        <span><strong>${atom.author || (atom.kind === 'note' ? 'Personal Note' : 'Author')}</strong></span>
+        <span>•</span>
+        <span>${atom.date}</span>
+        ${wordCount ? `<span>•</span><span>${wordCount}</span>` : ''}
+        ${readTime ? `<span>•</span><span>${readTime}</span>` : ''}
+      `;
+
+      let parsedHtml = renderMarkdown(content);
+      body.innerHTML = `<h1>${escapeHtml(atom.title)}</h1>` + parsedHtml;
+      modal.showModal();
+    }
+
+    function renderVal(val, isMono = false, isUrl = false, truncateLen = 48) {
+      if (val === null || val === undefined || val === '') {
+        return '<span class="tier-null">null</span>';
+      }
+      if (typeof val === 'boolean') {
+        return `<span class="spec-mono" style="color:${val ? '#0D9488' : 'var(--muted)'}; font-weight:600;">${val}</span>`;
+      }
+      if (Array.isArray(val)) {
+        if (val.length === 0) return '<span class="tier-null">[] (empty)</span>';
+        return `<div class="tags" style="display:inline-flex; flex-wrap:wrap; gap:4px;">${val.map(v => `<span class="tag">#${escapeHtml(v)}</span>`).join('')}</div>`;
+      }
+      if (isUrl) {
+        return `<a href="${escapeHtml(val)}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${truncateUrl(val, truncateLen)} ↗</a>`;
+      }
+      const s = String(val);
+      return `<span class="${isMono ? 'spec-mono' : ''}">${escapeHtml(s)}</span>`;
+    }
+
+    function formatDynamicValue(val, depth = 0) {
+      if (val === null || val === undefined) {
+        return '<span class="tier-null">null</span>';
+      }
+      if (typeof val === 'boolean') {
+        return `<span class="spec-mono" style="color:${val ? '#0D9488' : 'var(--muted)'}; font-weight:600;">${val}</span>`;
+      }
+      if (typeof val === 'number') {
+        return `<span class="spec-mono">${val}</span>`;
+      }
+      if (typeof val === 'string') {
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+          const label = val.length > 52 ? val.slice(0, 49) + '...' : val;
+          return `<a href="${escapeHtml(val)}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:underline; word-break:break-all;">${escapeHtml(label)} ↗</a>`;
+        }
+        return `<span style="word-break:break-word;">${escapeHtml(val)}</span>`;
+      }
+      if (Array.isArray(val)) {
+        if (!val.length) return '<span class="tier-null">[]</span>';
+        const isColorPalette = val.length && val.every(item => typeof item === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(item));
+        if (isColorPalette) {
+          return `<div style="display:inline-flex; gap:5px; align-items:center; flex-wrap:wrap;">` +
+            val.map(c => `<span style="display:inline-flex; align-items:center; gap:3px; font-family:var(--font-mono); font-size:10.5px;"><span style="display:inline-block; width:11px; height:11px; border-radius:50%; background:${c}; border:1px solid rgba(0,0,0,0.15);"></span>${c}</span>`).join(' ') +
+            `</div>`;
+        }
+        return `<div class="tags" style="display:inline-flex; flex-wrap:wrap; gap:4px;">${val.map(v => `<span class="tag">#${escapeHtml(String(v))}</span>`).join('')}</div>`;
+      }
+      if (typeof val === 'object') {
+        const keys = Object.keys(val);
+        if (!keys.length) return '<span class="tier-null">{}</span>';
+        return `<div style="display:flex; flex-direction:column; gap:4px; width:100%; margin-top:3px;">` +
+          keys.map(k => `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; padding:3px 8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; font-size:11px;">
+              <span class="spec-mono" style="opacity:0.75; font-size:10.5px;">${escapeHtml(k)}</span>
+              ${formatDynamicValue(val[k], depth + 1)}
+            </div>
+          `).join('') + `</div>`;
+      }
+      return escapeHtml(String(val));
+    }
+
+    function renderDynamicTier(tierObj) {
+      if (!tierObj || typeof tierObj !== 'object' || !Object.keys(tierObj).length) {
+        return '<div class="tier-prop"><span class="tier-null">(empty layer)</span></div>';
+      }
+      return Object.entries(tierObj).map(([key, value]) => `
+        <div class="tier-prop" style="align-items:flex-start;">
+          <span class="tier-k spec-mono">${escapeHtml(key)}</span>
+          <div class="tier-v" style="width:100%;">${formatDynamicValue(value)}</div>
+        </div>
+      `).join('');
+    }
+
+    function openMetadataModal(atomId) {
+      const atom = ATOMS.find(a => a.id === atomId);
+      if (!atom) return;
+
+      window.currentMetaAtomId = atom.id;
+
+      const raw = atom.raw || {};
+      const curation = raw.curation || {};
+      const source = raw.source || raw.provenance || {};
+      const provenance = source;
+      const payload = raw.content || raw.payload || {};
+      const content = payload;
+      const metadata = atom.metadata || raw.metadata_json || {};
+
+      const kindPill = document.getElementById('metaKindPill');
+      kindPill.className = `kind-pill kind-${atom.kind}`;
+      kindPill.textContent = atom.kind.toUpperCase();
+      document.getElementById('metaIdPill').textContent = atom.id;
+
+      const modalBody = document.getElementById('metadataModalBody');
+
+      // Format dates
+      const createdDateStr = atom.created_at || (raw.created_at ? raw.created_at.slice(0, 19).replace('T', ' ') + ' UTC' : atom.date);
+      const updatedDateStr = raw.updated_at ? raw.updated_at.slice(0, 19).replace('T', ' ') + ' UTC' : null;
+      const publishedDateStr = provenance.published_at || metadata.published_at || null;
+
+      // Byline items
+      const bylineParts = [];
+      if (atom.author) {
+        bylineParts.push(`<span><strong>${escapeHtml(atom.author)}</strong></span>`);
+      }
+      if (provenance.site_name) {
+        const fav = provenance.favicon ? `<img src="${provenance.favicon}" alt="" style="width:14px;height:14px;border-radius:2px;vertical-align:middle;margin-right:4px;">` : '';
+        bylineParts.push(`<span>${fav}${escapeHtml(provenance.site_name)}</span>`);
+      }
+      if (publishedDateStr) {
+        bylineParts.push(`<span>Published: ${publishedDateStr}</span>`);
+      }
+      bylineParts.push(`<span>Captured: ${createdDateStr}</span>`);
+
+      // Actions
+      const wordCount = metadata.word_count || (payload.article && payload.article.word_count) || (payload.text && payload.text.word_count);
+      const readTime = wordCount ? `~${Math.ceil(wordCount / 225)} min read` : '';
+      const wordCountLabel = wordCount ? `${wordCount.toLocaleString()} words` : '';
+
+      const actions = [];
+      if (atom.kind === 'video' || (payload.video && payload.video.embed_url)) {
+        actions.push(`<button class="meta-btn primary" style="background:#6B46C1; border-color:#6B46C1;" onclick="openVideoFromMeta('${atom.id}')">▶ Watch Video</button>`);
+      }
+      if (atom.article_markdown) {
+        actions.push(`<button class="meta-btn primary" onclick="openReaderFromMeta('${atom.id}')">📖 Read Full Article ${wordCountLabel ? `(${wordCountLabel})` : ''}</button>`);
+      }
+      const targetUrl = atom.source_url || provenance.source_url;
+      if (targetUrl) {
+        actions.push(`<a class="meta-btn" href="${targetUrl}" target="_blank" rel="noopener">🔗 Visit Original URL ↗</a>`);
+      }
+      actions.push(`<button class="meta-btn" onclick="copyAtomJson('${atom.id}')" id="metaCopyJsonBtn">📋 Copy atom.json</button>`);
+
+      // Cover image asset section
+      let assetHtml = '';
+      const coverImg = payload.cover_image || payload.asset || {};
+      const hasCover = Boolean(atom.cover_path || coverImg.relative_path || coverImg.file);
+      const cPath = atom.cover_path || coverImg.relative_path || coverImg.file;
+      const dims = coverImg.dimensions ? `${coverImg.dimensions.width} × ${coverImg.dimensions.height}` : (metadata.dimensions ? `${metadata.dimensions.width} × ${metadata.dimensions.height}` : null);
+      const ratio = (coverImg.aspect_ratio !== undefined && coverImg.aspect_ratio !== null) ? coverImg.aspect_ratio : (metadata && metadata.aspect_ratio !== undefined ? metadata.aspect_ratio : null);
+      const blur = coverImg.blurhash || (metadata && metadata.blurhash) || null;
+      const mime = coverImg.mime_type || (hasCover ? 'image/jpeg' : null);
+      const hash = coverImg.hash || null;
+      const palette = coverImg.color_palette || (metadata && metadata.color_palette) || null;
+      const altText = coverImg.alt_text || atom.alt_text || null;
+      const pubUrl = coverImg.public_url || null;
+
+      let paletteDots = '';
+      if (palette && palette.length) {
+        paletteDots = `<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">` +
+          palette.map(c => `<span style="display:inline-flex; align-items:center; gap:4px; font-family:ui-monospace, monospace; font-size:11px;"><span style="display:inline-block; width:13px; height:13px; border-radius:50%; background:${c}; border:1px solid rgba(0,0,0,0.15);"></span>${c}</span>`).join(' ') +
+          `</div>`;
+      }
+
+      if (hasCover) {
+        const assetTitle = atom.kind === 'image' ? 'Image Asset Specification' : 'Cover Image Asset Specification';
+        assetHtml = `
+          <div class="meta-asset-box" style="margin-bottom: 14px;">
+            <a href="${cPath}" target="_blank" title="Click to view full image">
+              <img src="${cPath}" class="meta-asset-thumb" alt="${escapeHtml(altText || atom.title)}">
+            </a>
+            <div class="meta-asset-fields">
+              <div style="font-weight:600; font-size:13px; margin-bottom:6px; color:var(--text);">${assetTitle}</div>
+              <div class="meta-field-row"><span class="meta-field-label">File Path:</span><span class="meta-field-value spec-mono">${renderVal(cPath, true)}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Alt Text:</span><span class="meta-field-value">${altText ? `“${escapeHtml(altText)}”` : renderVal(null)}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Dimensions:</span><span class="meta-field-value">${dims ? `${dims} (aspect: ${ratio || '—'})` : renderVal(null)}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Format / MIME:</span><span class="meta-field-value">${renderVal(mime, true)}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Blurhash:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${renderVal(blur, true)}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Palette:</span><div class="meta-field-value">${paletteDots || renderVal(null)}</div></div>
+              <div class="meta-field-row"><span class="meta-field-label">SHA-256:</span><span class="meta-field-value spec-mono" style="font-size:11px;">${renderVal(hash, true)}</span></div>
+              <div class="meta-field-row"><span class="meta-field-label">Public URL:</span><span class="meta-field-value">${renderVal(pubUrl, true, true, 38)}</span></div>
+            </div>
+          </div>
+        `;
+      } else {
+        assetHtml = `
+          <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:12px; font-weight:600;">Cover Image Asset</span>
+            <span class="tier-null">null (no visual asset attached)</span>
+          </div>
+        `;
+      }
+
+      // SYSTEM ENVELOPE (Header Strip)
+      const schemaUrl = raw['$schema'] || 'https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json';
+      const envelopeHtml = `
+        <div class="system-envelope-bar" style="background:var(--bg); border:1px dashed var(--border); border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; font-size:12px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="kind-pill kind-${atom.kind}">${atom.kind}</span>
+            <span class="spec-mono" style="font-weight:600; color:var(--text);">${escapeHtml(atom.id)}</span>
+            <span class="spec-mono" style="color:var(--muted); font-size:11px;">v${raw.version || 3}</span>
+            <span style="color:var(--border);">•</span>
+            <span class="spec-mono" style="color:var(--muted); font-size:11px;">${escapeHtml(atom.folder_path || `atoms/.../${atom.id}`)}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; font-size:11.5px; color:var(--muted);">
+            <span>Captured: <strong style="color:var(--text);">${escapeHtml(createdDateStr || '—')}</strong></span>
+            ${updatedDateStr ? `<span>Updated: <strong style="color:var(--text);">${escapeHtml(updatedDateStr)}</strong></span>` : ''}
+            <a href="${escapeHtml(schemaUrl)}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;" title="WideWeb Atom Spec">Schema ↗</a>
+          </div>
+        </div>
+      `;
+
+      // TIER 1: CURATION LAYER
+      const notesHtml = atom.notes ? `
+        <div class="meta-notes-banner" style="margin-top: 14px; margin-bottom: 0;">
+          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">notes</div>
+          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${renderMarkdown(atom.notes)}</div>
+        </div>
+      ` : '';
+
+      const tier1Html = `
+        <div class="schema-tier-card tier-curation">
+          <div class="tier-badge-header">
+            <span class="tier-number-pill">Tier 1</span>
+            <span class="tier-title">Curation Layer</span>
+            <span class="tier-tagline">Editorial perspective, taxonomy & annotations</span>
+          </div>
+          <div class="tier-content-grid">
+            ${renderDynamicTier(curation)}
+          </div>
+          ${notesHtml}
+        </div>
+      `;
+
+      // TIER 2: SOURCE LAYER
+      const tier2Html = `
+        <div class="schema-tier-card tier-source tier-provenance">
+          <div class="tier-badge-header">
+            <span class="tier-number-pill">Tier 2</span>
+            <span class="tier-title">Source Layer</span>
+            <span class="tier-tagline">Origin, attribution & publisher source</span>
+          </div>
+          <div class="tier-content-grid">
+            ${renderDynamicTier(source)}
+          </div>
+        </div>
+      `;
+
+      // TIER 3: CONTENT LAYER
+      let payloadContentHtml = '';
+
+      if (atom.kind === 'quote' && (atom.excerpt || atom.title)) {
+        payloadContentHtml += `
+          <div class="meta-quote-banner" style="margin-bottom: 14px;">
+            “${escapeHtml(atom.excerpt || atom.title)}”
+            ${atom.author ? `<div style="font-size:14px; font-style:normal; margin-top:8px; color:var(--muted);">— ${escapeHtml(atom.author)}</div>` : ''}
+          </div>
+        `;
+      } else if (atom.kind === 'note' && atom.excerpt) {
+        const noteFile = payload.text && payload.text.file ? payload.text.file : 'note.md';
+        payloadContentHtml += `
+          <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Markdown Note Body</div>
+              <div style="font-size:12px; color:var(--muted);">
+                Stored in <code class="spec-mono">${noteFile}</code>${wordCount ? ` • ${wordCount} words` : ''}
+              </div>
+            </div>
+            <button class="meta-btn primary" onclick="openReaderFromMeta('${atom.id}')">📝 Open Note</button>
+          </div>
+          <div class="markdown-body" style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:14px; font-size:13px; line-height:1.6;">
+            ${renderMarkdown(atom.excerpt)}
+          </div>
+        `;
+      }
+
+      if (payload.article || atom.article_markdown) {
+        const artFile = payload.article && payload.article.file ? payload.article.file : 'article.md';
+        const artWordCount = payload.article && payload.article.word_count ? payload.article.word_count : (wordCount || 0);
+        payloadContentHtml += `
+          <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Offline Article Text</div>
+              <div style="font-size:12px; color:var(--muted);">
+                Stored in <code class="spec-mono">${artFile}</code> • ${artWordCount.toLocaleString()} words ${readTime ? `(${readTime})` : ''}
+              </div>
+            </div>
+            ${atom.article_markdown ? `<button class="meta-btn primary" onclick="openReaderFromMeta('${atom.id}')">📖 Read Article</button>` : ''}
+          </div>
+        `;
+      }
+
+      if (payload.video || atom.kind === 'video') {
+        const vidProvider = (payload.video && payload.video.provider) || 'Video';
+        const vidEmbed = payload.video && payload.video.embed_url;
+        const transLang = (payload.video && payload.video.transcript_language) || (atom.metadata && atom.metadata.transcript_language) || 'en';
+        const hasTranscript = (payload.video && payload.video.has_transcript) || (atom.metadata && atom.metadata.has_transcript) || Boolean(atom.excerpt);
+
+        let transcriptBlockHtml = '';
+        if (hasTranscript && atom.excerpt) {
+          const lines = atom.excerpt.split('\n').filter(Boolean);
+          const formattedLines = lines.map(line => {
+            if (line.startsWith('[') && line.indexOf(']') > 1) {
+              const closeIdx = line.indexOf(']');
+              const timeStr = line.substring(1, closeIdx).trim();
+              const textStr = escapeHtml(line.substring(closeIdx + 1).trim());
+              const parts = timeStr.split(':').map(Number);
+              const sec = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+              return `<div style="display:flex; gap:10px; margin-bottom:6px; align-items:baseline;">
+                <button class="ts-pill" onclick="playVideoAtTime('${atom.id}', ${sec})" style="background:rgba(107,70,193,0.12); color:#6B46C1; border:none; padding:2px 7px; border-radius:4px; font-family:var(--font-mono); font-size:11px; cursor:pointer; font-weight:600; white-space:nowrap;" title="Jump video to ${timeStr}">▶ ${timeStr}</button>
+                <span style="color:var(--text); font-size:12px; line-height:1.5;">${textStr}</span>
+              </div>`;
+            }
+            return `<div style="margin-bottom:4px; color:var(--text); font-size:12px;">${escapeHtml(line)}</div>`;
+          }).join('');
+
+          transcriptBlockHtml = `
+            <details style="margin-bottom:14px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
+              <summary style="cursor:pointer; font-weight:600; font-size:12px; color:var(--text); display:flex; justify-content:space-between; align-items:center; user-select:none;">
+                <span style="display:flex; align-items:center; gap:6px;">📜 Video Captions & Transcript</span>
+                <span style="font-size:10px; text-transform:uppercase; background:rgba(107,70,193,0.15); color:#6B46C1; padding:2px 7px; border-radius:4px; font-weight:700;">${escapeHtml(transLang)} (${lines.length} lines)</span>
+              </summary>
+              <div style="margin-top:12px; max-height:260px; overflow-y:auto; padding-right:6px;">
+                ${formattedLines}
+              </div>
+            </details>
+          `;
+        }
+
+        payloadContentHtml += `
+          <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-weight:600; font-size:13px; margin-bottom:2px;">${escapeHtml(vidProvider)} Stream</div>
+              <div style="font-size:12px; color:var(--muted);">
+                Embedded player ready • Channel: <strong>${escapeHtml(atom.author || 'Creator')}</strong>
+              </div>
+            </div>
+            ${vidEmbed ? `<button class="meta-btn primary" style="background:#6B46C1; border-color:#6B46C1;" onclick="openVideoFromMeta('${atom.id}')">▶ Watch Video</button>` : ''}
+          </div>
+          ${transcriptBlockHtml}
+        `;
+      }
+
+      if (assetHtml) {
+        payloadContentHtml += assetHtml;
+      }
+
+      // Universal 5-Slot Modular Showcase
+      const slotCoverActive = Boolean(hasCover);
+      const slotArticleActive = Boolean(payload.article || atom.article_markdown);
+      const slotTextActive = Boolean(payload.text || atom.kind === 'quote' || atom.kind === 'note');
+      const slotVideoActive = Boolean(payload.video || atom.kind === 'video');
+      const slotFileActive = Boolean(payload.file);
+
+      const slotsShowcaseHtml = `
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border);">
+          <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.05em;">
+            Universal Modular Content Slots
+          </div>
+          <div class="content-slots-grid payload-slots-grid">
+            <div class="content-slot-badge payload-slot-badge ${slotCoverActive ? 'active' : 'inactive'}">
+              <span>cover_image</span>
+              <span>${slotCoverActive ? '✓ set' : 'null'}</span>
+            </div>
+            <div class="content-slot-badge payload-slot-badge ${slotArticleActive ? 'active' : 'inactive'}">
+              <span>article</span>
+              <span>${slotArticleActive ? '✓ set' : 'null'}</span>
+            </div>
+            <div class="content-slot-badge payload-slot-badge ${slotTextActive ? 'active' : 'inactive'}">
+              <span>text</span>
+              <span>${slotTextActive ? '✓ set' : 'null'}</span>
+            </div>
+            <div class="content-slot-badge payload-slot-badge ${slotVideoActive ? 'active' : 'inactive'}">
+              <span>video</span>
+              <span>${slotVideoActive ? '✓ set' : 'null'}</span>
+            </div>
+            <div class="content-slot-badge payload-slot-badge ${slotFileActive ? 'active' : 'inactive'}">
+              <span>file</span>
+              <span>${slotFileActive ? '✓ set' : 'null'}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Tier 4 / metadata_json overflow
+      const rawMeta = raw.metadata_json || atom.metadata || {};
+      const metaKeys = Object.keys(rawMeta);
+
+      const tier3Html = `
+        <div class="schema-tier-card tier-content tier-payload">
+          <div class="tier-badge-header">
+            <span class="tier-number-pill">Tier 3</span>
+            <span class="tier-title">Content Layer</span>
+            <span class="tier-tagline">Offline assets, content body & extracted metrics</span>
+          </div>
+          ${payloadContentHtml}
+          <div class="tier-content-grid" style="margin-top: 10px;">
+            ${renderDynamicTier(content)}
+          </div>
+          ${metaKeys.length ? `
+            <div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border);">
+              <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--muted); margin-bottom:6px; letter-spacing:0.05em;">Overflow Metadata (<code>metadata_json</code>)</div>
+              <div class="tier-content-grid">
+                ${renderDynamicTier(rawMeta)}
+              </div>
+            </div>` : ''}
+          ${slotsShowcaseHtml}
+        </div>
+      `;
+
+      // Raw JSON
+      const rawJsonFormatted = JSON.stringify(raw, null, 2);
+
+      modalBody.innerHTML = `
+        <div>
+          <h2 class="meta-headline">${escapeHtml(atom.title || 'Untitled Atom')}</h2>
+          <div class="meta-byline">${bylineParts.join(' ')}</div>
+        </div>
+
+        <div class="meta-actions-bar">
+          ${actions.join(' ')}
+        </div>
+
+        <div class="schema-tiers-container">
+          ${envelopeHtml}
+          ${tier1Html}
+          ${tier2Html}
+          ${tier3Html}
+        </div>
+
+        <details class="meta-json-details">
+          <summary class="meta-json-summary">
+            <span>{ } Full <code>atom.json</code> Spec</span>
+            <span style="font-size:11px; font-weight:500; color:var(--muted);">Click to inspect raw file</span>
+          </summary>
+          <pre class="meta-json-pre"><code>${escapeHtml(rawJsonFormatted)}</code></pre>
+        </details>
+      `;
+
+      document.getElementById('metadataModal').showModal();
+    }
+
+    // Check URL parameters for bookmarklet pre-fill
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('capture_url')) {
+        openCaptureModal();
+        switchCaptureTab('link');
+        document.getElementById('capUrl').value = params.get('capture_url');
+        if (params.get('capture_title')) {
+          document.getElementById('capLinkTitle').value = params.get('capture_title');
+        }
+      } else if (params.get('capture_quote')) {
+        openCaptureModal();
+        switchCaptureTab('quote');
+        document.getElementById('capQuoteText').value = params.get('capture_quote');
+        if (params.get('capture_url')) {
+          document.getElementById('capQuoteSource').value = params.get('capture_url');
+        }
+      }
+    });
+
+    // Keyboard shortcuts ('c' to capture, '/' to search, 'Esc' to close)
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        openCaptureModal();
+      } else if (e.key === '/') {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
+      }
+    });
+
+    // Filter clicks
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        renderCards();
+      });
+    });
+
+    // Visibility filter clicks
+    document.querySelectorAll('.vis-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.vis-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeVisibility = btn.dataset.vis;
+        renderCards();
+      });
+    });
+
+    // Search input
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim();
+      renderCards();
+    });
+
+    // Close on backdrop click
+    ['readerModal', 'captureModal', 'metadataModal'].forEach(id => {
+      document.getElementById(id).addEventListener('click', (e) => {
+        const dialog = document.getElementById(id);
+        const rect = dialog.getBoundingClientRect();
+        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+          dialog.close();
+        }
+      });
+    });
+
+    renderCards();
+  </script>
+</body>
+</html>

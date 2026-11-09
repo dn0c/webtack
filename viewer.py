@@ -18,6 +18,12 @@ from pathlib import Path
 def get_atoms_data(vault_dir: Path):
     """Load all atoms and compute kind counts from vault.db."""
     db_path = vault_dir / "vault.db"
+    if not db_path.exists():
+        print(f"📦 vault.db not found at {db_path}. Auto-reindexing from atom sidecars...")
+        import curate
+        args = types.SimpleNamespace(vault=str(vault_dir))
+        curate.cmd_reindex(args)
+
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     rows = conn.execute("SELECT * FROM atoms ORDER BY created_at DESC").fetchall()
@@ -3350,6 +3356,20 @@ def run_viewer_server(vault_dir: Path, port: int = 8080, open_browser: bool = Tr
 
 
 if __name__ == "__main__":
-    v_dir = Path("vault")
-    out = generate_viewer(v_dir)
-    print(f"✨ Regenerated WideWeb viewer at: {out}")
+    import argparse
+    parser = argparse.ArgumentParser(description="WideWeb Visual Gallery Viewer")
+    default_vault = Path("vault") if Path("vault").exists() else Path("fixtures/demo_vault")
+    parser.add_argument("--vault", default=str(default_vault), help=f"Path to vault directory (default: {default_vault})")
+    parser.add_argument("--server", action="store_true", help="Launch interactive HTTP server with live in-browser capture")
+    parser.add_argument("--port", type=int, default=8080, help="Port to serve on (default: 8080)")
+    parser.add_argument("--no-browser", action="store_true", help="Do not automatically open the browser")
+    args = parser.parse_args()
+
+    v_dir = Path(args.vault).resolve()
+    if args.server:
+        run_viewer_server(v_dir, port=args.port, open_browser=not args.no_browser)
+    else:
+        out = generate_viewer(v_dir)
+        print(f"✨ Regenerated WideWeb viewer at: {out}")
+        if not args.no_browser:
+            webbrowser.open(f"file://{out.resolve()}")
