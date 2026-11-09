@@ -1324,7 +1324,7 @@ def cmd_image(args):
     # 1. Resolve or Auto-Generate Alt Text
     alt_text = getattr(args, "alt", None)
     try:
-        import enrich
+        from scripts import enrich
         if not alt_text or enrich.is_placeholder_alt(alt_text):
             resolved_alt, method = enrich.resolve_image_alt_text(
                 image_path=abs_cover_path,
@@ -2978,7 +2978,7 @@ def cmd_pull(args):
 
 def cmd_enrich(args):
     """Enrich image atoms with AI-generated accessibility alt text using Gemini Flash."""
-    import enrich
+    from scripts import enrich
     vault_dir = Path(args.vault).resolve()
     enrich.batch_enrich_vault(
         vault_dir=vault_dir,

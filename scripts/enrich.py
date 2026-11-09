@@ -23,7 +23,7 @@ import requests
 from PIL import Image, ExifTags, IptcImagePlugin
 from bs4 import BeautifulSoup
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def load_env(env_path: Path = None):
