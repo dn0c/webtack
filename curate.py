@@ -1592,6 +1592,41 @@ def cmd_image(args):
     return atom_doc
 
 
+def delete_atom(vault_dir: Path, atom_id: str) -> bool:
+    """Delete an atom from the vault by removing its sidecar directory and database entry."""
+    vault_dir = Path(vault_dir).resolve()
+    atom_id = atom_id.strip()
+
+    # 1. Remove from SQLite database
+    conn = get_db(vault_dir)
+    with conn:
+        conn.execute("DELETE FROM atoms WHERE id = ?", (atom_id,))
+
+    # 2. Find and delete sidecar directory: vault/atoms/YYYY/MM/<atom_id>
+    atoms_root = vault_dir / "atoms"
+    deleted = False
+    if atoms_root.exists():
+        for root, dirs, files in os.walk(atoms_root):
+            if atom_id in dirs:
+                target_dir = Path(root) / atom_id
+                shutil.rmtree(target_dir)
+                deleted = True
+                print(f"🗑️ Deleted atom folder {target_dir}")
+                break
+
+    return deleted
+
+
+def cmd_delete(args):
+    """Delete an atom by ID."""
+    vault_dir = Path(args.vault).resolve()
+    success = delete_atom(vault_dir, args.atom_id)
+    if success:
+        print(f"✨ Successfully deleted atom {args.atom_id}")
+    else:
+        print(f"ℹ️ Atom {args.atom_id} removed from database (no on-disk folder found).")
+
+
 def cmd_list(args):
     """List recent atoms in the vault, with optional filtering by kind, tag, or collection."""
     vault_dir = Path(args.vault).resolve()
@@ -3516,6 +3551,11 @@ def main():
     p_val = subparsers.add_parser("validate", help="Validate atom.json sidecars against formal schema and check sidecar integrity")
     p_val.add_argument("--atom", help="Validate a specific atom ID instead of the entire vault")
     p_val.set_defaults(func=cmd_validate)
+
+    # 16. Delete command
+    p_del = subparsers.add_parser("delete", help="Delete an atom and its sidecar directory from the vault")
+    p_del.add_argument("atom_id", help="ID of the atom to delete (e.g. atm_...)")
+    p_del.set_defaults(func=cmd_delete)
 
     args = parser.parse_args()
     args.func(args)

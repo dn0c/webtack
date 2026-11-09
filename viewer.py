@@ -384,6 +384,35 @@ def generate_viewer(vault_dir: Path) -> Path:
       font-size: 12px;
       color: var(--muted);
     }}
+    .card-delete-btn {{
+      opacity: 0;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+      line-height: 1;
+      margin-left: 6px;
+    }}
+    .card:hover .card-delete-btn {{
+      opacity: 0.6;
+    }}
+    .card-delete-btn:hover {{
+      opacity: 1 !important;
+      color: #ef4444 !important;
+      background: rgba(239, 68, 68, 0.12) !important;
+    }}
+    .meta-btn.danger {{
+      color: #ef4444 !important;
+      border-color: rgba(239, 68, 68, 0.4) !important;
+    }}
+    .meta-btn.danger:hover {{
+      background: rgba(239, 68, 68, 0.12) !important;
+      border-color: #ef4444 !important;
+    }}
     .kind-pill {{
       text-transform: uppercase;
       font-size: 10px;
@@ -1365,6 +1394,7 @@ def generate_viewer(vault_dir: Path) -> Path:
     <div class="modal-header">
       <div id="modalMeta" class="modal-meta" style="margin-bottom:0;"></div>
       <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn danger" onclick="deleteCurrentReaderAtom()" style="padding: 4px 10px; font-size: 12px;" title="Delete this atom">🗑️ Delete</button>
         <button class="meta-btn" onclick="openMetaFromReader()" style="padding: 4px 10px; font-size: 12px;">ℹ️ View Metadata</button>
         <button class="modal-close" id="closeModalBtn" onclick="document.getElementById('readerModal').close()">✕</button>
       </div>
@@ -1380,6 +1410,7 @@ def generate_viewer(vault_dir: Path) -> Path:
         <span id="metaIdPill" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; color: var(--muted); background: var(--tag-bg); padding: 2px 8px; border-radius: 4px;"></span>
       </div>
       <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn danger" onclick="deleteCurrentAtom()" style="padding: 4px 10px; font-size: 12px;" title="Delete this atom">🗑️ Delete</button>
         <button class="meta-btn" id="copyIdBtn" onclick="copyCurrentId()" title="Copy Atom ID">📋 Copy ID</button>
         <button class="modal-close" onclick="document.getElementById('metadataModal').close()">✕</button>
       </div>
@@ -1515,7 +1546,10 @@ def generate_viewer(vault_dir: Path) -> Path:
               <span class="kind-pill kind-${{atom.kind}}">${{atom.kind}}</span>
               ${{visBadgeHtml}}
             </div>
-            <span>${{atom.date}}</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span>${{atom.date}}</span>
+              <button class="card-delete-btn" onclick="event.stopPropagation(); deleteAtomPrompt('${{atom.id}}', '${{escapeHtml(atom.title || '').replace(/'/g, \"\\\\'\")}}')" title="Delete atom">✕</button>
+            </div>
           </div>
           ${{coverHtml}}
           ${{bodyHtml}}
@@ -1724,6 +1758,58 @@ def generate_viewer(vault_dir: Path) -> Path:
           setTimeout(() => btn.textContent = orig, 1800);
         }}
       }});
+    }}
+
+    async function deleteAtomPrompt(id, title) {{
+      if (!confirm(`Are you sure you want to permanently delete "${{title || id}}" from your vault?`)) {{
+        return;
+      }}
+      const isHttp = window.location.protocol.startsWith('http');
+      if (!isHttp) {{
+        alert('Deleting atoms requires Webtack to be running locally via:\\n\\npython3 curate.py view --server\\n\\n(Currently running as a static file:// document).');
+        return;
+      }}
+
+      try {{
+        const resp = await fetch('/api/delete', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify({{ id }})
+        }});
+        const res = await resp.json();
+        if (res.success) {{
+          const idx = ATOMS.findIndex(a => a.id === id);
+          if (idx !== -1) {{
+            const removed = ATOMS.splice(idx, 1)[0];
+            COUNTS.all--;
+            if (COUNTS[removed.kind]) COUNTS[removed.kind]--;
+            updateBadges();
+            renderCards();
+          }}
+          const metaModal = document.getElementById('metadataModal');
+          if (metaModal && metaModal.open) metaModal.close();
+          const readerModal = document.getElementById('readerModal');
+          if (readerModal && readerModal.open) readerModal.close();
+
+          showToast(`🗑️ Deleted atom ${{id}}`);
+        }} else {{
+          alert('Error deleting atom: ' + (res.error || 'Unknown error'));
+        }}
+      }} catch (err) {{
+        alert('Failed to connect to Webtack backend: ' + err.message);
+      }}
+    }}
+
+    function deleteCurrentAtom() {{
+      if (!window.currentMetaAtomId) return;
+      const atom = ATOMS.find(a => a.id === window.currentMetaAtomId);
+      deleteAtomPrompt(window.currentMetaAtomId, atom ? atom.title : window.currentMetaAtomId);
+    }}
+
+    function deleteCurrentReaderAtom() {{
+      if (!window.currentReaderAtomId) return;
+      const atom = ATOMS.find(a => a.id === window.currentReaderAtomId);
+      deleteAtomPrompt(window.currentReaderAtomId, atom ? atom.title : window.currentReaderAtomId);
     }}
 
     function openReaderFromMeta(atomId) {{
@@ -3398,6 +3484,38 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(response_bytes)
 
+            except Exception as e:
+                err_bytes = json.dumps({"success": False, "error": str(e)}).encode("utf-8")
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Content-Length", str(len(err_bytes)))
+                self.end_headers()
+                self.wfile.write(err_bytes)
+        elif self.path == "/api/delete":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_body = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_body.decode("utf-8"))
+                atom_id = data.get("id")
+                if not atom_id:
+                    raise ValueError("Missing atom id")
+                script_dir = str(Path(__file__).resolve().parent)
+                if script_dir not in sys.path:
+                    sys.path.insert(0, script_dir)
+                import curate
+                curate.delete_atom(self.vault_dir, atom_id)
+                generate_viewer(self.vault_dir)
+
+                response_bytes = json.dumps({"success": True, "id": atom_id}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Content-Length", str(len(response_bytes)))
+                self.end_headers()
+                self.wfile.write(response_bytes)
             except Exception as e:
                 err_bytes = json.dumps({"success": False, "error": str(e)}).encode("utf-8")
                 self.send_response(500)

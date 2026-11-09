@@ -67,6 +67,22 @@ class TestBookmarkletAndServer(unittest.TestCase):
             res_data = json.loads(resp.read().decode("utf-8"))
             self.assertTrue(res_data.get("success"))
             self.assertEqual(res_data["atom"]["title"], "Bookmarklet Integration Note")
+            atom_id = res_data["atom"]["id"]
+
+        # Test deleting the created atom via /api/delete
+        del_payload = json.dumps({"id": atom_id}).encode("utf-8")
+        del_req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/delete",
+            data=del_payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(del_req) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
+            del_res = json.loads(resp.read().decode("utf-8"))
+            self.assertTrue(del_res.get("success"))
+            self.assertEqual(del_res["id"], atom_id)
 
 
 if __name__ == "__main__":
