@@ -312,7 +312,42 @@ To browse, search, and download all exports in your browser, click **📦 Export
 
 ---
 
-## Accessibility Alt Text & Vision Engine (`curate.py enrich`)
+## The Enrichment Lifecycle
+
+Webtack follows a core operational rule: **Ingress is lightweight; enrichment is layered.**
+
+Capturing content should never fail or hang because an external AI service is down or audio transcription takes 30 seconds. Fast metadata is saved immediately at ingestion (`curate.py`); heavy semantic layers (vision alt-text, speech transcripts, full-text backfills) are layered onto atom sidecars asynchronously whenever you choose.
+
+```
+┌────────────────────────────────────────────────────────┐
+│  Phase 1: Ingestion-Time Enrichment (curate.py)        │
+│  Fast, synchronous (0–2s) at the moment of capture     │
+├────────────────────────────────────────────────────────┤
+│  Phase 2: Deep / Asynchronous Enrichment (scripts/)    │
+│  Heavy, optional, offline batch or on-demand pipelines │
+└────────────────────────────────────────────────────────┘
+```
+
+### Phase 1: Ingestion-Time Enrichment (`curate.py`)
+Runs automatically during capture to ensure instant visual parity in the viewer:
+* **Articles:** Trafilatura extracts clean markdown into `article.md`, calculates `word_count` and `read_time`, downloads the hero image, and fetches the site's `favicon`.
+* **Bookmarks:** Scrapes OpenGraph tags (`og:title`, `og:description`, `og:image`) and calculates the `blurhash` and `color_palette` for instant progressive rendering in the UI.
+* **Quotes:** Normalizes typography (curly quotes, em-dashes), captures creator attribution, and saves clean markdown in `quote.md`.
+* **Videos:** Scrapes channel name, duration, and high-res video thumbnail.
+
+---
+
+### Phase 2: Deep / Batch Enrichment (`curate.py enrich` & scripts)
+Runs asynchronously, in the background, or in batch when you want to upgrade your library:
+
+| Target | Command | What it Adds to the Atom |
+| :--- | :--- | :--- |
+| **Image Vision & Accessibility** | `curate.py enrich`<br>*(runs `scripts/enrich.py`)* | Resolves rich, descriptive accessibility `alt_text` using a 5-tier resolution engine. |
+| **Spoken Dialogue & Audio** | `curate.py backfill-transcripts` | Extracts dialogue into `transcript.txt` and timestamped offset cues in `transcript.json`. |
+| **Full Article Text** | `scripts/backfill_instapaper_fulltext.py` | Upgrades lightweight bookmark pointers into full offline `article.md` reading sidecars. |
+| **Quote Sources & Authors** | `scripts/enrich_quotes_deep.py` | Matches quotes against publication domains to resolve missing author attributions. |
+
+#### Accessibility Alt Text & Vision Engine (`curate.py enrich`)
 
 Webtack resolves accessibility alt text through a cascading **5-tier resolution engine**:
 1. **Embedded Metadata (EXIF/IPTC)**: Reads photographer descriptions stored inside the image binary (0ms, zero keys).

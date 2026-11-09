@@ -125,7 +125,20 @@ Holds metadata descriptors for offline sidecar assets:
 
 ---
 
-## 5. Extensions & Proprietary Metadata (`metadata_json`)
+## 5. The Enrichment Lifecycle: Ingress vs. Layered Enrichment
+
+Webtack enforces a strict operational separation between initial capture and downstream enrichment:
+
+1. **Lightweight Ingress (Capture Phase)**: Ingress operations (`curate.py save`, `bookmark`, `note`, `quote`) **MUST NOT** block on slow external APIs, speech transcription, or heavy AI inference. Ingress guarantees offline safety by saving the canonical `atom.json` envelope, core web metadata, and visual anchors in $\le 2$ seconds.
+2. **Layered Deep Enrichment (Post-Capture Phase)**: Heavy semantic enhancements are executed asynchronously as layered enrichment:
+   * **Computer Vision & Accessibility**: Injects `content.cover_image.alt_text` using the 5-tier resolution cascade (EXIF $\rightarrow$ Web Figcaption $\rightarrow$ Cloud AI $\rightarrow$ macOS Neural Engine $\rightarrow$ Fallback).
+   * **Speech Recognition & Dialogue**: Generates `transcript.txt` and timestamped offset cues in `transcript.json` to populate `content.video.has_transcript`.
+   * **Text Extraction**: Backfills full-text readability bodies into `article.md` for lightweight bookmark atoms.
+   * **Reindexing Invariance**: Enriched sidecars (`transcript.txt`, `article.md`, updated `atom.json`) are automatically incorporated into `vault.db` on subsequent `curate.py reindex` passes without data loss.
+
+---
+
+## 6. Extensions & Proprietary Metadata (`metadata_json`)
 
 To enable third-party plugins (Obsidian, Anki, browser extensions, AI agents) to store custom metadata without colliding or requiring schema modifications, the top-level **`metadata_json`** object serves as the open extension bag.
 
@@ -153,7 +166,7 @@ Standard Webtack parsers **MUST** preserve unknown keys inside `metadata_json` d
 
 ---
 
-## 6. Visibility & Egress Semantics
+## 7. Visibility & Egress Semantics
 
 Every atom carries an explicit `visibility` tier in its curation layer:
 
@@ -165,7 +178,7 @@ Every atom carries an explicit `visibility` tier in its curation layer:
 
 ---
 
-## 7. Validation & Conformance
+## 8. Validation & Conformance
 
 A valid Webtack vault complies with the following tests:
 
