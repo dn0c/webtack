@@ -12,6 +12,7 @@ import os
 import sys
 import re
 import json
+import time
 import shutil
 import subprocess
 import base64
@@ -493,28 +494,39 @@ ARTICLE_SUMMARY_PROMPT = (
 
 
 def _call_gemini_text(api_key: str, text: str, title: str = None, model: str = "gemini-flash-latest") -> str | None:
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-        user_content = f"{ARTICLE_SUMMARY_PROMPT}\n\n"
-        if title:
-            user_content += f"Article Title: {title}\n\n"
-        user_content += f"Article Text:\n{text[:25000]}"
-        payload = {
-            "contents": [{"parts": [{"text": user_content}]}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1000}
-        }
-        r = requests.post(url, json=payload, timeout=25)
-        if r.status_code == 200:
-            cands = r.json().get("candidates", [])
-            if cands:
-                parts = cands[0].get("content", {}).get("parts", [])
-                text_parts = [p.get("text", "") for p in parts if p.get("text")]
-                if text_parts:
-                    return "".join(text_parts).strip()
-        else:
-            print(f"⚠️ Gemini API returned HTTP {r.status_code}: {r.text[:120]}")
-    except Exception as e:
-        print(f"⚠️ Gemini request failed: {e}")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    user_content = f"{ARTICLE_SUMMARY_PROMPT}\n\n"
+    if title:
+        user_content += f"Article Title: {title}\n\n"
+    user_content += f"Article Text:\n{text[:25000]}"
+    payload = {
+        "contents": [{"parts": [{"text": user_content}]}],
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1000}
+    }
+    for attempt in range(4):
+        try:
+            r = requests.post(url, json=payload, timeout=25)
+            if r.status_code == 200:
+                cands = r.json().get("candidates", [])
+                if cands:
+                    parts = cands[0].get("content", {}).get("parts", [])
+                    text_parts = [p.get("text", "") for p in parts if p.get("text")]
+                    if text_parts:
+                        return "".join(text_parts).strip()
+            elif r.status_code == 429:
+                wait_time = (attempt + 1) * 6
+                print(f"   ⏳ Rate limited (HTTP 429). Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+            else:
+                print(f"⚠️ Gemini API returned HTTP {r.status_code}: {r.text[:120]}")
+                break
+        except Exception as e:
+            if attempt < 3:
+                time.sleep(2)
+                continue
+            print(f"⚠️ Gemini request failed: {e}")
+            break
     return None
 
 
@@ -818,6 +830,7 @@ def batch_enrich_articles(vault_dir: Path, limit: int = None, force: bool = Fals
             )
 
         updated_count += 1
+        time.sleep(0.15)
 
     conn.close()
     print(f"\n🎉 Successfully summarized and updated {updated_count} article atoms!")
@@ -941,6 +954,7 @@ def batch_enrich_images(vault_dir: Path, limit: int = None, force: bool = False)
             )
 
         updated_count += 1
+        time.sleep(0.15)
 
     conn.close()
     print(f"\n🎉 Successfully enriched {updated_count} image atoms!")

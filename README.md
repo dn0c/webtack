@@ -335,7 +335,27 @@ Webtack follows two core operational rules:
 | **Level 0** | **Pure Determinism (Zero-AI)** | Zero | Raw URL metadata, embedded EXIF/IPTC image captions, HTML `<figcaption>` scraping. 100% offline, zero keys, zero tokens. |
 | **Level 1** | **On-Device Neural (Local AI)** | Zero | Apple Silicon Neural Engine / native macOS Vision (`VNRecognizeTextRequest` + `VNClassifyImageRequest`). Processes images and OCR locally on hardware without sending bytes to the web. |
 | **Level 2** | **Self-Hosted Local LLM** | Local Network | Optional self-hosted models (Ollama, vLLM, llama.cpp) for local article summarization or tagging. |
-| **Level 3** | **Cloud Generative AI** | User-Configured API | Multi-provider cloud models (Gemini, OpenAI, Anthropic, Groq, OpenRouter) requiring explicit API keys in `.env` for deep synthesis or captioning. |
+| **Level 3** | **Cloud Generative AI** | User-Configured API | Multi-provider cloud models (Gemini, OpenAI, Anthropic, Groq, OpenRouter) requiring explicit API keys in `.env` for deep synthesis, article summarization, or captioning. |
+
+### Configuring Generative AI Keys (`.env`)
+
+Webtack works 100% offline with zero keys. To enable **Level 3 AI superpowers**—automatic 2–3 sentence article summaries and accessibility image alt-text—copy `.env.example` to `.env` and set any **one** of the supported provider keys:
+
+```bash
+# Recommended: Fast, high-throughput, low-cost
+GEMINI_API_KEY=your_gemini_api_key
+
+# Or any of these alternatives:
+OPENAI_API_KEY=your_openai_api_key        # gpt-4o-mini
+ANTHROPIC_API_KEY=your_anthropic_api_key  # claude-3-5-haiku
+GROQ_API_KEY=your_groq_api_key            # llama-3.3-70b / llama-3.1-8b
+OPENROUTER_API_KEY=your_openrouter_api_key
+```
+
+**What happens when an AI key is configured:**
+1. **At Ingestion:** Saving any article (`curate.py article <url>`, or auto-detected via `curate.py save <url>`, Instapaper sync, or Web UI quick-capture) automatically generates a concise 2–3 sentence summary labeled `[AI Summary: <Provider>]` in the atom's description. Any human curator notes provided via `-n / --notes` are preserved at the top. (Pass `--no-enrich` to skip).
+2. **In Batch:** Running `curate.py enrich --target articles` scans your vault and backfills AI summaries across existing articles.
+3. **For Images:** Automatically generates descriptive accessibility `alt_text` for photos and graphics during capture or via `curate.py enrich --target images`.
 
 ---
 
