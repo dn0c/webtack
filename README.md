@@ -343,6 +343,7 @@ wideweb/
 ├── viewer.py                 # Visual presentation & local capture server
 ├── wideweb_mcp.py            # Model Context Protocol (MCP) server for AI tools
 ├── requirements.txt          # Python dependencies
+├── LICENSE                   # Open source license (MIT for code, CC0 for schema)
 ├── schema/
 │   └── atom.schema.json      # Formal JSON Schema specification (v3)
 └── vault/                    # Canonical user vault (gitignored / syncable)
@@ -361,3 +362,11 @@ wideweb/
                     ├── note.md        # Formatted markdown thoughts (for notes)
                     └── quote.md       # Formatted markdown quote/excerpt (for quotes)
 ```
+
+---
+
+## License
+
+- **Software & Tooling** (`curate.py`, `viewer.py`, `wideweb_mcp.py`, etc.): [MIT License](LICENSE)
+- **Schema & Specification** (`schema/atom.schema.json`): [Creative Commons Zero v1.0 Universal (CC0 1.0)](LICENSE)
+

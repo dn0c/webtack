@@ -17,12 +17,21 @@ env/
 # Local Environment Variables & Secrets
 .env
 .env.*
+!.env.example
 .sync_credentials.json
 *cookie*.txt
 
 # Operating System Files
 .DS_Store
 Thumbs.db
+
+# Google Drive Streaming Shortcuts & Pointer Files
+*.gsheet
+*.gdoc
+*.gslides
+*.gdraw
+*.gtable
+*.gform
 
 # IDE & Editor
 .vscode/

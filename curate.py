@@ -15,6 +15,7 @@ import os
 import random
 import re
 import sqlite3
+import shutil
 import subprocess
 import sys
 import time
@@ -52,7 +53,7 @@ def _load_dotenv():
 _load_dotenv()
 
 DEFAULT_VAULT = Path(os.environ.get("WIDEWEB_VAULT", os.environ.get("OPENCURATE_VAULT", Path(__file__).resolve().parent / "vault")))
-DEFAULT_GCS_BUCKET = os.environ.get("WIDEWEB_GCS_BUCKET", "wideweb-assets-drew")
+DEFAULT_GCS_BUCKET = os.environ.get("WIDEWEB_GCS_BUCKET", "")
 SCHEMA_URL = "https://raw.githubusercontent.com/dn0c/wideweb/main/schema/atom.schema.json"
 SCHEMA_VERSION = 3
 
@@ -3054,8 +3055,43 @@ def _upload_file_to_gcs(file_path: Path, bucket: str, token: str, gcloud_bin: st
         return False
 
 
+def get_gcloud_bin() -> str:
+    """Find gcloud binary from environment, standard SDK locations, or system PATH."""
+    custom = os.environ.get("GCLOUD_BIN")
+    if custom and Path(custom).exists():
+        return custom
+    home = Path.home()
+    for candidate in [
+        home / "Documents/google-cloud-sdk/bin/gcloud",
+        home / "google-cloud-sdk/bin/gcloud",
+        Path("/opt/homebrew/bin/gcloud"),
+        Path("/usr/local/bin/gcloud"),
+    ]:
+        if candidate.exists():
+            return str(candidate)
+    return shutil.which("gcloud") or "gcloud"
+
+
+def get_non_public_atom_ids(vault_dir: Path) -> list[str]:
+    """Retrieve IDs of all atoms marked with shared or private visibility."""
+    db_path = vault_dir / "vault.db"
+    if not db_path.exists():
+        return []
+    try:
+        conn = sqlite3.connect(db_path)
+        rows = conn.execute("SELECT id FROM atoms WHERE visibility != 'public'").fetchall()
+        conn.close()
+        return [r[0] for r in rows if r[0]]
+    except Exception:
+        return []
+
+
 def upload_manifest_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
     """Upload curation_recent.json and curation_public.json directly to GCS with gzip compression."""
+    if not bucket:
+        print("❌ Error: No GCS bucket specified. Set WIDEWEB_GCS_BUCKET in .env or pass --bucket <name>.")
+        return False
+
     export_dir = vault_dir / "export"
     files_to_upload = [
         export_dir / "curation_recent.json",
@@ -3063,9 +3099,7 @@ def upload_manifest_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
     ]
 
     token = get_gcs_access_token()
-    gcloud_bin = "/Users/drew/Documents/google-cloud-sdk/bin/gcloud"
-    if not Path(gcloud_bin).exists():
-        gcloud_bin = "gcloud"
+    gcloud_bin = get_gcloud_bin()
 
     all_ok = True
     for f in files_to_upload:
@@ -3082,13 +3116,20 @@ def upload_manifest_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
 
 def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
     """Sync public image assets and article markdown to GCS atoms directory."""
-    print(f"🚀 Syncing public assets to gs://{bucket}/atoms/ ...")
-    gcloud_bin = "/Users/drew/Documents/google-cloud-sdk/bin/gcloud"
-    if not Path(gcloud_bin).exists():
-        gcloud_bin = "gcloud"
+    if not bucket:
+        print("❌ Error: No GCS bucket specified. Set WIDEWEB_GCS_BUCKET in .env or pass --bucket <name>.")
+        return False
 
-    # Exclude non-article texts/notes, transcripts, and private atoms (syncs images, article.md, and atom.json)
-    exclude_regex = ".*(transcript\\.json|\\.txt|note\\.md|quote\\.md|\\.DS_Store|atm_20261104210906_a7152e|atm_20261104210908_e2ecc1|atm_20261104210910_f82447|atm_20261104210911_9c6058|atm_20261104210912_f6a4da).*"
+    print(f"🚀 Syncing public assets to gs://{bucket}/atoms/ ...")
+    gcloud_bin = get_gcloud_bin()
+
+    # Dynamically exclude all non-public (private/shared) atom directories, plus non-article texts and transcripts
+    exclude_patterns = ["transcript\\.json", "\\.txt", "note\\.md", "quote\\.md", "\\.DS_Store"]
+    non_public_ids = get_non_public_atom_ids(vault_dir)
+    if non_public_ids:
+        exclude_patterns.extend([re.escape(aid) for aid in non_public_ids])
+
+    exclude_regex = f".*({'|'.join(exclude_patterns)}).*"
 
     cmd = [
         gcloud_bin, "storage", "rsync",
@@ -3108,10 +3149,38 @@ def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
         return False
 
 
+def get_or_prompt_bucket(args_bucket: str | None = None) -> str | None:
+    """Resolve GCS bucket from argument, environment (.env), or prompt user interactively."""
+    bucket = (args_bucket or os.environ.get("WIDEWEB_GCS_BUCKET", "")).strip()
+    if bucket:
+        return bucket
+
+    if sys.stdin.isatty():
+        print("\n☁️  Google Cloud Storage Sync")
+        try:
+            val = input("Enter your GCS bucket name (e.g. my-garden-assets): ").strip()
+            if val:
+                save_env = input(f"Save '{val}' to .env as WIDEWEB_GCS_BUCKET for future runs? [Y/n]: ").strip().lower()
+                if save_env in ("", "y", "yes"):
+                    env_path = Path(__file__).resolve().parent / ".env"
+                    with open(env_path, "a", encoding="utf-8") as f:
+                        f.write(f"\nWIDEWEB_GCS_BUCKET={val}\n")
+                    os.environ["WIDEWEB_GCS_BUCKET"] = val
+                    print(f"✅ Saved WIDEWEB_GCS_BUCKET={val} to .env")
+                return val
+        except (KeyboardInterrupt, EOFError):
+            print("\nSync aborted.")
+            return None
+    return None
+
+
 def cmd_sync(args):
     """Sync public atoms manifest and assets to Google Cloud Storage."""
     vault_dir = Path(args.vault).resolve()
-    bucket = getattr(args, "bucket", None) or DEFAULT_GCS_BUCKET
+    bucket = get_or_prompt_bucket(getattr(args, "bucket", None))
+    if not bucket:
+        sys.exit("❌ Error: No GCS bucket provided. Pass --bucket <name>, set WIDEWEB_GCS_BUCKET in .env, or enter it at the prompt.")
+
     manifest_only = getattr(args, "manifest_only", False)
 
     rows = get_public_atoms(vault_dir)
@@ -3340,7 +3409,7 @@ def main():
 
     # 12. Sync command (Google Cloud Storage)
     p_sync = subparsers.add_parser("sync", help="Sync public atoms and image assets to Google Cloud Storage (GCS)")
-    p_sync.add_argument("--bucket", default=DEFAULT_GCS_BUCKET, help=f"GCS bucket name (default: {DEFAULT_GCS_BUCKET})")
+    p_sync.add_argument("--bucket", default=None, help="GCS bucket name (overrides WIDEWEB_GCS_BUCKET in .env; prompted if unset)")
     p_sync.add_argument("--manifest-only", action="store_true", help="Only upload curation_public.json manifest without rsyncing images")
     p_sync.set_defaults(func=cmd_sync)
 

@@ -226,3 +226,22 @@ WideWeb features a dedicated local export engine that serializes the vault into 
 - **Local Masonry Viewer**: `viewer.py` (served at `http://127.0.0.1:8080`)
 - **AI Vision Pipeline**: `ai_enrich.py` (Gemini Flash multimodal alt text + Are.na upstream sync)
 - **Local MCP Server**: `wideweb_mcp.py`
+
+---
+
+## 9. Open Source Standards & Release Preparation (Nov 2026)
+
+- **Dual-Licensing Strategy**:
+  - **Tooling & CLI** (`curate.py`, `viewer.py`, `wideweb_mcp.py`): **MIT License** (permissive, commercial & personal use).
+  - **Atom Schema & Spec** (`schema/atom.schema.json`): **Creative Commons Zero v1.0 Universal (CC0 1.0)** (dedicated to the public domain so third-party implementations have zero copyright encumbrance).
+- **Environment & Path Decoupling**:
+  - Replaced hardcoded machine paths (`/Users/drew/...`) with portable binary discovery (`get_gcloud_bin()` searching PATH and standard SDK directories).
+  - Decoupled cloud bucket names (`DEFAULT_GCS_BUCKET = os.environ.get("WIDEWEB_GCS_BUCKET", "")`). Personal bucket is configured locally via `.env`.
+  - Added [`.env.example`](file:///Users/drew/Library/CloudStorage/GoogleDrive-andrew.w.shannon@gmail.com/My%20Drive/GitHub/wideweb/.env.example) with documented variables (`WIDEWEB_VAULT`, `WIDEWEB_GCS_BUCKET`, `GEMINI_API_KEY`, etc.).
+- **Dynamic Privacy Egress Protection**:
+  - Replaced brittle hardcoded exclusion IDs in GCS rsync with `get_non_public_atom_ids(vault_dir)`, which queries SQLite dynamically for all atoms where `visibility != 'public'` (`shared` and `private`) and regex-excludes them from cloud synchronization.
+- **Repository Sanitization**:
+  - Google Drive desktop pointer files (`.gsheet`, `.gdoc`) moved out of git tracking to `My Drive/Personal/WideWeb/`.
+  - Added `*.gsheet`, `*.gdoc`, `*.gslides` to `.gitignore`.
+  - Verified git history contains zero leaked API keys, tokens, or plaintext passwords.
+

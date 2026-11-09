@@ -25,7 +25,7 @@ def get_arena_token() -> str:
     token = os.environ.get("ARENA_TOKEN") or os.environ.get("ARENA_API_TOKEN")
     if token:
         return token
-    mcp_path = Path("/Users/drew/.gemini/antigravity/mcp_config.json")
+    mcp_path = Path.home() / ".gemini/antigravity/mcp_config.json"
     if mcp_path.exists():
         try:
             with open(mcp_path, "r", encoding="utf-8") as f:
