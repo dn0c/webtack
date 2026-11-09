@@ -2968,12 +2968,12 @@ def cmd_sync(args):
 
 def cmd_pull(args):
     """Pull newly captured items from Instapaper (unread) and Are.na (all channels)."""
-    import inbound_sync
+    from integrations.pull import pull_all
     vault_dir = Path(args.vault).resolve()
     service = getattr(args, "service", "all")
     limit = getattr(args, "limit", 25)
     visibility = getattr(args, "visibility", "public")
-    inbound_sync.pull_all(vault_dir, service=service, limit=limit, visibility=visibility)
+    pull_all(vault_dir, service=service, limit=limit, visibility=visibility)
 
 
 def cmd_enrich(args):
