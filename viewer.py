@@ -1054,6 +1054,22 @@ def generate_viewer(vault_dir: Path) -> Path:
       font-size: 12px;
       color: var(--muted);
     }}
+    .bookmarklet-banner {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--tag-bg);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+    }}
+    .bookmarklet-banner strong {{
+      color: var(--text);
+    }}
     .bookmarklet-link {{
       display: inline-block;
       padding: 4px 10px;
@@ -1064,6 +1080,7 @@ def generate_viewer(vault_dir: Path) -> Path:
       font-weight: 500;
       border: 1px dashed var(--muted);
       cursor: grab;
+      white-space: nowrap;
     }}
     .toast {{
       position: fixed;
@@ -3196,8 +3213,29 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(content_bytes)
             except Exception as e:
                 self.send_error(500, f"Export generation error: {e}")
+        elif parsed.path == "/bookmarklet.js":
+            script_path = Path(__file__).resolve().parent / "scripts" / "bookmarklet.js"
+            if script_path.exists():
+                with open(script_path, "rb") as f:
+                    content_bytes = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/javascript; charset=utf-8")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(content_bytes)))
+                self.end_headers()
+                self.wfile.write(content_bytes)
+            else:
+                self.send_error(404, "Bookmarklet script not found")
         else:
             super().do_GET()
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.end_headers()
 
     def do_POST(self):
         if self.path == "/api/capture":
@@ -3215,13 +3253,16 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                     args = types.SimpleNamespace(
                         url=data["url"],
                         title=data.get("title"),
+                        author=data.get("author"),
+                        image_url=data.get("image_url") or data.get("cover_image_url"),
                         description=data.get("description") or data.get("notes"),
                         notes=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),
-                        collection=None,
-                        image_url=None,
-                        quote=None,
-                        favorite=False,
+                        collection=data.get("collection"),
+                        quote=data.get("quote"),
+                        favorite=data.get("favorite", False),
+                        visibility=data.get("visibility", "public"),
+                        capture_method="bookmarklet",
                         vault=str(self.vault_dir),
                         target_kind="article" if kind == "article" else ("bookmark" if kind == "bookmark" else None)
                     )
@@ -3230,26 +3271,32 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                     args = types.SimpleNamespace(
                         url=data["url"],
                         title=data.get("title"),
+                        author=data.get("author"),
                         description=data.get("description") or data.get("notes"),
                         notes=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),
                         transcript=data.get("transcript"),
-                        collection=None,
-                        favorite=False,
+                        collection=data.get("collection"),
+                        favorite=data.get("favorite", False),
+                        visibility=data.get("visibility", "public"),
+                        capture_method="bookmarklet",
                         vault=str(self.vault_dir)
                     )
                     atom_doc = curate.cmd_video(args)
                 elif kind == "quote":
                     args = types.SimpleNamespace(
                         quote=data["quote"],
-                        title=None,
-                        source=data.get("source"),
-                        source_title=None,
+                        title=data.get("title"),
+                        source=data.get("source") or data.get("url"),
+                        source_title=data.get("source_title"),
                         author=data.get("author"),
-                        notes=None,
+                        notes=data.get("description") or data.get("notes"),
+                        description=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),
-                        collection=None,
-                        favorite=False,
+                        collection=data.get("collection"),
+                        favorite=data.get("favorite", False),
+                        visibility=data.get("visibility", "public"),
+                        capture_method="bookmarklet",
                         vault=str(self.vault_dir)
                     )
                     atom_doc = curate.cmd_quote(args)
@@ -3258,8 +3305,10 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                         text=data["text"],
                         title=data.get("title"),
                         tags=data.get("tags"),
-                        collection=None,
-                        favorite=False,
+                        collection=data.get("collection"),
+                        favorite=data.get("favorite", False),
+                        visibility=data.get("visibility", "public"),
+                        capture_method="bookmarklet",
                         vault=str(self.vault_dir)
                     )
                     atom_doc = curate.cmd_note(args)
@@ -3267,13 +3316,15 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                     args = types.SimpleNamespace(
                         src=data["src"],
                         title=data.get("title"),
-                        source=data.get("source"),
+                        source=data.get("source") or data.get("url"),
                         author=data.get("author"),
                         alt=data.get("alt"),
-                        notes=data.get("notes"),
+                        notes=data.get("notes") or data.get("description"),
                         tags=data.get("tags"),
-                        collection=None,
-                        favorite=False,
+                        collection=data.get("collection"),
+                        favorite=data.get("favorite", False),
+                        visibility=data.get("visibility", "public"),
+                        capture_method="bookmarklet",
                         vault=str(self.vault_dir)
                     )
                     atom_doc = curate.cmd_image(args)
@@ -3332,6 +3383,8 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                 response_bytes = json.dumps({"success": True, "atom": card_data}).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
                 self.send_header("Content-Length", str(len(response_bytes)))
                 self.end_headers()
                 self.wfile.write(response_bytes)
@@ -3340,6 +3393,8 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                 err_bytes = json.dumps({"success": False, "error": str(e)}).encode("utf-8")
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
                 self.send_header("Content-Length", str(len(err_bytes)))
                 self.end_headers()
                 self.wfile.write(err_bytes)
