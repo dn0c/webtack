@@ -43,6 +43,8 @@ WideWeb categorizes every curated piece of content into an explicit semantic `ki
 
 ## WideWeb Schema Specification (v3)
 
+> For the formal data protocol, sidecar storage contracts, and extension rules, read the complete **[SPECIFICATION.md](SPECIFICATION.md)**.
+
 Every atom is anchored by a canonical `atom.json` metadata sidecar structured into three decoupled knowledge tiers wrapped in a lightweight system envelope:
 
 ```
@@ -354,6 +356,23 @@ python3 curate.py reindex
 
 ---
 
+## Schema & Sidecar Validation (`validate`)
+
+Lints every `atom.json` against the formal JSON schema and verifies that all referenced media/markdown sidecars exist on disk:
+
+```bash
+# Validate entire vault
+python3 curate.py validate
+
+# Validate the demo vault
+python3 curate.py validate --vault fixtures/demo_vault
+
+# Validate a specific atom
+python3 curate.py validate --atom atm_20261108200100_demoart
+```
+
+---
+
 ## Vault Architecture
 
 ```text
@@ -363,8 +382,11 @@ wideweb/
 ├── wideweb_mcp.py            # Model Context Protocol (MCP) server for AI tools
 ├── requirements.txt          # Python dependencies
 ├── LICENSE                   # Open source license (MIT for code, CC0 for schema)
+├── SPECIFICATION.md          # Formal architectural specification & storage contract
 ├── schema/
 │   └── atom.schema.json      # Formal JSON Schema specification (v3)
+├── fixtures/
+│   └── demo_vault/           # Self-contained specimen vault (6 canonical kinds)
 └── vault/                    # Canonical user vault (gitignored / syncable)
     ├── vault.db              # Disposable SQLite search catalog
     ├── index.html            # Zero-dependency single-page visual gallery

@@ -5,3 +5,4 @@ trafilatura>=2.0.0
 blurhash-python>=1.2.0
 youtube-transcript-api>=0.6.0
 mcp>=2.0.0
+jsonschema>=4.20.0

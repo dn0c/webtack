@@ -2638,6 +2638,108 @@ def cmd_reindex(args):
     print(f"🎉 Disaster Recovery complete! Successfully indexed {count} atoms into vault.db.")
 
 
+def cmd_validate(args):
+    """Validate atom.json sidecars against formal atom.schema.json specification and verify sidecar integrity."""
+    vault_dir = Path(args.vault).resolve()
+    atoms_root = vault_dir / "atoms"
+    schema_path = Path(__file__).resolve().parent / "schema" / "atom.schema.json"
+
+    if not schema_path.exists():
+        sys.exit(f"❌ Schema definition not found at {schema_path}")
+
+    with open(schema_path, "r", encoding="utf-8") as f:
+        schema = json.load(f)
+
+    try:
+        import jsonschema
+        has_jsonschema = True
+    except ImportError:
+        has_jsonschema = False
+
+    target_atom = getattr(args, "atom", None)
+    atom_files = []
+    if target_atom:
+        for root, dirs, files in os.walk(atoms_root):
+            if "atom.json" in files and Path(root).name == target_atom:
+                atom_files.append(Path(root) / "atom.json")
+                break
+        if not atom_files:
+            sys.exit(f"❌ Atom '{target_atom}' not found in {atoms_root}")
+    else:
+        for root, dirs, files in os.walk(atoms_root):
+            if "atom.json" in files:
+                atom_files.append(Path(root) / "atom.json")
+
+    print(f"🔍 Validating {len(atom_files)} atoms against {schema_path.name} (jsonschema engine: {'active' if has_jsonschema else 'built-in fallback'})...")
+    errors = 0
+    warnings = 0
+
+    for af in atom_files:
+        atom_dir = af.parent
+        try:
+            with open(af, "r", encoding="utf-8") as f:
+                doc = json.load(f)
+        except Exception as e:
+            print(f"❌ [{atom_dir.name}] Invalid JSON: {e}")
+            errors += 1
+            continue
+
+        # 1. JSON Schema validation
+        if has_jsonschema:
+            try:
+                jsonschema.validate(instance=doc, schema=schema)
+            except jsonschema.ValidationError as ve:
+                err_path = "/".join(str(p) for p in ve.path) or "root"
+                print(f"❌ [{atom_dir.name}] Schema error at '{err_path}': {ve.message}")
+                errors += 1
+                continue
+        else:
+            for req in ("id", "kind", "created_at", "curation", "source", "content"):
+                if req not in doc:
+                    print(f"❌ [{atom_dir.name}] Missing required field: '{req}'")
+                    errors += 1
+                    break
+
+        # 2. Sidecar integrity checks
+        def _check_sidecar(rel_p: str) -> bool:
+            return (atom_dir / rel_p).exists() or (vault_dir / rel_p).exists()
+
+        content = doc.get("content", {})
+        if isinstance(content, dict):
+            cover = content.get("cover_image")
+            if isinstance(cover, dict) and cover.get("relative_path"):
+                if not _check_sidecar(cover["relative_path"]):
+                    print(f"⚠️  [{atom_dir.name}] Missing cover image sidecar: {cover['relative_path']}")
+                    warnings += 1
+
+            article = content.get("article")
+            if isinstance(article, dict) and article.get("relative_path"):
+                if not _check_sidecar(article["relative_path"]):
+                    print(f"⚠️  [{atom_dir.name}] Missing article markdown sidecar: {article['relative_path']}")
+                    warnings += 1
+
+            text = content.get("text")
+            if isinstance(text, dict) and text.get("relative_path"):
+                if not _check_sidecar(text["relative_path"]):
+                    print(f"⚠️  [{atom_dir.name}] Missing text markdown sidecar: {text['relative_path']}")
+                    warnings += 1
+
+            video = content.get("video")
+            if isinstance(video, dict) and video.get("transcript_file"):
+                if not _check_sidecar(video["transcript_file"]):
+                    print(f"⚠️  [{atom_dir.name}] Missing transcript sidecar: {video['transcript_file']}")
+                    warnings += 1
+
+    print("\n" + "─" * 60)
+    if errors == 0 and warnings == 0:
+        print(f"🎉 Perfect! All {len(atom_files)} atoms passed validation with zero errors or warnings.")
+    elif errors == 0:
+        print(f"✅ Schema valid: All {len(atom_files)} atoms conform to schema ({warnings} sidecar file warnings).")
+    else:
+        print(f"❌ Validation failed: {errors} schema errors, {warnings} warnings across {len(atom_files)} atoms.")
+        sys.exit(1)
+
+
 def cmd_backfill_transcripts(args):
     """Enrich video atoms by fetching YouTube captions/transcripts with polite throttling."""
     vault_dir = Path(args.vault).resolve()
@@ -3426,6 +3528,12 @@ def main():
     p_enrich.add_argument("--force", action="store_true", help="Re-generate alt text even if already present")
     p_enrich.add_argument("--no-arena", action="store_true", help="Skip syncing alt text to Are.na")
     p_enrich.set_defaults(func=cmd_enrich)
+
+    # 15. Validate command (Schema and Sidecar Integrity Linter)
+    p_val = subparsers.add_parser("validate", help="Validate atom.json sidecars against formal schema and check sidecar integrity")
+    p_val.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to vault directory")
+    p_val.add_argument("--atom", help="Validate a specific atom ID instead of the entire vault")
+    p_val.set_defaults(func=cmd_validate)
 
     args = parser.parse_args()
     args.func(args)

@@ -154,7 +154,7 @@
     },
     "metadata_json": {
       "type": "object",
-      "description": "Flexible overflow storage for future or niche metadata",
+      "description": "Custom extensions and open overflow storage. Third-party plugins, scripts, and integrations should store proprietary metadata under namespaced keys (e.g. metadata_json['com.plugin_name'] = {...}) to prevent collisions.",
       "default": {}
     }
   }
