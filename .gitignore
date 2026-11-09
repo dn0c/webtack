@@ -40,3 +40,7 @@ Thumbs.db
 
 # Compiled Local Binaries
 scripts/bin/
+
+# Local Agent & AI Memory Logs (Kept on disk locally, excluded from public repo)
+MEMORY.md
+MEMORY_*.md
