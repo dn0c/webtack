@@ -353,8 +353,8 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 ```
 
 **What happens when an AI key is configured:**
-1. **At Ingestion:** Saving any article (`curate.py article <url>`, or auto-detected via `curate.py save <url>`, Instapaper sync, or Web UI quick-capture) automatically generates a concise 2–3 sentence summary labeled `[AI Summary: <Provider>]` in the atom's description. Any human curator notes provided via `-n / --notes` are preserved at the top. (Pass `--no-enrich` to skip).
-2. **In Batch:** Running `curate.py enrich --target articles` scans your vault and backfills AI summaries across existing articles.
+1. **At Ingestion:** Saving any article (`curate.py article <url>`, or auto-detected via `curate.py save <url>`, Instapaper sync, or Web UI quick-capture) automatically generates a concise 2–3 sentence summary dynamically labeled with the exact AI tool that created it (e.g. `[AI Summary: Gemini]`, `[AI Summary: Claude]`, `[AI Summary: OpenAI]`) in the atom's description. Any human curator notes provided via `-n / --notes` are preserved at the top. (Pass `--no-enrich` to skip).
+2. **In Batch:** Running `curate.py enrich --target articles` scans your vault and backfills AI summaries across existing articles using the configured model.
 3. **For Images:** Automatically generates descriptive accessibility `alt_text` for photos and graphics during capture or via `curate.py enrich --target images`.
 
 ---

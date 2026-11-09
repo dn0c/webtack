@@ -658,10 +658,20 @@ def generate_ai_article_summary(article_text: str, title: str = None) -> tuple[s
     return None, None
 
 
+PROVIDER_DISPLAY_NAMES = {
+    "gemini": "Gemini",
+    "openai": "OpenAI",
+    "anthropic": "Claude",
+    "groq": "Groq",
+    "openrouter": "OpenRouter",
+    "ollama": "Ollama"
+}
+
+
 def format_ai_summary(summary: str, provider: str = None) -> str:
-    """Format an AI summary with a clear label (e.g. [AI Summary: Gemini] ...)."""
-    label = f"[AI Summary: {provider.capitalize()}]" if provider else "[AI Summary]"
-    return f"{label} {summary.strip()}"
+    """Format an AI summary with a clear tool label (e.g. [AI Summary: Gemini], [AI Summary: Claude], [AI Summary: OpenAI])."""
+    display_name = PROVIDER_DISPLAY_NAMES.get((provider or "").lower(), (provider.capitalize() if provider else "AI"))
+    return f"[AI Summary: {display_name}] {summary.strip()}"
 
 
 # ─── Unified Multi-Tier Resolver ─────────────────────────────────────────────
