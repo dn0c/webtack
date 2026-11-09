@@ -2,8 +2,8 @@
 """
 WideWeb — Sync Public Assets to Google Cloud Storage (GCS)
 Wrapper script for `python3 curate.py sync`.
-Uploads images belonging to public atoms to gs://wideweb-assets-drew/atoms/
-and exports vault/export/curation_public.json for the Ghost digital garden.
+Uploads images belonging to public atoms to gs://<bucket>/atoms/
+and exports vault/export/curation_public.json for digital garden syndication.
 """
 
 import sys

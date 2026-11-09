@@ -20,7 +20,10 @@ def get_vault_dir() -> Path:
     env_dir = os.environ.get("WIDEWEB_VAULT")
     if env_dir:
         return Path(env_dir).resolve()
-    return Path(__file__).resolve().parent / "vault"
+    default_v = Path(__file__).resolve().parent / "vault"
+    if default_v.exists():
+        return default_v
+    return Path(__file__).resolve().parent / "fixtures" / "demo_vault"
 
 
 def get_db():
@@ -32,10 +35,10 @@ def get_db():
 
 
 @app.tool()
-def search_vault(query: str = "", kind: str = "", tag: str = "", limit: int = 15) -> list[dict]:
+def search_vault(query: str = "", kind: str = "", tag: str = "", visibility: str = "", limit: int = 15) -> list[dict]:
     """Search the WideWeb curation vault by keyword, semantic title, spoken dialogue, article text, notes, or tags."""
     conn, vault_dir = get_db()
-    sql = "SELECT id, kind, created_at, atom_title, author, source_url, destination_url, tags, notes, text_content FROM atoms WHERE 1=1"
+    sql = "SELECT id, kind, created_at, atom_title, author, source_url, destination_url, tags, notes, text_content, visibility FROM atoms WHERE 1=1"
     params = []
     if query:
         sql += " AND (atom_title LIKE ? OR text_content LIKE ? OR notes LIKE ? OR tags LIKE ?)"
@@ -47,6 +50,9 @@ def search_vault(query: str = "", kind: str = "", tag: str = "", limit: int = 15
     if tag:
         sql += " AND tags LIKE ?"
         params.append(f"%{tag}%")
+    if visibility:
+        sql += " AND visibility = ?"
+        params.append(visibility)
     sql += " ORDER BY created_at DESC LIMIT ?"
     params.append(limit)
 
@@ -60,6 +66,7 @@ def search_vault(query: str = "", kind: str = "", tag: str = "", limit: int = 15
             "author": r["author"],
             "url": r["source_url"] or r["destination_url"],
             "date": r["created_at"][:10],
+            "visibility": r["visibility"] if "visibility" in r.keys() else "public",
             "tags": json.loads(r["tags"]) if r["tags"] else [],
             "notes": r["notes"],
             "excerpt": r["text_content"][:300] if r["text_content"] else None

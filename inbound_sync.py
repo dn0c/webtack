@@ -16,7 +16,26 @@ from urllib.parse import urlparse
 import requests
 
 CONFIG_MCP_PATH = Path.home() / ".gemini" / "antigravity" / "mcp_config.json"
-ARENA_USER_ID = "1211866"
+
+
+def get_arena_user_id(token: str) -> str | None:
+    """Retrieve Are.na user ID from environment or query /v3/me."""
+    env_id = os.environ.get("ARENA_USER_ID")
+    if env_id:
+        return env_id
+    try:
+        resp = requests.get(
+            "https://api.are.na/v3/me",
+            headers={"Authorization": f"Bearer {token}", "User-Agent": "WideWeb/1.0"},
+            timeout=10
+        )
+        if resp.status_code == 200:
+            uid = resp.json().get("id")
+            if uid:
+                return str(uid)
+    except Exception:
+        pass
+    return None
 
 
 def get_credentials(vault_dir: Path):
@@ -323,8 +342,13 @@ def pull_arena(vault_dir: Path, limit: int = 100, visibility: str = "public"):
         print("⚠️ Are.na API token not found. Skipping Are.na sync.")
         return 0
 
-    print(f"\n📥 [Are.na] Checking user contents (limit={limit})...")
-    url = f"https://api.are.na/v3/users/{ARENA_USER_ID}/contents?per={limit}"
+    user_id = get_arena_user_id(token)
+    if not user_id:
+        print("❌ Could not determine Are.na user ID. Please set ARENA_USER_ID in .env.")
+        return 0
+
+    print(f"\n📥 [Are.na] Checking user contents (user={user_id}, limit={limit})...")
+    url = f"https://api.are.na/v3/users/{user_id}/contents?per={limit}"
     headers = {
         "Authorization": f"Bearer {token}",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 WideWeb/1.0"

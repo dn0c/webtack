@@ -237,7 +237,7 @@ WideWeb features a dedicated local export engine that serializes the vault into 
 - **Environment & Path Decoupling**:
   - Replaced hardcoded machine paths (`/Users/drew/...`) with portable binary discovery (`get_gcloud_bin()` searching PATH and standard SDK directories).
   - Decoupled cloud bucket names (`DEFAULT_GCS_BUCKET = os.environ.get("WIDEWEB_GCS_BUCKET", "")`). Personal bucket is configured locally via `.env`.
-  - Added [`.env.example`](file:///Users/drew/Library/CloudStorage/GoogleDrive-andrew.w.shannon@gmail.com/My%20Drive/GitHub/wideweb/.env.example) with documented variables (`WIDEWEB_VAULT`, `WIDEWEB_GCS_BUCKET`, `GEMINI_API_KEY`, etc.).
+  - Added [`.env.example`](.env.example) with documented variables (`WIDEWEB_VAULT`, `WIDEWEB_GCS_BUCKET`, `GEMINI_API_KEY`, etc.).
 - **Dynamic Privacy Egress Protection**:
   - Replaced brittle hardcoded exclusion IDs in GCS rsync with `get_non_public_atom_ids(vault_dir)`, which queries SQLite dynamically for all atoms where `visibility != 'public'` (`shared` and `private`) and regex-excludes them from cloud synchronization.
 - **Repository Sanitization**:
