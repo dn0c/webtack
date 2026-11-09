@@ -314,9 +314,9 @@ To browse, search, and download all exports in your browser, click **📦 Export
 
 ## The Enrichment Lifecycle
 
-Webtack follows a core operational rule: **Ingress is lightweight; enrichment is layered.**
-
-Capturing content should never fail or hang because an external AI service is down or audio transcription takes 30 seconds. Fast metadata is saved immediately at ingestion (`curate.py`); heavy semantic layers (vision alt-text, speech transcripts, full-text backfills) are layered onto atom sidecars asynchronously whenever you choose.
+Webtack follows two core operational rules:
+1. **Ingress is lightweight; enrichment is layered.** Capturing content should never fail or hang because an external AI service is down or audio transcription takes 30 seconds. Fast metadata is saved immediately at ingestion (`curate.py`); heavy semantic layers (vision alt-text, speech transcripts, full-text backfills) are layered onto atom sidecars asynchronously whenever you choose.
+2. **Sovereign Fidelity & Layered AI Involvement.** You decide exactly what enters your vault—down to the byte—and no more. Saving a lightweight bookmark pointer never forces asset downloads or unexpected AI token consumption.
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -327,6 +327,17 @@ Capturing content should never fail or hang because an external AI service is do
 │  Heavy, optional, offline batch or on-demand pipelines │
 └────────────────────────────────────────────────────────┘
 ```
+
+### The 4 Levels of AI Involvement (Strictly Opt-In)
+
+| Level | Mode | Network Egress | Description |
+| :--- | :--- | :--- | :--- |
+| **Level 0** | **Pure Determinism (Zero-AI)** | Zero | Raw URL metadata, embedded EXIF/IPTC image captions, HTML `<figcaption>` scraping. 100% offline, zero keys, zero tokens. |
+| **Level 1** | **On-Device Neural (Local AI)** | Zero | Apple Silicon Neural Engine / native macOS Vision (`VNRecognizeTextRequest` + `VNClassifyImageRequest`). Processes images and OCR locally on hardware without sending bytes to the web. |
+| **Level 2** | **Self-Hosted Local LLM** | Local Network | Optional self-hosted models (Ollama, vLLM, llama.cpp) for local article summarization or tagging. |
+| **Level 3** | **Cloud Generative AI** | User-Configured API | Multi-provider cloud models (Gemini, OpenAI, Anthropic, Groq, OpenRouter) requiring explicit API keys in `.env` for deep synthesis or captioning. |
+
+---
 
 ### Phase 1: Ingestion-Time Enrichment (`curate.py`)
 Runs automatically during capture to ensure instant visual parity in the viewer:

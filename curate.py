@@ -864,16 +864,15 @@ def cmd_save_link(args):
 
     want_article = (target_kind != "bookmark")
     vault_dir = Path(args.vault).resolve()
-    print(f"🌐 Scraping {args.url} (extract_article={want_article})...")
-    try:
-        scraped = scrape_url_metadata(args.url, extract_article=want_article)
-    except Exception as e:
-        print(f"⚠️ Scraping failed ({e}), continuing with URL fallback.")
+
+    if getattr(args, "no_enrich", False):
+        print(f"📌 Fast save without enrichment: {args.url}")
+        parsed_netloc = urlparse(args.url).netloc
         scraped = {
-            "source_title": urlparse(args.url).netloc,
+            "source_title": getattr(args, "title", None) or parsed_netloc,
             "description": None,
-            "author": None,
-            "site_name": urlparse(args.url).netloc,
+            "author": getattr(args, "author", None),
+            "site_name": parsed_netloc,
             "canonical_url": args.url,
             "image_url": getattr(args, "image_url", None),
             "favicon": None,
@@ -881,6 +880,24 @@ def cmd_save_link(args):
             "article_markdown": None,
             "article_word_count": 0
         }
+    else:
+        print(f"🌐 Scraping {args.url} (extract_article={want_article})...")
+        try:
+            scraped = scrape_url_metadata(args.url, extract_article=want_article)
+        except Exception as e:
+            print(f"⚠️ Scraping failed ({e}), continuing with URL fallback.")
+            scraped = {
+                "source_title": urlparse(args.url).netloc,
+                "description": None,
+                "author": None,
+                "site_name": urlparse(args.url).netloc,
+                "canonical_url": args.url,
+                "image_url": getattr(args, "image_url", None),
+                "favicon": None,
+                "published_at": None,
+                "article_markdown": None,
+                "article_word_count": 0
+            }
 
     if getattr(args, "image_url", None):
         scraped["image_url"] = args.image_url
@@ -1323,20 +1340,21 @@ def cmd_image(args):
 
     # 1. Resolve or Auto-Generate Alt Text
     alt_text = getattr(args, "alt", None)
-    try:
-        from scripts import enrich
-        if not alt_text or enrich.is_placeholder_alt(alt_text):
-            resolved_alt, method = enrich.resolve_image_alt_text(
-                image_path=abs_cover_path,
-                source_url=source_candidate,
-                upstream_img_url=src if is_url else None,
-                fallback_title=atom_title
-            )
-            if resolved_alt:
-                alt_text = resolved_alt
-                print(f"   ✨ [{method.upper()}] Alt text: {alt_text}")
-    except Exception as e:
-        pass
+    if not getattr(args, "no_enrich", False):
+        try:
+            from scripts import enrich
+            if not alt_text or enrich.is_placeholder_alt(alt_text):
+                resolved_alt, method = enrich.resolve_image_alt_text(
+                    image_path=abs_cover_path,
+                    source_url=source_candidate,
+                    upstream_img_url=src if is_url else None,
+                    fallback_title=atom_title
+                )
+                if resolved_alt:
+                    alt_text = resolved_alt
+                    print(f"   ✨ [{method.upper()}] Alt text: {alt_text}")
+        except Exception as e:
+            pass
 
     if not alt_text:
         alt_text = atom_title
@@ -3005,6 +3023,7 @@ def main():
         p.add_argument("--capture-method", help="Ingest tool/pipeline name (e.g. arena, instapaper, cli, mcp)")
         p.add_argument("--capture-id", help="Upstream item ID on source platform")
         p.add_argument("--capture-url", help="Upstream item URL on source platform")
+        p.add_argument("--no-enrich", action="store_true", help="Skip automatic metadata, image, and vision enrichment (pure lightweight pointer)")
 
     # 1. Article command
     p_art = subparsers.add_parser("article", help="Save a longform article/essay with full offline text and reader view")

@@ -13,11 +13,12 @@
 
 Webtack is an open, local-first data specification and framework for durable digital curation and personal knowledge management. It establishes a formal bridge between ephemeral browser bookmarks (which rot and lack offline content) and unstructured text notes.
 
-Webtack is built on three core architectural principles:
+Webtack is built on four core architectural principles:
 
 1. **The Content Sidecar Pattern**: Every captured unit of knowledge—called an **Atom**—is an isolated, self-contained directory on disk holding a structured metadata envelope (`atom.json`) alongside its offline media and text sidecars (`cover.jpg`, `article.md`, `transcript.txt`, `quote.md`, `note.md`).
 2. **Filesystem as Canonical Truth**: The directory tree on disk is the permanent source of truth. Databases (SQLite catalogs, vector stores, full-text indexes) are disposable, ephemeral artifacts that can be deleted and reconstructed in seconds from sidecars.
 3. **The 30-Year Horizon**: Software dies, platforms pivot, and APIs change. Webtack atoms rely exclusively on open, human-readable, and machine-inspectable standards (JSON, Markdown, JPEG, UTF-8 plain text) that can be read on any operating system decades from today without proprietary software.
+4. **Sovereign Fidelity & Layered AI Involvement**: The user dictates the exact boundary of what is saved—down to the byte—and no more. Saving a lightweight web pointer must never mandate downloading 50MB of assets or making unrequested network calls. Enrichment is strictly optional, configurable across a clear spectrum from zero-network local parsing to offline on-device neural processing to opt-in cloud AI synthesis.
 
 ---
 
@@ -135,6 +136,16 @@ Webtack enforces a strict operational separation between initial capture and dow
    * **Speech Recognition & Dialogue**: Generates `transcript.txt` and timestamped offset cues in `transcript.json` to populate `content.video.has_transcript`.
    * **Text Extraction**: Backfills full-text readability bodies into `article.md` for lightweight bookmark atoms.
    * **Reindexing Invariance**: Enriched sidecars (`transcript.txt`, `article.md`, updated `atom.json`) are automatically incorporated into `vault.db` on subsequent `curate.py reindex` passes without data loss.
+
+### 5.1 The 4 Levels of AI Involvement (Strictly Opt-In)
+Enrichment operates across four distinct levels of technological involvement, giving the user absolute control over privacy, network egress, and token consumption:
+
+| Level | Classification | Network Egress | Description |
+| :--- | :--- | :--- | :--- |
+| **Level 0** | **Pure Determinism (Zero-AI)** | Zero | Raw URL metadata, embedded EXIF/IPTC image captions, HTML `<figcaption>` scraping. 100% offline, zero keys, zero tokens. |
+| **Level 1** | **On-Device Neural (Local AI)** | Zero | Apple Silicon Neural Engine / native macOS Vision (`VNRecognizeTextRequest` + `VNClassifyImageRequest`). Processes images and OCR locally on hardware without sending bytes to the web. |
+| **Level 2** | **Self-Hosted Local LLM** | Local Network | Optional self-hosted models (Ollama, vLLM, llama.cpp) for local article summarization or tagging. |
+| **Level 3** | **Cloud Generative AI** | User-Configured API | Multi-provider cloud models (Gemini, OpenAI, Anthropic, Groq, OpenRouter) requiring explicit API keys in `.env` for deep synthesis or captioning. |
 
 ---
 
