@@ -2,8 +2,9 @@
 Generate high-fidelity SVG, PNG, and HTML diagram updating the "A Series of Tubes"
 Information Routing Architecture to include Webtack at the bottom as Step 4: Reflection.
 
-Matches the editorial aesthetic: warm ivory paper background (#FAF6F0), Newsreader serif italics,
+Matches the editorial aesthetic: warm ivory paper background (#FBF7F0), Newsreader serif italics,
 JetBrains Mono / monospace labels, crisp dark-ink borders (#2A1F1A), and exact brand badges.
+No XML double-hyphens, fully compliant SVG XML.
 """
 
 import os
@@ -20,42 +21,45 @@ PNG_OUTPUT = os.path.join(OUTPUT_DIR, "webtack-reflection.png")
 
 # Canvas dimensions
 WIDTH = 1000
-HEIGHT = 1260
+HEIGHT = 1220
 
-svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}" width="100%" height="100%" style="background-color: #FAF6F0;">
+svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}" width="100%" height="100%" style="background-color: #FBF7F0;">
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@1,6..72,400;1,6..72,500;1,6..72,600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Mulish:wght@400;500;600;700&amp;family=Tenor+Sans&amp;display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@1,6..72,400;1,6..72,500;1,6..72,600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Mulish:wght@400;500;600;700&amp;display=swap');
 
       /* Ghost / Editorial Palette */
-      .canvas-bg {{ fill: #FAF6F0; }}
+      .canvas-bg {{ fill: #FBF7F0; }}
       .ink-line {{ stroke: #2A1F1A; fill: none; stroke-linecap: round; stroke-linejoin: round; }}
       .ink-dash {{ stroke: rgba(42, 31, 26, 0.38); stroke-dasharray: 4 4; fill: none; }}
-      .box-fill {{ fill: #FAF6F0; stroke: #2A1F1A; stroke-width: 1.8; }}
+      .box-fill {{ fill: #FBF7F0; stroke: #2A1F1A; stroke-width: 1.8; }}
       .shade-fill {{ fill: #F4EDE2; stroke: #2A1F1A; stroke-width: 1.8; }}
       .card-fill {{ fill: #FFFFFF; stroke: #2A1F1A; stroke-width: 1.5; }}
       .logo-badge {{ fill: #FFFFFF; stroke: #2A1F1A; stroke-width: 1.6; rx: 14px; }}
       
       /* Typography */
-      .text-title {{ font-family: 'Newsreader', Georgia, 'Times New Roman', serif; font-size: 28px; font-weight: 500; fill: #2A1F1A; font-style: italic; letter-spacing: -0.01em; }}
-      .text-machine {{ font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; fill: #FAF6F0; letter-spacing: 1.2px; }}
+      .text-title {{ font-family: 'Newsreader', Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 500; fill: #2A1F1A; font-style: italic; letter-spacing: -0.01em; }}
+      .text-machine {{ font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; fill: #FBF7F0; letter-spacing: 1.2px; }}
       .text-card {{ font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; fill: #2A1F1A; }}
       .text-logo-name {{ font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; fill: #2A1F1A; }}
       .text-logo-sub {{ font-family: 'Mulish', -apple-system, sans-serif; font-size: 10.5px; font-weight: 600; fill: rgba(42, 31, 26, 0.72); }}
       .text-dim {{ font-family: 'Mulish', -apple-system, sans-serif; font-size: 11px; font-weight: 600; fill: rgba(42, 31, 26, 0.65); }}
-      .stage-pill {{ font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; fill: #78716C; letter-spacing: 1.2px; }}
       
-      .webtack-header {{ font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; fill: #FAF6F0; letter-spacing: 1.4px; }}
-      .pillar-title {{ font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; fill: #2A1F1A; }}
-      .pillar-sub {{ font-family: 'Mulish', -apple-system, sans-serif; font-size: 10.5px; font-weight: 500; fill: #57534E; line-height: 1.35; }}
-      .payoff-title {{ font-family: 'Newsreader', Georgia, 'Times New Roman', serif; font-size: 16.5px; font-weight: 500; fill: #2A1F1A; font-style: italic; letter-spacing: -0.01em; }}
+      .webtack-header {{ font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; fill: #FBF7F0; letter-spacing: 1.2px; }}
+      .pillar-title {{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 700; fill: #2A1F1A; }}
+      .pillar-sub {{ font-family: 'Mulish', -apple-system, sans-serif; font-size: 10px; font-weight: 500; fill: #57534E; line-height: 1.35; }}
+      .payoff-title {{ font-family: 'Newsreader', Georgia, 'Times New Roman', serif; font-size: 16px; font-weight: 500; fill: #2A1F1A; font-style: italic; letter-spacing: -0.01em; }}
+      .watermark {{
+        font-family: Menlo, 'JetBrains Mono', 'Space Mono', Courier, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        fill: #8C827A;
+      }}
     </style>
 
     <marker id="inkArrow" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto">
       <path d="M 0 0 L 6 3 L 0 6" fill="none" stroke="#2A1F1A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-    </marker>
-    <marker id="amberArrow" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto">
-      <path d="M 0 0 L 6 3 L 0 6" fill="none" stroke="#B45309" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
     </marker>
 
     <!-- Gemini / MCP Gradient -->
@@ -66,27 +70,21 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     </linearGradient>
 
     <!-- Soft Card Shadow -->
-    <filter id="softShadow" x="-6%" y="-10%" width="112%" height="124%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#2A1F1A" flood-opacity="0.04"/>
+    <filter id="softShadow" x="-5%" y="-8%" width="110%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#2A1F1A" flood-opacity="0.04"/>
     </filter>
   </defs>
 
-  <!-- Background -->
+  <!-- Canvas Background -->
   <rect width="{WIDTH}" height="{HEIGHT}" class="canvas-bg" />
 
-  <!-- ==================== HEADER ==================== -->
+  <!-- HEADER -->
   <g transform="translate(500, 42)" text-anchor="middle">
     <text class="text-title">Information Routing Architecture</text>
   </g>
 
-
-  <!-- ==================== STAGE 1: INTAKE FUNNEL (CAPTURE) ==================== -->
+  <!-- 1. THE INTAKE FUNNEL -->
   
-  <!-- Funnel Stage Pill Marker -->
-  <g transform="translate(100, 64)">
-    <text class="stage-pill">01 · CAPTURE</text>
-  </g>
-
   <!-- Funnel Hopper Chamber Fill -->
   <polygon points="50,72 950,72 550,332 450,332" fill="#F4EDE2" stroke="none" />
   
@@ -107,7 +105,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
   <path d="M 605,115 C 580,160 530,220 515,295" class="ink-dash" />
   <path d="M 805,120 C 760,170 580,225 535,295" class="ink-dash" />
 
-  <!-- ==================== INPUT PACKETS FALLING IN FUNNEL ==================== -->
+  <!-- INPUTS FALLING INSIDE THE FUNNEL -->
   
   <!-- TIER 1 (y ~ 100) -->
   <!-- Packet 1: Email / Slack -->
@@ -190,8 +188,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
   <!-- Clean single stream arrow entering processor neck -->
   <line x1="500" y1="265" x2="500" y2="330" class="ink-line" stroke-width="2" marker-end="url(#inkArrow)" />
 
-
-  <!-- ==================== STAGE 2: PROCESS (CENTRAL ENGINE) ==================== -->
+  <!-- 2. CENTRAL ENGINE: INFORMATION PROCESSING SYSTEM -->
   <g transform="translate(220, 332)">
     <rect width="560" height="118" class="box-fill" />
     
@@ -212,18 +209,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     </g>
   </g>
 
-  <!-- Process Stage Pill Marker -->
-  <g transform="translate(100, 385)">
-    <text class="stage-pill">02 · PROCESS</text>
-  </g>
-
-
-  <!-- ==================== STAGE 3: DO (DESTINATIONS / THE TUBES) ==================== -->
-  
-  <!-- Do Stage Pill Marker -->
-  <g transform="translate(100, 520)">
-    <text class="stage-pill">03 · DO &amp; ROUTE</text>
-  </g>
+  <!-- 3. DOWNWARD DISTRIBUTION PIPES (2 ROWS OF 4) -->
 
   <!-- Central trunk line from processor into Row 1 distribution junction -->
   <line x1="500" y1="450" x2="500" y2="485" class="ink-line" stroke-width="2" />
@@ -245,7 +231,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
   <path d="M 500,660 C 500,674 615,666 615,678" class="ink-line" marker-end="url(#inkArrow)" />
   <path d="M 500,660 C 500,674 840,666 840,678" class="ink-line" marker-end="url(#inkArrow)" />
 
-  <!-- Row 1 Destinations (4 Apps) -->
+  <!-- ROW 1 DESTINATIONS (4 APPS) -->
 
   <!-- ROW 1, COL 1: TODOIST (Personal Tasks) -->
   <g id="app-todoist" transform="translate(160, 574)" text-anchor="middle">
@@ -302,7 +288,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     <text y="67" class="text-logo-sub" font-size="10">Places &amp; Travel</text>
   </g>
 
-  <!-- Row 2 Destinations (4 Apps) -->
+  <!-- ROW 2 DESTINATIONS (4 APPS) -->
 
   <!-- ROW 2, COL 1: GOOGLE TV (Movie Recs) -->
   <g id="app-gtv" transform="translate(160, 712)" text-anchor="middle">
@@ -343,169 +329,148 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     <text y="67" class="text-logo-sub" font-size="10">Books to Read</text>
   </g>
 
-
-  <!-- ==================== CONVERGENCE CONDUITS: DO -> REFLECT ==================== -->
-  <!-- Digital exhaust & saved knowledge conduits converge from the 8 destinations down into Webtack -->
-  
+  <!-- 4. CONVERGENCE CONDUITS: DO -> REFLECT -->
+  <!-- Conduits carry saved taste & digital exhaust down from the tubes into Webtack -->
   <g opacity="0.85">
-    <!-- Outer conduits from Column 1 & 4 -->
-    <path d="M 160,788 C 160,820 440,816 460,838" class="ink-dash" stroke-width="1.3" />
-    <path d="M 840,788 C 840,820 560,816 540,838" class="ink-dash" stroke-width="1.3" />
-
-    <!-- Inner conduits from Column 2 & 3 -->
-    <path d="M 385,788 C 385,815 480,818 490,838" class="ink-dash" stroke-width="1.3" />
-    <path d="M 615,788 C 615,815 520,818 510,838" class="ink-dash" stroke-width="1.3" />
+    <path d="M 160,788 C 160,822 430,816 460,836" class="ink-dash" stroke-width="1.3" />
+    <path d="M 840,788 C 840,822 570,816 540,836" class="ink-dash" stroke-width="1.3" />
+    <path d="M 385,788 C 385,816 480,818 490,836" class="ink-dash" stroke-width="1.3" />
+    <path d="M 615,788 C 615,816 520,818 510,836" class="ink-dash" stroke-width="1.3" />
   </g>
 
   <!-- Central entry arrow into Webtack -->
-  <line x1="500" y1="810" x2="500" y2="840" class="ink-line" stroke-width="2" marker-end="url(#inkArrow)" />
+  <line x1="500" y1="812" x2="500" y2="840" class="ink-line" stroke-width="2" marker-end="url(#inkArrow)" />
 
   <!-- Label floating above the entry neck -->
-  <g transform="translate(500, 822)" text-anchor="middle">
-    <rect x="-105" y="-10" width="210" height="20" rx="10" fill="#FAF6F0" stroke="#2A1F1A" stroke-width="1" />
+  <g transform="translate(500, 824)" text-anchor="middle">
+    <rect x="-105" y="-10" width="210" height="20" rx="10" fill="#FBF7F0" stroke="#2A1F1A" stroke-width="1" />
     <text y="3.5" font-family="'JetBrains Mono', monospace" font-size="9.5" font-weight="700" fill="#78350F" letter-spacing="0.5px">
       DIGITAL EXHAUST &amp; SAVED TASTE
     </text>
   </g>
 
-
-  <!-- ==================== STAGE 4: REFLECT — WEBTACK ==================== -->
-  
-  <!-- Reflect Stage Pill Marker -->
-  <g transform="translate(100, 875)">
-    <text class="stage-pill">04 · REFLECT</text>
-  </g>
-
-  <!-- Main Webtack Reflection Chamber Card -->
-  <g id="webtack-reflection" transform="translate(70, 842)">
+  <!-- 5. WEBTACK: STEP 4 · REFLECT -->
+  <g id="webtack-reflection" transform="translate(120, 842)">
     
     <!-- Outer container box with subtle shadow -->
-    <rect width="860" height="258" rx="10" fill="#FFFFFF" stroke="#2A1F1A" stroke-width="2" filter="url(#softShadow)" />
+    <rect width="760" height="218" rx="8" fill="#FFFFFF" stroke="#2A1F1A" stroke-width="1.8" filter="url(#softShadow)" />
     
     <!-- Header Banner -->
-    <path d="M 0 10 Q 0 0 10 0 L 850 0 Q 860 0 860 10 L 860 44 L 0 44 Z" fill="#1C1917" />
+    <path d="M 0 8 Q 0 0 8 0 L 752 0 Q 760 0 760 8 L 760 38 L 0 38 Z" fill="#1C1917" />
     
-    <!-- Header Title: Tack Icon + Monospace Title -->
-    <g transform="translate(32, 22)">
-      <!-- Minimal Webtack Tack Pin Icon -->
-      <circle cx="0" cy="0" r="5" fill="#E44332" />
-      <line x1="0" y1="5" x2="0" y2="10" stroke="#FAF6F0" stroke-width="2" stroke-linecap="round" />
-      <text x="16" y="5" class="webtack-header">STEP 4: REFLECT · WEBTACK</text>
+    <!-- Header Title: Pin + Title -->
+    <g transform="translate(26, 19)">
+      <circle cx="0" cy="0" r="4.5" fill="#E44332" />
+      <line x1="0" y1="4.5" x2="0" y2="9" stroke="#FBF7F0" stroke-width="1.8" stroke-linecap="round" />
+      <text x="14" y="4.5" class="webtack-header">STEP 4: REFLECT · WEBTACK</text>
     </g>
 
-    <!-- Header Right Tag: Local-First / Sovereign -->
-    <g transform="translate(828, 22)" text-anchor="end">
-      <rect x="-160" y="-11" width="160" height="22" rx="4" fill="#059669" />
-      <text x="-80" y="4" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9.5px" font-weight="700" fill="#FFFFFF" letter-spacing="0.5px">
-        SOVEREIGN ARCHIVE
+    <!-- Header Right Tag: Local-First Vault -->
+    <g transform="translate(734, 19)" text-anchor="end">
+      <rect x="-140" y="-10" width="140" height="20" rx="4" fill="#059669" />
+      <text x="-70" y="3.5" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9px" font-weight="700" fill="#FFFFFF" letter-spacing="0.5px">
+        LOCAL-FIRST VAULT
       </text>
     </g>
 
     <!-- Subtitle Banner Strip -->
-    <rect x="0" y="44" width="860" height="30" fill="#F4EDE2" stroke="#E5DEC9" stroke-width="1" />
-    <text x="430" y="64" text-anchor="middle" font-family="'Mulish', -apple-system, sans-serif" font-size="11.5px" font-weight="600" fill="#44403C">
+    <rect x="0" y="38" width="760" height="26" fill="#F4EDE2" stroke="#E5DEC9" stroke-width="0.8" />
+    <text x="380" y="55" text-anchor="middle" font-family="'Mulish', -apple-system, sans-serif" font-size="11px" font-weight="600" fill="#44403C">
       The missing piece: Turn ambient digital exhaust into a compounding personal vault for AI reflection &amp; synthesis.
     </text>
 
-    <!-- ==================== 3 SUB-PILLARS INSIDE WEBTACK ==================== -->
+    <!-- 3 SUB-PILLARS INSIDE WEBTACK -->
 
-    <!-- Pillar 1: Ingest & Universal Capture (X: 24, Width: 256) -->
-    <g transform="translate(24, 90)">
-      <rect width="256" height="148" rx="8" fill="#FAF6F0" stroke="#2A1F1A" stroke-width="1.3" />
+    <!-- Pillar 1: Ingest & Universal Capture (X: 18, Width: 228) -->
+    <g transform="translate(18, 74)">
+      <rect width="228" height="130" rx="6" fill="#FBF7F0" stroke="#2A1F1A" stroke-width="1.2" />
       
       <!-- Icon + Badge Header -->
-      <g transform="translate(14, 16)">
-        <rect width="28" height="28" rx="6" fill="#F2EAE1" stroke="#2A1F1A" stroke-width="1.2" />
-        <!-- Ingest funnel / pull icon -->
-        <path d="M 8 9 L 20 9 L 16 15 L 16 20 L 12 18 L 12 15 Z" fill="none" stroke="#2A1F1A" stroke-width="1.4" stroke-linejoin="round" />
+      <g transform="translate(12, 14)">
+        <rect width="24" height="24" rx="5" fill="#F2EAE1" stroke="#2A1F1A" stroke-width="1.1" />
+        <path d="M 7 8 L 17 8 L 13 13 L 13 17 L 11 15 L 11 13 Z" fill="none" stroke="#2A1F1A" stroke-width="1.2" stroke-linejoin="round" />
       </g>
-      <text x="50" y="27" class="pillar-title">1. Capture &amp; Ingest</text>
-      <text x="50" y="41" font-family="'JetBrains Mono', monospace" font-size="10px" font-weight="600" fill="#78350F">Direct from the tubes</text>
+      <text x="44" y="24" class="pillar-title">1. Capture &amp; Ingest</text>
+      <text x="44" y="37" font-family="'JetBrains Mono', monospace" font-size="9px" font-weight="600" fill="#78350F">From the tubes</text>
 
-      <line x1="14" y1="52" x2="242" y2="52" stroke="#E2D9CC" stroke-width="1" />
+      <line x1="12" y1="46" x2="216" y2="46" stroke="#E2D9CC" stroke-width="0.8" />
 
       <!-- Feature Bullets -->
-      <text x="14" y="73" class="pillar-sub">• One-click browser bookmarklet</text>
-      <text x="14" y="91" class="pillar-sub">• Auto-pull from Instapaper &amp; Are.na</text>
-      <text x="14" y="109" class="pillar-sub">• YouTube Takeout favorites ingest</text>
-      <text x="14" y="127" class="pillar-sub">• CLI &amp; quick-capture studio</text>
+      <text x="12" y="65" class="pillar-sub">• One-click browser bookmarklet</text>
+      <text x="12" y="81" class="pillar-sub">• Instapaper &amp; Are.na sync</text>
+      <text x="12" y="97" class="pillar-sub">• YouTube Favorites</text>
+      <text x="12" y="113" class="pillar-sub">• CLI &amp; quick-capture studio</text>
     </g>
 
-    <!-- Pillar 2: The Canonical Core (X: 302, Width: 256) -->
-    <!-- Highlighted with subtle green accent border to signify Canonical Truth -->
-    <g transform="translate(302, 90)">
-      <rect width="256" height="148" rx="8" fill="#FFFFFF" stroke="#059669" stroke-width="1.8" />
+    <!-- Pillar 2: The Canonical Core (X: 266, Width: 228) -->
+    <g transform="translate(266, 74)">
+      <rect width="228" height="130" rx="6" fill="#FFFFFF" stroke="#059669" stroke-width="1.6" />
       
       <!-- Canonical Truth Tag -->
-      <rect x="156" y="-8" width="92" height="16" rx="3" fill="#059669" />
-      <text x="202" y="3.5" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8.5px" font-weight="700" fill="#FFFFFF">CANONICAL TRUTH</text>
+      <rect x="134" y="-7" width="86" height="14" rx="3" fill="#059669" />
+      <text x="177" y="3.5" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8px" font-weight="700" fill="#FFFFFF">CANONICAL TRUTH</text>
 
       <!-- Icon + Badge Header -->
-      <g transform="translate(14, 16)">
-        <rect width="28" height="28" rx="6" fill="#ECFDF5" stroke="#059669" stroke-width="1.2" />
-        <!-- Folder / File icon -->
-        <path d="M 7 9 L 12 9 L 14 11 L 21 11 L 21 19 L 7 19 Z" fill="none" stroke="#059669" stroke-width="1.4" />
+      <g transform="translate(12, 14)">
+        <rect width="24" height="24" rx="5" fill="#ECFDF5" stroke="#059669" stroke-width="1.1" />
+        <path d="M 6 8 L 11 8 L 13 10 L 18 10 L 18 16 L 6 16 Z" fill="none" stroke="#059669" stroke-width="1.3" />
       </g>
-      <text x="50" y="27" class="pillar-title" fill="#065F46">2. Sovereign Vault</text>
-      <text x="50" y="41" font-family="'JetBrains Mono', monospace" font-size="10px" font-weight="600" fill="#059669">Filesystem truth on disk</text>
+      <text x="44" y="24" class="pillar-title" fill="#065F46">2. Sovereign Vault</text>
+      <text x="44" y="37" font-family="'JetBrains Mono', monospace" font-size="9px" font-weight="600" fill="#059669">Filesystem on disk</text>
 
-      <line x1="14" y1="52" x2="242" y2="52" stroke="#D1FAE5" stroke-width="1" />
+      <line x1="12" y1="46" x2="216" y2="46" stroke="#D1FAE5" stroke-width="0.8" />
 
       <!-- Feature Bullets -->
-      <text x="14" y="73" class="pillar-sub">• Plain <tspan font-family="'JetBrains Mono', monospace" font-size="9.5px" font-weight="700">atom.json</tspan> + raw media</text>
-      <text x="14" y="91" class="pillar-sub">• 7 content types (article, quote...)</text>
-      <text x="14" y="109" class="pillar-sub">• SQLite FTS5 search index</text>
-      <text x="14" y="127" class="pillar-sub" font-weight="700" fill="#047857">• 30-year durable · Zero lock-in</text>
+      <text x="12" y="65" class="pillar-sub">• Plain <tspan font-family="'JetBrains Mono', monospace" font-size="9px" font-weight="700">atom.json</tspan> + raw media</text>
+      <text x="12" y="81" class="pillar-sub">• 7 structured content types</text>
+      <text x="12" y="97" class="pillar-sub">• SQLite FTS5 search index</text>
+      <text x="12" y="113" class="pillar-sub" font-weight="700" fill="#047857">• 30-year durable · Zero lock-in</text>
     </g>
 
-    <!-- Pillar 3: AI Synthesis & Garden (X: 580, Width: 256) -->
-    <g transform="translate(580, 90)">
-      <rect width="256" height="148" rx="8" fill="#FAF6F0" stroke="#2A1F1A" stroke-width="1.3" />
+    <!-- Pillar 3: AI Synthesis & Garden (X: 514, Width: 228) -->
+    <g transform="translate(514, 74)">
+      <rect width="228" height="130" rx="6" fill="#FBF7F0" stroke="#2A1F1A" stroke-width="1.2" />
       
       <!-- Icon + Badge Header -->
-      <g transform="translate(14, 16)">
-        <rect width="28" height="28" rx="6" fill="#EEF2FF" stroke="#4F46E5" stroke-width="1.2" />
-        <!-- Gemini / Starburst icon -->
-        <path d="M 14 6 C 14 10.5, 17 13.5, 22 14 C 17 14.5, 14 17.5, 14 22 C 14 17.5, 11 14.5, 6 14 C 11 13.5, 14 10.5, 14 6 Z" fill="url(#mcpGrad)" />
+      <g transform="translate(12, 14)">
+        <rect width="24" height="24" rx="5" fill="#EEF2FF" stroke="#4F46E5" stroke-width="1.1" />
+        <path d="M 12 5 C 12 9, 14.5 11.5, 19 12 C 14.5 12.5, 12 15, 12 19 C 12 15, 9.5 12.5, 5 12 C 9.5 11.5, 12 9, 12 5 Z" fill="url(#mcpGrad)" />
       </g>
-      <text x="50" y="27" class="pillar-title">3. AI &amp; Reflection</text>
-      <text x="50" y="41" font-family="'JetBrains Mono', monospace" font-size="10px" font-weight="600" fill="#4338CA">Synthesis &amp; Expression</text>
+      <text x="44" y="24" class="pillar-title">3. AI &amp; Reflection</text>
+      <text x="44" y="37" font-family="'JetBrains Mono', monospace" font-size="9px" font-weight="600" fill="#4338CA">Synthesis &amp; Expression</text>
 
-      <line x1="14" y1="52" x2="242" y2="52" stroke="#E2D9CC" stroke-width="1" />
+      <line x1="12" y1="46" x2="216" y2="46" stroke="#E2D9CC" stroke-width="0.8" />
 
       <!-- Feature Bullets -->
-      <text x="14" y="73" class="pillar-sub">• <tspan font-family="'JetBrains Mono', monospace" font-size="9.5px" font-weight="700">MCP Server</tspan> for Claude &amp; AGY</text>
-      <text x="14" y="91" class="pillar-sub">• Export to Obsidian &amp; NotebookLM</text>
-      <text x="14" y="109" class="pillar-sub">• Curated <tspan font-family="'JetBrains Mono', monospace" font-size="9.5px" font-weight="700">llms.txt</tspan> &amp; RSS feed</text>
-      <text x="14" y="127" class="pillar-sub">• Public Garden (<tspan font-style="italic">drewshannon.net</tspan>)</text>
+      <text x="12" y="65" class="pillar-sub">• <tspan font-family="'JetBrains Mono', monospace" font-size="9px" font-weight="700">MCP Server</tspan> for Claude &amp; AGY</text>
+      <text x="12" y="81" class="pillar-sub">• Obsidian &amp; NotebookLM export</text>
+      <text x="12" y="97" class="pillar-sub">• Curated <tspan font-family="'JetBrains Mono', monospace" font-size="9px" font-weight="700">llms.txt</tspan> &amp; RSS</text>
+      <text x="12" y="113" class="pillar-sub">• Public Garden (<tspan font-style="italic">/garden</tspan>)</text>
     </g>
 
   </g>
 
-
   <!-- Connecting link to Payoff -->
-  <line x1="500" y1="1100" x2="500" y2="1124" class="ink-line" stroke-width="2" marker-end="url(#inkArrow)" />
+  <line x1="500" y1="1060" x2="500" y2="1084" class="ink-line" stroke-width="2" marker-end="url(#inkArrow)" />
 
-
-  <!-- ==================== STAGE 5: THE PAYOFF ==================== -->
-  <g transform="translate(140, 1126)">
-    <rect width="720" height="96" rx="6" class="shade-fill" />
-    
-    <!-- Ghost theme brand red/oxblood border strip (#7D2035) -->
-    <path d="M 0,6 Q 0,0 6,0 L 7,0 L 7,96 L 6,96 Q 0,96 0,90 Z" fill="#7D2035" />
-    
-    <text x="360" y="30" text-anchor="middle" class="payoff-title">
-      The Payoff: An Empty Cache Today &amp; A Compounding Archive for Decades
+  <!-- 6. OUTCOME (MATCHING GHOST CALLOUT VERBATIM) -->
+  <g transform="translate(180, 1086)">
+    <rect width="640" height="85" rx="6" class="shade-fill" />
+    <!-- Brand Color Left Border (Ghost theme brand-color: #7D2035) -->
+    <path d="M 0,6 Q 0,0 6,0 L 6,0 L 6,85 L 6,85 Q 0,85 0,79 Z" fill="#7D2035" />
+    <text x="320" y="30" text-anchor="middle" font-family="'Newsreader', Georgia, 'Times New Roman', serif" font-size="16" font-weight="500" fill="#2A1F1A" font-style="italic" letter-spacing="-0.01em">
+      The Payoff: An Empty Cache &amp; True Margin
     </text>
-    
-    <text x="360" y="54" text-anchor="middle" class="text-dim">
-      Working memory is silent • Zero background loops leaking attention • Sovereign knowledge you truly own
+    <text x="320" y="52" text-anchor="middle" class="text-dim">
+      Working memory is silent • Zero background loops leaking attention
     </text>
-    
-    <text x="360" y="76" text-anchor="middle" font-family="'Mulish', -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2A1F1A">
-      Deep Work Focus Blocks (2+ hrs)  |  Family Time (Evenings &amp; Weekends)  |  Lifelong Second Brain
+    <text x="320" y="70" text-anchor="middle" font-family="Mulish, -apple-system, sans-serif" font-size="11.5" font-weight="700" fill="#2A1F1A">
+      Deep Work Focus Blocks (2+ hrs)  |  Family Time (Evenings &amp; Weekends)
     </text>
   </g>
+
+  <!-- Watermark -->
+  <text x="{WIDTH // 2}" y="1198" text-anchor="middle" class="watermark">webtack.net</text>
 
 </svg>'''
 
@@ -542,7 +507,7 @@ html = f'''<!DOCTYPE html>
     .container {{
       max-width: 1080px;
       width: 100%;
-      background: #FAF6F0;
+      background: #FBF7F0;
       box-shadow: 0 10px 30px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
       border-radius: 12px;
       overflow: hidden;
@@ -561,12 +526,12 @@ html = f'''<!DOCTYPE html>
       font-style: italic;
       font-size: 20px;
       font-weight: 500;
-      color: #1C1917;
+      color: #2A1F1A;
     }}
     .btn {{
       padding: 8px 16px;
-      background: #1C1917;
-      color: #FAF6F0;
+      background: #2A1F1A;
+      color: #FBF7F0;
       text-decoration: none;
       border-radius: 6px;
       font-size: 13px;

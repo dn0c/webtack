@@ -82,7 +82,7 @@
       </div>
     </div>
     <div class="diagram-wrap">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1340 725" width="100%" height="100%" style="background-color: #FAF6F0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1340 740" width="100%" height="100%" style="background-color: #FAF6F0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
   <defs>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Tenor+Sans&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&amp;family=Space+Mono:ital,wght@0,400;0,700;1,400&amp;display=swap');
@@ -139,6 +139,13 @@
         font-weight: 500;
         fill: #292524;
       }
+      .watermark {
+        font-family: Menlo, 'Space Mono', 'Courier New', Courier, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        fill: #8C827A;
+      }
     </style>
 
     <!-- Filters & Shadows -->
@@ -166,7 +173,7 @@
   </defs>
 
   <!-- Background -->
-  <rect width="1340" height="725" fill="#FAF6F0"/>
+  <rect width="1340" height="740" fill="#FAF6F0"/>
 
   <!-- ========================================== -->
   <!-- 1. MAIN HEADER                             -->
@@ -481,6 +488,9 @@
       Human-readable Markdown &amp; sidecar files on your drive — readable today, readable tomorrow.
     </text>
   </g>
+
+  <!-- Watermark -->
+  <text x="670" y="722" text-anchor="middle" class="watermark">webtack.net</text>
 
 </svg>
     </div>

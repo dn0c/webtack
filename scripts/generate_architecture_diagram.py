@@ -20,7 +20,7 @@ PNG_OUTPUT = os.path.join(OUTPUT_DIR, "webtack-architecture.png")
 
 # Canvas dimensions (tightened height: removed dead gaps at column bottoms)
 WIDTH = 1340
-HEIGHT = 725
+HEIGHT = 740
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}" width="100%" height="100%" style="background-color: #FAF6F0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
   <defs>
@@ -78,6 +78,13 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
         font-size: 12.5px;
         font-weight: 500;
         fill: #292524;
+      }}
+      .watermark {{
+        font-family: Menlo, 'Space Mono', 'Courier New', Courier, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        fill: #8C827A;
       }}
     </style>
 
@@ -421,6 +428,9 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
       Human-readable Markdown &amp; sidecar files on your drive — readable today, readable tomorrow.
     </text>
   </g>
+
+  <!-- Watermark -->
+  <text x="{WIDTH // 2}" y="722" text-anchor="middle" class="watermark">webtack.net</text>
 
 </svg>'''
 
