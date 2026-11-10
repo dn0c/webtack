@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack Curate CLI (v3)
+WebTack Curate CLI (v3)
 A local-first, durable web curation and bookmarking framework using the Content Sidecar pattern.
 https://webtack.net
 """
@@ -66,7 +66,7 @@ def get_http_session() -> requests.Session:
     if _HTTP_SESSION is None:
         _HTTP_SESSION = requests.Session()
         _HTTP_SESSION.headers.update({
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Webtack/1.0",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 WebTack/1.0",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
         })
         retries = Retry(
@@ -356,9 +356,9 @@ def download_image(image_url: str, dest_path: Path) -> dict:
     """Download an image asset and compute its metadata (dimensions, aspect ratio, blurhash, palette)."""
     session = get_http_session()
     try:
-        resp = session.get(image_url, timeout=(3.0, 15.0))
+        resp = session.get(image_url, timeout=(1.5, 4.0))
     except requests.exceptions.SSLError:
-        resp = session.get(image_url, timeout=(3.0, 15.0), verify=False)
+        resp = session.get(image_url, timeout=(1.5, 4.0), verify=False)
     resp.raise_for_status()
 
     content = resp.content
@@ -1002,7 +1002,7 @@ def cmd_save_link(args):
         elif getattr(args, "article", False):
             target_kind = "article"
 
-    want_article = (target_kind != "bookmark")
+    want_article = (target_kind != "bookmark") and not getattr(args, "article_markdown", None)
     vault_dir = Path(args.vault).resolve()
 
     if getattr(args, "no_enrich", False):
@@ -1058,7 +1058,7 @@ def cmd_save_link(args):
     else:
         kind = "bookmark"
 
-    # Check if an existing atom already matches this URL with empty article text (Backfill support)
+    # Check if an existing atom already matches this URL (Backfill & update support)
     target_url = scraped.get("canonical_url") or args.url
     conn = get_db(vault_dir)
     existing_row = None
@@ -1067,14 +1067,13 @@ def cmd_save_link(args):
             SELECT id, created_at, cover_file_path, raw_json
             FROM atoms
             WHERE (source_url = ? OR destination_url = ?)
-              AND kind = 'article'
             ORDER BY created_at DESC LIMIT 1
         """, (target_url, target_url)).fetchone()
 
     if existing_row:
         atom_id = existing_row["id"]
         now_iso = existing_row["created_at"]
-        print(f"🔄 Updating existing article atom {atom_id} with full article text...")
+        print(f"🔄 Updating existing atom {atom_id} ({kind})...")
         rel_folder = Path("atoms") / now_iso[:4] / now_iso[5:7] / atom_id
     else:
         atom_id = generate_atom_id()
@@ -1703,7 +1702,7 @@ def cmd_list(args):
         "file": "📄"
     }
 
-    print(f"\n📚 Webtack Vault ({len(rows)} items shown):")
+    print(f"\n📚 WebTack Vault ({len(rows)} items shown):")
     print("─" * 80)
     for r in rows:
         icon = kind_icons.get(r["kind"], "📦")
@@ -1812,7 +1811,7 @@ def cmd_export(args):
 
     elif args.target in ("pinterest-csv", "pinterest"):
         out_path = Path(args.out) if args.out else export_dir / "pinterest_pins.csv"
-        default_board = getattr(args, "board", None) or "Webtack"
+        default_board = getattr(args, "board", None) or "WebTack"
 
         with open(out_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -1861,7 +1860,7 @@ def cmd_export(args):
 
     elif args.target in ("raindrop-csv", "raindrop"):
         out_path = Path(args.out) if args.out else export_dir / "raindrop_export.csv"
-        default_folder = getattr(args, "folder", None) or "Webtack"
+        default_folder = getattr(args, "folder", None) or "WebTack"
 
         with open(out_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -1903,9 +1902,9 @@ def cmd_export(args):
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         lines = [
-            f"# Webtack Vault Knowledge Digest",
+            f"# WebTack Vault Knowledge Digest",
             f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} | Total Curated Atoms: {len(rows)}",
-            f"\n> This document is a unified compilation of curated articles, video transcripts, notes, quotes, and bookmarks from the Webtack vault. Optimized for analysis, indexing, and synthesis in NotebookLM, Claude Projects, and local LLMs.\n",
+            f"\n> This document is a unified compilation of curated articles, video transcripts, notes, quotes, and bookmarks from the WebTack vault. Optimized for analysis, indexing, and synthesis in NotebookLM, Claude Projects, and local LLMs.\n",
             "---"
         ]
 
@@ -1962,7 +1961,7 @@ def cmd_export(args):
         out_path = Path(args.out) if args.out else export_dir / "llms.txt"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         lines = [
-            f"# Webtack Vault Index",
+            f"# WebTack Vault Index",
             f"> Curated knowledge base of articles, bookmarks, videos, and notes.\n"
         ]
         for r in rows:
@@ -2044,8 +2043,8 @@ def cmd_export(args):
             "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
             "<!-- This is an automatically generated file. -->",
             '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
-            "<TITLE>Webtack Bookmarks</TITLE>",
-            "<H1>Webtack Bookmarks</H1>",
+            "<TITLE>WebTack Bookmarks</TITLE>",
+            "<H1>WebTack Bookmarks</H1>",
             "<DL><p>"
         ]
         for r in rows:
@@ -2094,7 +2093,7 @@ def cmd_export(args):
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<rss version="2.0">',
             '  <channel>',
-            '    <title>Webtack Curation Vault</title>',
+            '    <title>WebTack Curation Vault</title>',
             '    <link>http://127.0.0.1:8080/</link>',
             '    <description>Personal local-first curation stream</description>',
             f'    <lastBuildDate>{now_rfc822}</lastBuildDate>'
@@ -2140,7 +2139,7 @@ def cmd_export(args):
             aid = r["id"]
             kind = r["kind"]
             title = r["atom_title"].replace("{", "\\{").replace("}", "\\}")
-            author = (r["author"] or "Webtack Vault").replace("{", "\\{").replace("}", "\\}")
+            author = (r["author"] or "WebTack Vault").replace("{", "\\{").replace("}", "\\}")
             url = r["destination_url"] or r["source_url"] or ""
             year = r["created_at"][:4]
             tags_list = json.loads(r["tags"]) if r["tags"] else []
@@ -2421,7 +2420,7 @@ def extract_author_and_source_title(raw_title):
 
 
 def cmd_import_arena(args):
-    """Import blocks from an Are.na channel into Webtack atoms (delegates to integrations/arena/import_channel.py)."""
+    """Import blocks from an Are.na channel into WebTack atoms (delegates to integrations/arena/import_channel.py)."""
     from integrations.arena.import_channel import import_channel
     import_channel(
         channel_input=args.channel,
@@ -2948,7 +2947,7 @@ def cmd_view(args):
         run_viewer_server(vault_dir, port=port, open_browser=not args.no_open)
     else:
         index_html = generate_viewer(vault_dir)
-        print(f"\n✨ Webtack HTML viewer generated at: {index_html}")
+        print(f"\n✨ WebTack HTML viewer generated at: {index_html}")
         file_url = f"file://{index_html.resolve()}"
         if not args.no_open:
             print(f"🌐 Opening in default browser: {file_url}")
@@ -3044,15 +3043,11 @@ def generate_curation_export(vault_dir: Path, rows, bucket: str = DEFAULT_GCS_BU
             v_tag = int(atom_file.stat().st_mtime)
             atom_url = f"{base_url}/{folder_rel}/atom.json?v={v_tag}"
 
-        # For articles, do not inline the full text in the public manifest (prevents 120MB+ bloat).
-        # Supply article_url so client can lazy-load article.md on demand when opening reader modal.
+        # For articles, do not include full article text or link to article.md on the public garden for safety.
+        # The public digital garden displays title, excerpt/notes, metadata, and links out to the original source.
         article_url = None
         content_val = None
-        if r["kind"] == "article":
-            if (vault_dir / folder_rel / "article.md").exists():
-                article_url = f"{base_url}/{folder_rel}/article.md"
-            content_val = None
-        else:
+        if r["kind"] != "article":
             # For quotes, notes, bookmarks, videos, content is lightweight (< 1MB total across entire vault)
             content_val = r["text_content"]
 
@@ -3259,7 +3254,7 @@ def upload_manifest_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
 
 
 def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
-    """Sync public image assets and article markdown to GCS atoms directory."""
+    """Sync public image assets and atom.json schemas to GCS atoms directory."""
     if not bucket:
         print("❌ Error: No GCS bucket specified. Set WEBTACK_GCS_BUCKET in .env or pass --bucket <name>.")
         return False
@@ -3267,8 +3262,8 @@ def sync_assets_to_gcs(vault_dir: Path, bucket: str = DEFAULT_GCS_BUCKET):
     print(f"🚀 Syncing public assets to gs://{bucket}/atoms/ ...")
     gcloud_bin = get_gcloud_bin()
 
-    # Dynamically exclude all non-public (private/shared) atom directories, plus non-article texts and transcripts
-    exclude_patterns = ["transcript\\.json", "\\.txt", "note\\.md", "quote\\.md", "\\.DS_Store"]
+    # Dynamically exclude all non-public (private/shared) atom directories, transcripts, and markdown files (.md)
+    exclude_patterns = ["transcript\\.json", "\\.txt", "\\.md", "\\.DS_Store"]
     non_public_ids = get_non_public_atom_ids(vault_dir)
     if non_public_ids:
         exclude_patterns.extend([re.escape(aid) for aid in non_public_ids])
@@ -3358,7 +3353,7 @@ def cmd_enrich(args):
 
 
 def cmd_mcp(args):
-    """Run the Webtack Model Context Protocol (MCP) server for Claude Desktop / AI assistants."""
+    """Run the WebTack Model Context Protocol (MCP) server for Claude Desktop / AI assistants."""
     try:
         import webtack_mcp as wideweb_mcp
     except ImportError:
@@ -3367,8 +3362,8 @@ def cmd_mcp(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Webtack Curate CLI - Local-first web curation framework")
-    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to Webtack vault directory")
+    parser = argparse.ArgumentParser(description="WebTack Curate CLI - Local-first web curation framework")
+    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="Path to WebTack vault directory")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     def add_capture_args(p):
@@ -3519,8 +3514,8 @@ def main():
     p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file"], help="Filter by kind")
     p_export.add_argument("--tag", help="Filter by tag")
     p_export.add_argument("--visibility", choices=["public", "shared", "private"], help="Filter by visibility tier (e.g. export only public atoms)")
-    p_export.add_argument("--folder", help="Default Raindrop collection / folder name (default: Webtack/<Kind>s)")
-    p_export.add_argument("--board", help="Default Pinterest board name (default: Webtack)")
+    p_export.add_argument("--folder", help="Default Raindrop collection / folder name (default: WebTack/<Kind>s)")
+    p_export.add_argument("--board", help="Default Pinterest board name (default: WebTack)")
     p_export.add_argument("--out", help="Output file path (default: stdout or vault/export/vault_digest.md)")
     p_export.set_defaults(func=cmd_export)
 
@@ -3536,11 +3531,11 @@ def main():
     p_view.set_defaults(func=cmd_view)
 
     # 9. MCP command
-    p_mcp = subparsers.add_parser("mcp", help="Run the Webtack Model Context Protocol (MCP) server for Claude Desktop / AI tools")
+    p_mcp = subparsers.add_parser("mcp", help="Run the WebTack Model Context Protocol (MCP) server for Claude Desktop / AI tools")
     p_mcp.set_defaults(func=cmd_mcp)
 
     # 10. Import Are.na command
-    p_import_arena = subparsers.add_parser("import-arena", help="Import blocks from an Are.na channel into Webtack atoms")
+    p_import_arena = subparsers.add_parser("import-arena", help="Import blocks from an Are.na channel into WebTack atoms")
     p_import_arena.add_argument("channel", help="Are.na channel slug, ID, or JSON file path")
     p_import_arena.add_argument("--limit", type=int, default=100, help="Max blocks to fetch (default: 100)")
     p_import_arena.add_argument("--tag", help="Additional tag to apply to imported atoms")

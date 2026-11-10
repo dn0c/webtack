@@ -384,14 +384,18 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     <!-- Reflection / Garden Note -->
     <g transform="translate(18, 360)">
       <rect width="344" height="152" rx="8" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" stroke-dasharray="3,3"/>
-      <text x="172" y="32" text-anchor="middle" font-family="Menlo, monospace" font-size="11px" font-weight="700" fill="#92400E">REFLECT &amp; GARDEN</text>
-      
-      <text x="172" y="66" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="14px" font-weight="700" fill="#78350F">
-        Personal Web Garden
-      </text>
-      <text x="172" y="90" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="11.5px" font-weight="600" fill="#B45309">
+      <text x="172" y="32" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="11.5px" font-weight="600" fill="#B45309">
         (Optional — publish to the web)
       </text>
+      
+      <text x="172" y="62" text-anchor="middle" font-family="Menlo, monospace" font-size="11px" font-weight="700" fill="#92400E">
+        REFLECT &amp; GARDEN
+      </text>
+
+      <text x="172" y="88" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="14px" font-weight="700" fill="#78350F">
+        Personal Web Garden
+      </text>
+
       <text x="172" y="122" text-anchor="middle" font-family="Menlo, monospace" font-size="11.5px" font-weight="bold" fill="#065F46">
         e.g., drewshannon.net/garden
       </text>
