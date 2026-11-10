@@ -15,7 +15,7 @@ Decouples capture and long-term storage from proprietary platforms. The filesyst
 
 ## Quickstart (Try it in 60 seconds)
 
-Clone the repository and view the included specimen vault:
+Clone the repository and view the included sample vault:
 
 ```bash
 # 1. Clone repository & install dependencies
