@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Update Image Source URLs from Description / Notes
+WebTack — Update Image Source URLs from Description / Notes
 
 Extracts web URLs present in image atom notes (e.g., 'Via https://...')
 and updates:
@@ -180,9 +180,9 @@ def main():
     out_file = generate_curation_export(pub_rows)
     print(f"✅ Generated {out_file}")
 
-    print("\n✨ Regenerating Webtack viewer (index.html / export.html)...")
+    print("\n✨ Regenerating WebTack viewer (index.html / export.html)...")
     generate_viewer(vault_dir)
-    print("✨ Webtack viewer updated successfully!")
+    print("✨ WebTack viewer updated successfully!")
 
 
 if __name__ == "__main__":

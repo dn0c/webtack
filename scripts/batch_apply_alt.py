@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Batch Alt Text Applier
+WebTack — Batch Alt Text Applier
 Applies generated alt text to atoms (atom.json & SQLite) and pushes to Are.na for owned blocks.
 """
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Restore Original YouTube Titles
+WebTack — Restore Original YouTube Titles
 Recovers and restores the original titles and channel authors for YouTube atoms
 that were inadvertently overwritten by the URL-path collision in sync_instapaper_titles.py.
 """

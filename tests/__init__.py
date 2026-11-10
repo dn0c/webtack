@@ -1,1 +1,1 @@
-"""Webtack test suite."""
+"""WebTack test suite."""

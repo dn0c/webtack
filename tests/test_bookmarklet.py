@@ -8,7 +8,7 @@ import shutil
 import http.server
 from pathlib import Path
 
-from viewer import WebtackCaptureHandler
+from viewer import WebTackCaptureHandler
 import curate
 
 
@@ -21,7 +21,7 @@ class TestBookmarkletAndServer(unittest.TestCase):
         curate.get_db(cls.vault_dir).close()
 
         cls.port = 8998
-        handler = type("TestCaptureHandler", (WebtackCaptureHandler,), {"vault_dir": cls.vault_dir})
+        handler = type("TestCaptureHandler", (WebTackCaptureHandler,), {"vault_dir": cls.vault_dir})
         cls.httpd = http.server.HTTPServer(("127.0.0.1", cls.port), handler)
         cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
         cls.thread.start()
@@ -68,6 +68,24 @@ class TestBookmarkletAndServer(unittest.TestCase):
             self.assertTrue(res_data.get("success"))
             self.assertEqual(res_data["atom"]["title"], "Bookmarklet Integration Note")
             atom_id = res_data["atom"]["id"]
+
+        # Test updating description via /api/update
+        up_payload = json.dumps({
+            "id": atom_id,
+            "description": "Updated editorial description from user test."
+        }).encode("utf-8")
+        up_req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/update",
+            data=up_payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(up_req) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
+            up_res = json.loads(resp.read().decode("utf-8"))
+            self.assertTrue(up_res.get("success"))
+            self.assertEqual(up_res["description"], "Updated editorial description from user test.")
 
         # Test deleting the created atom via /api/delete
         del_payload = json.dumps({"id": atom_id}).encode("utf-8")

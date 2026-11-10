@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Clean Quote Titles & Notes
+WebTack — Clean Quote Titles & Notes
 1. Updates curated quote titles to their clean source article titles, stripping 'Quote - ' prefixes,
    resolving generic 'Quote' titles, and recovering real source titles from quote provenance/text.
    Preserves custom, thoughtful, and book titles.

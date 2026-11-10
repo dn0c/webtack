@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Webtack — Are.na Alt Text Synchronizer
-Pushes rich accessibility alt text generated in Webtack back up to corresponding Are.na blocks.
+WebTack — Are.na Alt Text Synchronizer
+Pushes rich accessibility alt text generated in WebTack back up to corresponding Are.na blocks.
 """
 
 import os
@@ -29,7 +29,7 @@ def push_arena_alt_text(block_id: str, alt_text: str, token: str) -> tuple[bool,
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 Webtack/1.0"
+        "User-Agent": "Mozilla/5.0 WebTack/1.0"
     }
     payload = {"description": alt_text}
 
@@ -113,8 +113,8 @@ def push_all_alt_texts(vault_dir: Path, limit: int = None) -> int:
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Push Webtack image alt text to Are.na blocks")
-    parser.add_argument("--vault", default="vault", help="Path to Webtack vault (default: vault)")
+    parser = argparse.ArgumentParser(description="Push WebTack image alt text to Are.na blocks")
+    parser.add_argument("--vault", default="vault", help="Path to WebTack vault (default: vault)")
     parser.add_argument("--limit", type=int, default=None, help="Max blocks to sync")
     args = parser.parse_args()
 

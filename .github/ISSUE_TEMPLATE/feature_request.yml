@@ -1,12 +1,12 @@
 name: Feature Request
-description: Propose an idea or enhancement for Webtack
+description: Propose an idea or enhancement for WebTack
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping make Webtack better! Please consider how your proposed feature fits with Webtack's core principles: **Content Sidecar Pattern**, **Filesystem as Canonical Truth**, **The 30-Year Horizon**, and **Zero Bloat**.
+        Thanks for helping make WebTack better! Please consider how your proposed feature fits with WebTack's core principles: **Content Sidecar Pattern**, **Filesystem as Canonical Truth**, **The 30-Year Horizon**, and **Zero Bloat**.
 
   - type: textarea
     id: problem

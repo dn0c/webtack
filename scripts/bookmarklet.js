@@ -1,5 +1,5 @@
 /**
- * Webtack In-Page Capture Drawer Bookmarklet (Option B)
+ * WebTack In-Page Capture Drawer Bookmarklet (Option B)
  * Extracts canonical metadata, OpenGraph, JSON-LD, bylines, and selections
  * into a sleek, isolated Shadow DOM drawer directly on the active webpage.
  */
@@ -127,7 +127,7 @@
   const imageUrl = jsonLd.image || getMeta(['meta[property="og:image:secure_url"]', 'meta[property="og:image"]', 'meta[name="twitter:image"]']);
   const selection = window.getSelection() ? window.getSelection().toString().trim() : '';
   const isVideoPage = /youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|loom\.com/i.test(window.location.hostname);
-  const isArticlePage = !!document.querySelector('article') || (document.body ? document.body.innerText.length > 2000 : false);
+  const isArticlePage = !!document.querySelector('article') || (document.body ? document.body.textContent.length > 2000 : false);
 
   // Auto-detect initial kind
   let currentKind = 'bookmark';
@@ -412,7 +412,7 @@
       <div class="header">
         <div class="brand">
           <div class="brand-dot"></div>
-          Webtack Capture
+          WebTack Capture
         </div>
         <button class="close-btn" id="closeBtn" title="Close (Esc)">✕</button>
       </div>
@@ -506,10 +506,10 @@
         </div>
 
         <div class="server-warning" id="serverWarning">
-          ⚠️ <strong>Cannot connect to Webtack!</strong><br>
-          Make sure Webtack is running by double-clicking <code>Launch Webtack.command</code> or running <code>python3 curate.py view --server</code> on your Mac.
+          ⚠️ <strong>Cannot connect to WebTack!</strong><br>
+          Make sure WebTack is running by double-clicking <code>Launch WebTack.command</code> or running <code>python3 curate.py view --server</code> on your Mac.
           <div style="margin-top: 6px;">
-            <a href="http://127.0.0.1:8080/?capture_url=${encodeURIComponent(canonicalUrl)}&capture_title=${encodeURIComponent(pageTitle)}" target="_blank" style="color: #60a5fa; text-decoration: underline;">Open Webtack in tab instead</a>
+            <a href="http://127.0.0.1:8080/?capture_url=${encodeURIComponent(canonicalUrl)}&capture_title=${encodeURIComponent(pageTitle)}" target="_blank" style="color: #60a5fa; text-decoration: underline;">Open WebTack in tab instead</a>
           </div>
         </div>
 
@@ -600,7 +600,7 @@
       if (res && res.exists && res.atom) {
         const brand = shadow.querySelector('.brand');
         if (brand) {
-          brand.innerHTML = '<div class="brand-dot" style="background:#38bdf8; box-shadow:0 0 8px #38bdf8;"></div> Webtack • Existing Atom';
+          brand.innerHTML = '<div class="brand-dot" style="background:#38bdf8; box-shadow:0 0 8px #38bdf8;"></div> WebTack • Existing Atom';
         }
         const btnSave = shadow.getElementById('btnSave');
         if (btnSave) {
@@ -702,6 +702,32 @@
         throw new Error(res.error || 'Server rejected atom');
       }
     } catch (err) {
+      // If direct fetch is blocked by site CSP (e.g. NYTimes connect-src),
+      // seamlessly transfer the live tab data to WebTack via postMessage!
+      try {
+        const win = window.open('http://127.0.0.1:8080/?capture_url=' + encodeURIComponent(payload.url || location.href) + '&capture_title=' + encodeURIComponent(payload.title || document.title) + '&capture_description=' + encodeURIComponent(payload.description || ''), '_blank');
+        if (win) {
+          statusText.textContent = 'Transferring to WebTack...';
+          const transferPayload = {
+            type: 'WEBTACK_DOM_TRANSFER',
+            ...payload,
+            articleMarkdown: payload.article_markdown
+          };
+          const timer = setInterval(() => {
+            try { win.postMessage(transferPayload, '*'); } catch (_) {}
+          }, 400);
+          window.addEventListener('message', function h(e) {
+            if (e.data && e.data.type === 'WEBTACK_RECEIVED') {
+              clearInterval(timer);
+              window.removeEventListener('message', h);
+              closeDrawer();
+            }
+          });
+          setTimeout(() => clearInterval(timer), 6000);
+          return;
+        }
+      } catch (e) {}
+
       btnSave.disabled = false;
       btnSave.textContent = 'Save to Vault';
       statusText.className = 'status-text status-error';

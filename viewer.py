@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack HTML Viewer & Local Capture Server
+WebTack HTML Viewer & Local Capture Server
 Builds a high-aesthetic, local-first masonry showcase for browsing, reading, and capturing atoms.
 https://webtack.net
 """
@@ -9,9 +9,11 @@ import json
 import os
 import sqlite3
 import sys
+import threading
 import types
 import urllib.parse
 import webbrowser
+from datetime import datetime, timezone
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
@@ -78,18 +80,40 @@ def get_atoms_data(vault_dir: Path):
     return atoms_data, kind_counts
 
 
+def get_inlined_bookmarklet_href() -> str:
+    """Build a completely self-contained inlined bookmarklet href with zero external script dependencies."""
+    import re
+    script_path = Path(__file__).resolve().parent / "scripts" / "bookmarklet.js"
+    if not script_path.exists():
+        return "javascript:alert('WebTack bookmarklet script not found');"
+    with open(script_path, "r", encoding="utf-8") as f:
+        code = f.read()
+
+    cleaned_lines = []
+    for line in code.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("//"):
+            continue
+        cleaned_lines.append(line)
+    cleaned = "\n".join(cleaned_lines)
+    cleaned = re.sub(r'/\*.*?\*/', '', cleaned, flags=re.DOTALL)
+    encoded = urllib.parse.quote(cleaned, safe="();{}=+*/<>!&|?:,.-_'[]~$^#@")
+    return f"javascript:{encoded}"
+
+
 def generate_viewer(vault_dir: Path) -> Path:
     """Generate vault/index.html containing the standalone reactive masonry viewer with capture modal."""
     atoms_data, kind_counts = get_atoms_data(vault_dir)
     atoms_json_str = json.dumps(atoms_data)
     counts_json_str = json.dumps(kind_counts)
+    bookmarklet_href = get_inlined_bookmarklet_href()
 
     html_template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Webtack Vault</title>
+  <title>WebTack Vault</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1138,7 +1162,7 @@ def generate_viewer(vault_dir: Path) -> Path:
     <header>
       <div class="top-bar">
         <div class="logo-area">
-          <span class="logo">Webtack</span>
+          <span class="logo">WebTack</span>
           <span class="subtitle">local curation vault</span>
         </div>
         <div class="top-actions">
@@ -1239,7 +1263,7 @@ def generate_viewer(vault_dir: Path) -> Path:
   <!-- Capture Dialog Modal -->
   <dialog id="captureModal" closedby="any" style="max-width: 580px;">
     <div class="modal-header">
-      <h3 style="font-size: 16px; font-weight: 600;">Capture to Webtack</h3>
+      <h3 style="font-size: 16px; font-weight: 600;">Capture to WebTack</h3>
       <button class="modal-close" onclick="document.getElementById('captureModal').close()">✕</button>
     </div>
     <div class="capture-form">
@@ -1254,7 +1278,7 @@ def generate_viewer(vault_dir: Path) -> Path:
 
       <div class="bookmarklet-banner">
         <span>⚡ <strong>1-Click Web Capture:</strong> Drag to your browser bookmarks bar:</span>
-        <a class="bookmarklet-link" href="javascript:(function(){{const d=document,e=d.getElementById('webtack-drawer-host');if(e){{e.remove();return;}}const s=d.createElement('script');s.id='webtack-script';s.src='http://127.0.0.1:8080/bookmarklet.js?r='+Date.now();s.onerror=function(){{const u=location.href,t=document.title,q=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(q),'_blank');}};d.body.appendChild(s);}})();" onclick="alert('Drag this ⚡ Save to Webtack link to your browser Bookmarks Bar to capture articles, videos, quotes, and bookmarks from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to Webtack</a>
+        <a class="bookmarklet-link" href="{bookmarklet_href}" onclick="alert('Drag this ⚡ Save to WebTack link to your browser Bookmarks Bar to capture articles, videos, quotes, and bookmarks from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WebTack</a>
       </div>
 
       <!-- Link / URL Form -->
@@ -1268,12 +1292,23 @@ def generate_viewer(vault_dir: Path) -> Path:
           <input type="text" id="capLinkTitle" placeholder="Leave blank to auto-scrape">
         </div>
         <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Notes (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Editable summary or thoughts</span>
+          </div>
+          <textarea id="capLinkDescription" rows="3" placeholder="Add or edit summary or personal editorial notes..."></textarea>
+        </div>
+        <div class="form-group">
           <label>Tags (Comma separated)</label>
           <input type="text" id="capLinkTags" placeholder="systems, design, essay">
         </div>
+        <div class="form-group" id="groupArticleBody">
+          <label>Article Text / Markdown (Optional)</label>
+          <textarea id="capLinkArticleBody" rows="3" placeholder="Include full article text if you choose (pasted text or markdown for offline reading &amp; AI summary)..."></textarea>
+        </div>
         <div class="form-actions">
           <div class="bookmarklet-box">
-            <a class="bookmarklet-link" href="javascript:(function(){{const d=document,e=d.getElementById('webtack-drawer-host');if(e){{e.remove();return;}}const s=d.createElement('script');s.id='webtack-script';s.src='http://127.0.0.1:8080/bookmarklet.js?r='+Date.now();s.onerror=function(){{const u=location.href,t=document.title,q=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(q),'_blank');}};d.body.appendChild(s);}})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to Webtack</a>
+            <a class="bookmarklet-link" href="{bookmarklet_href}" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WebTack</a>
           </div>
           <button type="submit" class="submit-btn" id="capLinkSubmit">Save Link</button>
         </div>
@@ -1288,6 +1323,13 @@ def generate_viewer(vault_dir: Path) -> Path:
         <div class="form-group">
           <label>Custom Title (Optional)</label>
           <input type="text" id="capVideoTitle" placeholder="Leave blank to auto-fetch video title">
+        </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Notes (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Video summary or commentary</span>
+          </div>
+          <textarea id="capVideoDescription" rows="3" placeholder="Context or summary of the video..."></textarea>
         </div>
         <div class="form-group">
           <label>Tags (Comma separated)</label>
@@ -1320,6 +1362,13 @@ def generate_viewer(vault_dir: Path) -> Path:
           <input type="url" id="capQuoteSource" placeholder="https://...">
         </div>
         <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Commentary (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Why this quote matters</span>
+          </div>
+          <textarea id="capQuoteDescription" rows="2" placeholder="Context, commentary, or why this quote matters..."></textarea>
+        </div>
+        <div class="form-group">
           <label>Tags (Comma separated)</label>
           <input type="text" id="capQuoteTags" placeholder="design, philosophy">
         </div>
@@ -1338,6 +1387,13 @@ def generate_viewer(vault_dir: Path) -> Path:
         <div class="form-group">
           <label>Title (Optional)</label>
           <input type="text" id="capNoteTitle" placeholder="Short memo title">
+        </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Summary (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Brief annotation</span>
+          </div>
+          <textarea id="capNoteDescription" rows="2" placeholder="Optional editorial summary..."></textarea>
         </div>
         <div class="form-group">
           <label>Tags (Comma separated)</label>
@@ -1372,7 +1428,10 @@ def generate_viewer(vault_dir: Path) -> Path:
           <input type="text" id="capImageAlt" placeholder="Accessibility description of what the image depicts">
         </div>
         <div class="form-group">
-          <label>Notes (Optional)</label>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Notes (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Thoughts on this image</span>
+          </div>
           <textarea id="capImageNotes" placeholder="Context or thoughts on why you saved this image..."></textarea>
         </div>
         <div class="form-group">
@@ -1390,16 +1449,27 @@ def generate_viewer(vault_dir: Path) -> Path:
   </dialog>
 
   <!-- Reader Dialog Modal -->
-  <dialog id="readerModal" closedby="any">
+  <dialog id="readerModal" closedby="any" style="max-width: 840px; width: 92%;">
     <div class="modal-header">
       <div id="modalMeta" class="modal-meta" style="margin-bottom:0;"></div>
       <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn" onclick="toggleEditArticleText()" id="editArticleBtn" style="padding: 4px 10px; font-size: 12px;" title="Edit or Paste Full Article Text">✏️ Edit / Paste Text</button>
         <button class="meta-btn danger" onclick="deleteCurrentReaderAtom()" style="padding: 4px 10px; font-size: 12px;" title="Delete this atom">🗑️ Delete</button>
         <button class="meta-btn" onclick="openMetaFromReader()" style="padding: 4px 10px; font-size: 12px;">ℹ️ View Metadata</button>
         <button class="modal-close" id="closeModalBtn" onclick="document.getElementById('readerModal').close()">✕</button>
       </div>
     </div>
     <div class="modal-body" id="modalBody"></div>
+    <div id="modalEditBody" style="display:none; padding: 24px;">
+      <div style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">
+        Paste or edit the full article text below. Saving will update <code>article.md</code> and automatically generate an AI summary.
+      </div>
+      <textarea id="articleTextInput" rows="18" style="width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; color: var(--text); font-family: inherit; line-height: 1.6; resize: vertical;"></textarea>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+        <button class="meta-btn" onclick="toggleEditArticleText(false)">Cancel</button>
+        <button class="meta-btn primary" id="saveArticleTextBtn" onclick="saveFullArticleText()">💾 Save Full Text & Re-Summarize</button>
+      </div>
+    </div>
   </dialog>
 
   <!-- Metadata Inspector Dialog Modal -->
@@ -1418,7 +1488,7 @@ def generate_viewer(vault_dir: Path) -> Path:
     <div class="meta-dialog-body" id="metadataModalBody"></div>
   </dialog>
 
-  <div class="toast" id="toast">✨ Saved to Webtack vault!</div>
+  <div class="toast" id="toast">✨ Saved to WebTack vault!</div>
 
   <script>
     const ATOMS = {atoms_json_str};
@@ -1603,7 +1673,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           showToast('💾 Exported vault_backup.json');
           return;
         }}
-        alert('Digest, llms.txt, and CSV exports require running Webtack with the local server:\\n\\nDouble-click "Launch Webtack.command" or run:\\npython3 curate.py view --server');
+        alert('Digest, llms.txt, and CSV exports require running WebTack with the local server:\\n\\nDouble-click "Launch WebTack.command" or run:\\npython3 curate.py view --server');
         return;
       }}
       document.getElementById('exportMenu').classList.remove('show');
@@ -1656,11 +1726,19 @@ def generate_viewer(vault_dir: Path) -> Path:
         submitBtn = document.getElementById('capLinkSubmit');
         payload.url = document.getElementById('capUrl').value.trim();
         payload.title = document.getElementById('capLinkTitle').value.trim() || null;
+        payload.description = document.getElementById('capLinkDescription') ? document.getElementById('capLinkDescription').value.trim() || null : null;
+        payload.notes = payload.description;
         payload.tags = cleanTags(document.getElementById('capLinkTags').value);
+        const pastedBody = document.getElementById('capLinkArticleBody') ? document.getElementById('capLinkArticleBody').value.trim() : null;
+        payload.article_markdown = pastedBody || window.inboundArticleMarkdown || null;
+        if (window.inboundCoverImageUrl) payload.image_url = window.inboundCoverImageUrl;
+        if (window.inboundAuthor) payload.author = window.inboundAuthor;
       }} else if (kind === 'video') {{
         submitBtn = document.getElementById('capVideoSubmit');
         payload.url = document.getElementById('capVideoUrl').value.trim();
         payload.title = document.getElementById('capVideoTitle').value.trim() || null;
+        payload.description = document.getElementById('capVideoDescription') ? document.getElementById('capVideoDescription').value.trim() || null : null;
+        payload.notes = payload.description;
         payload.tags = cleanTags(document.getElementById('capVideoTags').value);
         payload.transcript = document.getElementById('capVideoTranscript') ? document.getElementById('capVideoTranscript').value.trim() || null : null;
       }} else if (kind === 'quote') {{
@@ -1668,11 +1746,15 @@ def generate_viewer(vault_dir: Path) -> Path:
         payload.quote = document.getElementById('capQuoteText').value.trim();
         payload.author = document.getElementById('capQuoteAuthor').value.trim() || null;
         payload.source = document.getElementById('capQuoteSource').value.trim() || null;
+        payload.description = document.getElementById('capQuoteDescription') ? document.getElementById('capQuoteDescription').value.trim() || null : null;
+        payload.notes = payload.description;
         payload.tags = cleanTags(document.getElementById('capQuoteTags').value);
       }} else if (kind === 'note') {{
         submitBtn = document.getElementById('capNoteSubmit');
         payload.text = document.getElementById('capNoteText').value.trim();
         payload.title = document.getElementById('capNoteTitle').value.trim() || null;
+        payload.description = document.getElementById('capNoteDescription') ? document.getElementById('capNoteDescription').value.trim() || null : null;
+        payload.notes = payload.description;
         payload.tags = cleanTags(document.getElementById('capNoteTags').value);
       }} else if (kind === 'image') {{
         submitBtn = document.getElementById('capImageSubmit');
@@ -1681,12 +1763,13 @@ def generate_viewer(vault_dir: Path) -> Path:
         payload.source = document.getElementById('capImageSource').value.trim() || null;
         payload.author = document.getElementById('capImageAuthor').value.trim() || null;
         payload.alt = document.getElementById('capImageAlt').value.trim() || null;
-        payload.notes = document.getElementById('capImageNotes').value.trim() || null;
+        payload.notes = document.getElementById('capImageNotes') ? document.getElementById('capImageNotes').value.trim() || null : null;
+        payload.description = payload.notes;
         payload.tags = cleanTags(document.getElementById('capImageTags').value);
       }}
 
       if (!isHttp) {{
-        alert('Instant web capture requires Webtack to be running locally via:\\n\\npython3 curate.py view --server\\n\\n(Currently running as a static file:// document).');
+        alert('Instant web capture requires WebTack to be running locally via:\\n\\npython3 curate.py view --server\\n\\n(Currently running as a static file:// document).');
         return;
       }}
 
@@ -1714,7 +1797,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           alert('Error saving atom: ' + (res.error || 'Unknown error'));
         }}
       }} catch (err) {{
-        alert('Network error connecting to Webtack backend: ' + err.message);
+        alert('Network error connecting to WebTack backend: ' + err.message);
       }} finally {{
         submitBtn.textContent = origText;
         submitBtn.disabled = false;
@@ -1766,7 +1849,7 @@ def generate_viewer(vault_dir: Path) -> Path:
       }}
       const isHttp = window.location.protocol.startsWith('http');
       if (!isHttp) {{
-        alert('Deleting atoms requires Webtack to be running locally via:\\n\\npython3 curate.py view --server\\n\\n(Currently running as a static file:// document).');
+        alert('Deleting atoms requires WebTack to be running locally via:\\n\\npython3 curate.py view --server\\n\\n(Currently running as a static file:// document).');
         return;
       }}
 
@@ -1796,7 +1879,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           alert('Error deleting atom: ' + (res.error || 'Unknown error'));
         }}
       }} catch (err) {{
-        alert('Failed to connect to Webtack backend: ' + err.message);
+        alert('Failed to connect to WebTack backend: ' + err.message);
       }}
     }}
 
@@ -1815,6 +1898,68 @@ def generate_viewer(vault_dir: Path) -> Path:
     function openReaderFromMeta(atomId) {{
       document.getElementById('metadataModal').close();
       openReader(atomId);
+    }}
+
+    function toggleEditMetaDescription(forceEdit) {{
+      const viewEl = document.getElementById('metaDescView');
+      const editEl = document.getElementById('metaDescEdit');
+      const btn = document.getElementById('metaEditDescBtn');
+      if (!viewEl || !editEl) return;
+      const isEditing = (forceEdit !== undefined) ? !forceEdit : (editEl.style.display !== 'none');
+      if (isEditing) {{
+        editEl.style.display = 'none';
+        viewEl.style.display = 'block';
+        if (btn) btn.textContent = '✏️ Edit';
+      }} else {{
+        editEl.style.display = 'block';
+        viewEl.style.display = 'none';
+        if (btn) btn.textContent = '✕ Cancel';
+        const textarea = document.getElementById('metaDescInput');
+        if (textarea) textarea.focus();
+      }}
+    }}
+
+    async function saveMetaDescription(atomId) {{
+      const textarea = document.getElementById('metaDescInput');
+      const saveBtn = document.getElementById('saveDescBtn');
+      if (!textarea || !saveBtn) return;
+      const newDesc = textarea.value.trim();
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      try {{
+        const res = await fetch('/api/update', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify({{ id: atomId, description: newDesc }})
+        }});
+        if (!res.ok) throw new Error('Update failed');
+        
+        // Update local in-memory atom
+        const atom = ATOMS.find(a => a.id === atomId);
+        if (atom) {{
+          atom.description = newDesc;
+          atom.notes = newDesc;
+          if (atom.raw && atom.raw.curation) {{
+            atom.raw.curation.description = newDesc;
+          }}
+        }}
+        
+        // Update DOM view
+        const viewEl = document.getElementById('metaDescView');
+        if (viewEl) {{
+          viewEl.innerHTML = newDesc ? renderMarkdown(newDesc) : '<em style="color:var(--muted); font-size: 12px;">No description added yet. Click ✏️ Edit to write one.</em>';
+        }}
+        toggleEditMetaDescription(false);
+        showToast('✨ Description updated!');
+        
+        // Refresh cards
+        renderCards();
+      }} catch (err) {{
+        alert('Failed to save description: ' + err.message);
+      }} finally {{
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Save Description';
+      }}
     }}
 
     function formatSeconds(seconds) {{
@@ -1916,7 +2061,100 @@ def generate_viewer(vault_dir: Path) -> Path:
 
       let parsedHtml = renderMarkdown(content);
       body.innerHTML = `<h1>${{escapeHtml(atom.title)}}</h1>` + parsedHtml;
+      
+      const editBody = document.getElementById('modalEditBody');
+      if (editBody) editBody.style.display = 'none';
+      if (body) body.style.display = 'block';
+      const editBtn = document.getElementById('editArticleBtn');
+      if (editBtn) editBtn.textContent = '✏️ Edit / Paste Text';
+      
       modal.showModal();
+    }}
+
+    function toggleEditArticleText(forceEdit) {{
+      const viewEl = document.getElementById('modalBody');
+      const editEl = document.getElementById('modalEditBody');
+      const btn = document.getElementById('editArticleBtn');
+      if (!viewEl || !editEl) return;
+      const isEditing = (forceEdit !== undefined) ? !forceEdit : (editEl.style.display !== 'none');
+      if (isEditing) {{
+        editEl.style.display = 'none';
+        viewEl.style.display = 'block';
+        if (btn) btn.textContent = '✏️ Edit / Paste Text';
+      }} else {{
+        editEl.style.display = 'block';
+        viewEl.style.display = 'none';
+        if (btn) btn.textContent = '✕ Cancel';
+        const atom = ATOMS.find(a => a.id === window.currentReaderAtomId);
+        const textarea = document.getElementById('articleTextInput');
+        if (textarea && atom) {{
+          textarea.value = atom.article_markdown || (atom.kind === 'note' ? atom.excerpt : '');
+          textarea.focus();
+        }}
+      }}
+    }}
+
+    async function saveFullArticleText() {{
+      const atomId = window.currentReaderAtomId;
+      const textarea = document.getElementById('articleTextInput');
+      const saveBtn = document.getElementById('saveArticleTextBtn');
+      if (!atomId || !textarea || !saveBtn) return;
+      const newText = textarea.value.trim();
+      if (!newText) {{
+        alert('Please enter or paste article text.');
+        return;
+      }}
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving & Summarizing with AI...';
+      try {{
+        const res = await fetch('/api/update', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify({{ id: atomId, article_markdown: newText, enrich: true }})
+        }});
+        if (!res.ok) throw new Error('Update failed');
+        const data = await res.json();
+        
+        // Update local in-memory atom
+        const atom = ATOMS.find(a => a.id === atomId);
+        if (atom) {{
+          atom.article_markdown = newText;
+          if (data.description) {{
+            atom.description = data.description;
+            atom.notes = data.description;
+            if (atom.raw && atom.raw.curation) atom.raw.curation.description = data.description;
+          }}
+          const wCount = newText.split(/\\s+/).length;
+          if (!atom.metadata) atom.metadata = {{}};
+          atom.metadata.word_count = wCount;
+        }}
+
+        // Re-render reader view
+        const body = document.getElementById('modalBody');
+        if (body && atom) {{
+          body.innerHTML = `<h1>${{escapeHtml(atom.title)}}</h1>` + renderMarkdown(newText);
+        }}
+        const meta = document.getElementById('modalMeta');
+        if (meta && atom) {{
+          const wordCount = `${{atom.metadata.word_count}} words`;
+          const readTime = `~${{Math.ceil(atom.metadata.word_count / 225)}} min read`;
+          meta.innerHTML = `
+            <span><strong>${{atom.author || 'Author'}}</strong></span>
+            <span>•</span>
+            <span>${{atom.date}}</span>
+            <span>•</span><span>${{wordCount}}</span>
+            <span>•</span><span>${{readTime}}</span>
+          `;
+        }}
+        toggleEditArticleText(false);
+        showToast('✨ Full article text and AI summary saved!');
+        renderCards();
+      }} catch (err) {{
+        alert('Failed to save article text: ' + err.message);
+      }} finally {{
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Save Full Text & Re-Summarize';
+      }}
     }}
 
     function renderVal(val, isMono = false, isUrl = false, truncateLen = 48) {{
@@ -2116,18 +2354,29 @@ def generate_viewer(vault_dir: Path) -> Path:
           <div style="display:flex; align-items:center; gap:12px; font-size:11.5px; color:var(--muted);">
             <span>Captured: <strong style="color:var(--text);">${{escapeHtml(createdDateStr || '—')}}</strong></span>
             ${{updatedDateStr ? `<span>Updated: <strong style="color:var(--text);">${{escapeHtml(updatedDateStr)}}</strong></span>` : ''}}
-            <a href="${{escapeHtml(schemaUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;" title="Webtack Atom Spec">Schema ↗</a>
+            <a href="${{escapeHtml(schemaUrl)}}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;" title="WebTack Atom Spec">Schema ↗</a>
           </div>
         </div>
       `;
 
       // TIER 1: CURATION LAYER
-      const notesHtml = (atom.description || atom.notes) ? `
+      const curDesc = atom.description || atom.notes || '';
+      const notesHtml = `
         <div class="meta-notes-banner" style="margin-top: 14px; margin-bottom: 0;">
-          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">description</div>
-          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{renderMarkdown(atom.description || atom.notes)}}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600;">Description / Editorial Notes</div>
+            <button id="metaEditDescBtn" onclick="toggleEditMetaDescription()" style="background: none; border: 1px solid var(--border); color: var(--muted); padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.15s;">✏️ Edit</button>
+          </div>
+          <div id="metaDescView" class="markdown-body" style="font-size: 13px; line-height: 1.6;">${{curDesc ? renderMarkdown(curDesc) : '<em style="color:var(--muted); font-size: 12px;">No description added yet. Click ✏️ Edit to write one.</em>'}}</div>
+          <div id="metaDescEdit" style="display: none; margin-top: 8px;">
+            <textarea id="metaDescInput" rows="4" style="width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 13px; color: var(--text); font-family: inherit; resize: vertical; line-height: 1.5; outline: none;">${{escapeHtml(curDesc)}}</textarea>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+              <button onclick="toggleEditMetaDescription(false)" class="meta-btn" style="padding: 4px 10px; font-size: 12px;">Cancel</button>
+              <button onclick="saveMetaDescription('${{atom.id}}')" class="meta-btn primary" id="saveDescBtn" style="padding: 4px 12px; font-size: 12px;">💾 Save Description</button>
+            </div>
+          </div>
         </div>
-      ` : '';
+      `;
 
       const tier1Html = `
         <div class="schema-tier-card tier-curation">
@@ -2351,16 +2600,73 @@ def generate_viewer(vault_dir: Path) -> Path:
       document.getElementById('metadataModal').showModal();
     }}
 
+    // Listen for live DOM transfers from bookmarklet on strict CSP sites (e.g. NYTimes)
+    window.addEventListener('message', (event) => {{
+      if (event.data && event.data.type === 'WEBTACK_DOM_TRANSFER') {{
+        const d = event.data;
+        if (d.title && !document.getElementById('capLinkTitle').value) {{
+          document.getElementById('capLinkTitle').value = d.title;
+        }}
+        if (d.description && !document.getElementById('capLinkDescription').value) {{
+          document.getElementById('capLinkDescription').value = d.description;
+        }}
+        if (d.articleMarkdown) {{
+          window.inboundArticleMarkdown = d.articleMarkdown;
+          let badge = document.getElementById('tabTransferBadge');
+          if (!badge) {{
+            badge = document.createElement('div');
+            badge.id = 'tabTransferBadge';
+            badge.style = 'font-size: 11.5px; color: #10b981; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 6px; padding: 6px 10px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;';
+            badge.innerHTML = '<span>⚡</span><span>Full article text captured live from tab! Ready for offline reader.</span>';
+            const form = document.getElementById('linkForm');
+            if (form) form.insertBefore(badge, form.firstChild);
+          }}
+        }}
+        if (d.imageUrl) {{
+          window.inboundCoverImageUrl = d.imageUrl;
+        }}
+        if (d.author) {{
+          window.inboundAuthor = d.author;
+        }}
+        if (event.source && event.source.postMessage) {{
+          try {{ event.source.postMessage({{ type: 'WEBTACK_RECEIVED' }}, '*'); }} catch (e) {{}}
+        }}
+      }}
+    }});
+
     // Check URL parameters for bookmarklet pre-fill
     window.addEventListener('DOMContentLoaded', () => {{
       const params = new URLSearchParams(window.location.search);
-      if (params.get('capture_url')) {{
+      const capUrl = params.get('capture_url');
+      if (capUrl) {{
         openCaptureModal();
-        switchCaptureTab('link');
-        document.getElementById('capUrl').value = params.get('capture_url');
+        switchCaptureTab('article');
+        document.getElementById('capUrl').value = capUrl;
         if (params.get('capture_title')) {{
           document.getElementById('capLinkTitle').value = params.get('capture_title');
         }}
+        if (params.get('capture_description') || params.get('capture_notes')) {{
+          const descEl = document.getElementById('capLinkDescription');
+          if (descEl) descEl.value = params.get('capture_description') || params.get('capture_notes');
+        }}
+        // Check if exists in vault
+        fetch('/api/check?url=' + encodeURIComponent(capUrl))
+          .then(r => r.json())
+          .then(data => {{
+            if (data && data.exists && data.atom) {{
+              if (data.atom.title && !document.getElementById('capLinkTitle').value) {{
+                document.getElementById('capLinkTitle').value = data.atom.title;
+              }}
+              if (data.atom.description && !document.getElementById('capLinkDescription').value) {{
+                document.getElementById('capLinkDescription').value = data.atom.description;
+              }}
+              if (data.atom.tags && data.atom.tags.length && !document.getElementById('capLinkTags').value) {{
+                document.getElementById('capLinkTags').value = data.atom.tags.join(', ');
+              }}
+              const btn = document.getElementById('capLinkSubmit');
+              if (btn) btn.textContent = 'Update ' + (data.atom.kind === 'article' ? 'Article' : 'Atom');
+            }}
+          }}).catch(() => {{}});
       }} else if (params.get('capture_quote')) {{
         openCaptureModal();
         switchCaptureTab('quote');
@@ -2368,6 +2674,36 @@ def generate_viewer(vault_dir: Path) -> Path:
         if (params.get('capture_url')) {{
           document.getElementById('capQuoteSource').value = params.get('capture_url');
         }}
+        if (params.get('capture_description') || params.get('capture_notes')) {{
+          const descEl = document.getElementById('capQuoteDescription');
+          if (descEl) descEl.value = params.get('capture_description') || params.get('capture_notes');
+        }}
+      }}
+
+      // Auto-check on capUrl blur
+      const urlInput = document.getElementById('capUrl');
+      if (urlInput) {{
+        urlInput.addEventListener('blur', function() {{
+          const val = this.value.trim();
+          if (!val) return;
+          fetch('/api/check?url=' + encodeURIComponent(val))
+            .then(r => r.json())
+            .then(data => {{
+              if (data && data.exists && data.atom) {{
+                if (data.atom.title && !document.getElementById('capLinkTitle').value) {{
+                  document.getElementById('capLinkTitle').value = data.atom.title;
+                }}
+                if (data.atom.description && !document.getElementById('capLinkDescription').value) {{
+                  document.getElementById('capLinkDescription').value = data.atom.description;
+                }}
+                if (data.atom.tags && data.atom.tags.length && !document.getElementById('capLinkTags').value) {{
+                  document.getElementById('capLinkTags').value = data.atom.tags.join(', ');
+                }}
+                const btn = document.getElementById('capLinkSubmit');
+                if (btn) btn.textContent = 'Update ' + (data.atom.kind === 'article' ? 'Article' : 'Atom');
+              }}
+            }}).catch(() => {{}});
+        }});
       }}
     }});
 
@@ -2445,7 +2781,7 @@ def generate_export_page(vault_dir: Path) -> Path:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Webtack — Data Portability & Knowledge Exports</title>
+  <title>WebTack — Data Portability & Knowledge Exports</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -2845,7 +3181,7 @@ def generate_export_page(vault_dir: Path) -> Path:
     <header>
       <div class="top-bar">
         <div class="logo-area">
-          <a href="index.html" class="logo">Webtack</a>
+          <a href="index.html" class="logo">WebTack</a>
           <span class="subtitle">data portability hub</span>
         </div>
         <div class="top-actions">
@@ -2857,7 +3193,7 @@ def generate_export_page(vault_dir: Path) -> Path:
       <div class="hero-banner">
         <h1 class="hero-title">Knowledge Exports & Data Portability</h1>
         <p class="hero-desc">
-          Webtack is built on the Content Sidecar pattern: files on your local drive are the canonical source of truth. Your knowledge is never trapped inside proprietary cloud databases or walled gardens. Export your curated library into open standards for AI synthesis, personal knowledge management, browsers, and research.
+          WebTack is built on the Content Sidecar pattern: files on your local drive are the canonical source of truth. Your knowledge is never trapped inside proprietary cloud databases or walled gardens. Export your curated library into open standards for AI synthesis, personal knowledge management, browsers, and research.
         </p>
         <div class="hero-stats-row">
           <div class="hero-stat">
@@ -3101,7 +3437,7 @@ def generate_export_page(vault_dir: Path) -> Path:
           showToast('💾 Exported ' + filename);
           return;
         }}
-        alert('Server generation is required for this format:\\n\\nDouble-click "Launch Webtack.command" or run:\\npython3 curate.py view --server\\n\\nOr run via CLI:\\npython3 curate.py export --target ' + target);
+        alert('Server generation is required for this format:\\n\\nDouble-click "Launch WebTack.command" or run:\\npython3 curate.py view --server\\n\\nOr run via CLI:\\npython3 curate.py export --target ' + target);
         return;
       }}
       showToast('📥 Preparing ' + filename + ' download...');
@@ -3196,7 +3532,7 @@ def generate_export_page(vault_dir: Path) -> Path:
     return export_html_path
 
 
-class WebtackCaptureHandler(SimpleHTTPRequestHandler):
+class WebTackCaptureHandler(SimpleHTTPRequestHandler):
     """Local HTTP Server that serves static vault files and handles /api/capture & /api/export requests."""
     vault_dir = None
 
@@ -3256,13 +3592,13 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                     filename = "arena_export.csv"
                 elif target in ("pinterest-csv", "pinterest"):
                     out_path = export_dir / "pinterest_pins.csv"
-                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="pinterest-csv", out=str(out_path), board="Webtack")
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="pinterest-csv", out=str(out_path), board="WebTack")
                     curate.cmd_export(args)
                     mime = "text/csv; charset=utf-8"
                     filename = "pinterest_pins.csv"
                 elif target in ("raindrop-csv", "raindrop"):
                     out_path = export_dir / "raindrop_export.csv"
-                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="raindrop-csv", out=str(out_path), folder="Webtack")
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="raindrop-csv", out=str(out_path), folder="WebTack")
                     curate.cmd_export(args)
                     mime = "text/csv; charset=utf-8"
                     filename = "raindrop_export.csv"
@@ -3329,13 +3665,15 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                 sys.path.insert(0, script_dir)
             import curate
             conn = curate.get_db(self.vault_dir)
-            with conn:
+            try:
                 row = conn.execute("""
                     SELECT id, kind, atom_title, notes, tags, visibility, created_at, source_url
                     FROM atoms
                     WHERE source_url = ? OR destination_url = ?
                     ORDER BY created_at DESC LIMIT 1
                 """, (target_url, target_url)).fetchone()
+            finally:
+                conn.close()
 
             if row:
                 tags = []
@@ -3401,6 +3739,7 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                         quote=data.get("quote"),
                         favorite=data.get("favorite", False),
                         visibility=data.get("visibility", "public"),
+                        no_enrich=True,
                         capture_method="bookmarklet",
                         vault=str(self.vault_dir),
                         target_kind="article" if kind == "article" else ("bookmark" if kind == "bookmark" else None)
@@ -3470,8 +3809,39 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                 else:
                     raise ValueError(f"Unsupported kind: {kind}")
 
-                # Regenerate viewer index with fresh atom
-                generate_viewer(self.vault_dir)
+                # Asynchronously enrich article with AI summary (Level 3) & regenerate viewer index
+                def background_enrich_and_generate(v_dir, a_id):
+                    try:
+                        script_p = str(Path(__file__).resolve().parent)
+                        if script_p not in sys.path:
+                            sys.path.insert(0, script_p)
+                        from scripts import enrich
+                        import curate
+                        c_conn = curate.get_db(v_dir)
+                        with c_conn:
+                            r = c_conn.execute("SELECT id, atom_title, text_content, notes, raw_json, created_at FROM atoms WHERE id = ?", (a_id,)).fetchone()
+                            if r and r["text_content"] and len(r["text_content"].split()) > 25:
+                                ex_notes = r["notes"] or ""
+                                if "✨ [" not in ex_notes:
+                                    ai_sum, prov = enrich.generate_ai_article_summary(r["text_content"], title=r["atom_title"])
+                                    if ai_sum and prov:
+                                        labeled_sum = enrich.format_ai_summary(ai_sum, prov)
+                                        final_notes = f"{ex_notes}\n\n{labeled_sum}".strip() if ex_notes else labeled_sum
+                                        raw_doc = json.loads(r["raw_json"]) if r["raw_json"] else {}
+                                        if "curation" not in raw_doc:
+                                            raw_doc["curation"] = {}
+                                        raw_doc["curation"]["description"] = final_notes
+                                        c_at = r["created_at"]
+                                        f_path = v_dir / "atoms" / c_at[:4] / c_at[5:7] / a_id
+                                        with open(f_path / "atom.json", "w", encoding="utf-8") as af:
+                                            json.dump(raw_doc, af, indent=2, ensure_ascii=False)
+                                        c_conn.execute("UPDATE atoms SET notes = ?, raw_json = ? WHERE id = ?", (final_notes, json.dumps(raw_doc), a_id))
+                                        print(f"✨ [{prov.upper()}] Background enriched {a_id} with AI summary!")
+                    except Exception as err:
+                        print(f"Background enrichment notice for {a_id}: {err}")
+                    generate_viewer(v_dir)
+
+                threading.Thread(target=background_enrich_and_generate, args=(self.vault_dir, atom_doc["id"]), daemon=True).start()
 
                 # Format atom for immediate UI card injection
                 created_at = atom_doc["created_at"]
@@ -3554,9 +3924,130 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
                     sys.path.insert(0, script_dir)
                 import curate
                 curate.delete_atom(self.vault_dir, atom_id)
-                generate_viewer(self.vault_dir)
+                threading.Thread(target=generate_viewer, args=(self.vault_dir,), daemon=True).start()
 
                 response_bytes = json.dumps({"success": True, "id": atom_id}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Content-Length", str(len(response_bytes)))
+                self.end_headers()
+                self.wfile.write(response_bytes)
+            except Exception as e:
+                err_bytes = json.dumps({"success": False, "error": str(e)}).encode("utf-8")
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Content-Length", str(len(err_bytes)))
+                self.end_headers()
+                self.wfile.write(err_bytes)
+        elif self.path == "/api/update":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_body = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_body.decode("utf-8"))
+                atom_id = data.get("id")
+                if not atom_id:
+                    raise ValueError("Missing atom id")
+                script_dir = str(Path(__file__).resolve().parent)
+                if script_dir not in sys.path:
+                    sys.path.insert(0, script_dir)
+                import curate
+                vault_dir = self.vault_dir
+                conn = curate.get_db(vault_dir)
+                with conn:
+                    row = conn.execute("SELECT id, created_at, raw_json FROM atoms WHERE id = ?", (atom_id,)).fetchone()
+                    if not row:
+                        raise ValueError(f"Atom {atom_id} not found")
+                    raw = json.loads(row["raw_json"]) if row["raw_json"] else {}
+
+                    new_desc = data.get("description")
+                    if new_desc is not None:
+                        if "curation" not in raw:
+                            raw["curation"] = {}
+                        raw["curation"]["description"] = new_desc
+                        if "notes" in raw["curation"]:
+                            del raw["curation"]["notes"]
+
+                    new_title = data.get("title")
+                    if new_title:
+                        raw["title"] = new_title
+
+                    new_tags = data.get("tags")
+                    if new_tags is not None:
+                        if "curation" not in raw:
+                            raw["curation"] = {}
+                        raw["curation"]["tags"] = new_tags
+
+                    created_at = row["created_at"]
+                    atom_folder = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / atom_id
+
+                    new_text = data.get("article_markdown")
+                    if new_text and len(new_text.strip()) > 10:
+                        art_file = atom_folder / "article.md"
+                        with open(art_file, "w", encoding="utf-8") as af:
+                            af.write(new_text.strip())
+                        w_count = len(new_text.strip().split())
+                        if "content" not in raw:
+                            raw["content"] = {}
+                        raw["content"]["article"] = {
+                            "file": "article.md",
+                            "relative_path": f"atoms/{created_at[:4]}/{created_at[5:7]}/{atom_id}/article.md",
+                            "word_count": w_count,
+                            "byline": raw.get("source", {}).get("author") or "The New York Times"
+                        }
+                        if "metadata_json" not in raw:
+                            raw["metadata_json"] = {}
+                        raw["metadata_json"]["word_count"] = w_count
+
+                        # Run Level 3 AI summarization with Gemini
+                        if data.get("enrich", True):
+                            try:
+                                from scripts import enrich
+                                ai_sum, prov = enrich.generate_ai_article_summary(new_text, title=new_title or raw.get("title") or "Article")
+                                if ai_sum and prov:
+                                    labeled_sum = enrich.format_ai_summary(ai_sum, prov)
+                                    new_desc = labeled_sum
+                                    if "curation" not in raw:
+                                        raw["curation"] = {}
+                                    raw["curation"]["description"] = new_desc
+                            except Exception as e:
+                                print(f"Enrich error during article update: {e}")
+
+                    # Save to atom.json on disk
+                    atom_file = atom_folder / "atom.json"
+                    if atom_file.exists():
+                        with open(atom_file, "w", encoding="utf-8") as f:
+                            json.dump(raw, f, indent=2, ensure_ascii=False)
+
+                    # Update SQLite table
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    conn.execute("""
+                        UPDATE atoms
+                        SET notes = COALESCE(?, notes),
+                            atom_title = COALESCE(?, atom_title),
+                            tags = COALESCE(?, tags),
+                            text_content = COALESCE(?, text_content),
+                            metadata = ?,
+                            raw_json = ?,
+                            updated_at = ?
+                        WHERE id = ?
+                    """, (
+                        new_desc,
+                        new_title,
+                        json.dumps(new_tags) if new_tags is not None else None,
+                        new_text,
+                        json.dumps(raw.get("metadata_json", {})),
+                        json.dumps(raw),
+                        now_iso,
+                        atom_id
+                    ))
+
+                threading.Thread(target=generate_viewer, args=(self.vault_dir,), daemon=True).start()
+
+                response_bytes = json.dumps({"success": True, "id": atom_id, "description": new_desc}).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
@@ -3577,15 +4068,19 @@ class WebtackCaptureHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "Endpoint not found")
 
 
+# Backward compatibility alias
+WebtackCaptureHandler = WebTackCaptureHandler
+
+
 def run_viewer_server(vault_dir: Path, port: int = 8080, open_browser: bool = True):
-    """Run the local Webtack HTTP server for instant web viewing and live in-browser capture."""
+    """Run the local WebTack HTTP server for instant web viewing and live in-browser capture."""
     vault_dir = Path(vault_dir).resolve()
     generate_viewer(vault_dir)
     os.chdir(vault_dir)
-    WebtackCaptureHandler.vault_dir = vault_dir
-    server = HTTPServer(("127.0.0.1", port), WebtackCaptureHandler)
+    WebTackCaptureHandler.vault_dir = vault_dir
+    server = HTTPServer(("127.0.0.1", port), WebTackCaptureHandler)
     url = f"http://127.0.0.1:{port}/index.html"
-    print(f"\n🚀 Webtack Live Vault & Capture running at: {url}")
+    print(f"\n🚀 WebTack Live Vault & Capture running at: {url}")
     print(f"   • Press 'c' in the browser to quick-capture links, quotes, or notes")
     print(f"   • Press 'Ctrl+C' in terminal to stop server")
     if open_browser:
@@ -3593,12 +4088,12 @@ def run_viewer_server(vault_dir: Path, port: int = 8080, open_browser: bool = Tr
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nWebtack server stopped.")
+        print("\nWebTack server stopped.")
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Webtack Visual Gallery Viewer")
+    parser = argparse.ArgumentParser(description="WebTack Visual Gallery Viewer")
     default_vault = Path("vault") if Path("vault").exists() else Path("fixtures/demo_vault")
     parser.add_argument("--vault", default=str(default_vault), help=f"Path to vault directory (default: {default_vault})")
     parser.add_argument("--server", action="store_true", help="Launch interactive HTTP server with live in-browser capture")
@@ -3611,6 +4106,6 @@ if __name__ == "__main__":
         run_viewer_server(v_dir, port=args.port, open_browser=not args.no_browser)
     else:
         out = generate_viewer(v_dir)
-        print(f"✨ Regenerated Webtack viewer at: {out}")
+        print(f"✨ Regenerated WebTack viewer at: {out}")
         if not args.no_browser:
             webbrowser.open(f"file://{out.resolve()}")

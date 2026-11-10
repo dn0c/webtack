@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "WebtackAtom",
-  "description": "Canonical schema for a Webtack atom v3 (article, bookmark, video, quote, note, image, file)",
+  "title": "WebTackAtom",
+  "description": "Canonical schema for a WebTack atom v3 (article, bookmark, video, quote, note, image, file)",
   "type": "object",
   "required": ["id", "kind", "version", "created_at", "curation", "source", "content"],
   "properties": {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Universal Image Enrichment & Alt-Text Module
+WebTack — Universal Image Enrichment & Alt-Text Module
 Resolves rich accessibility descriptions using a multi-tiered priority:
   Tier 1: Embedded image metadata (EXIF/IPTC/PNG) — Zero AI, zero keys
   Tier 2: Upstream web page metadata (HTML alt, <figcaption>, OpenGraph) — Zero AI, zero keys
@@ -155,7 +155,7 @@ def extract_web_alt_text(source_url: str, image_url: str = None) -> str | None:
         return None
 
     try:
-        headers = {"User-Agent": "Mozilla/5.0 Webtack/1.0 (Metadata Resolver)"}
+        headers = {"User-Agent": "Mozilla/5.0 WebTack/1.0 (Metadata Resolver)"}
         resp = requests.get(source_url, headers=headers, timeout=5)
         if resp.status_code != 200:
             return None
@@ -991,7 +991,7 @@ def batch_enrich_vault(vault_dir: Path, target: str = "all", limit: int = None, 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Webtack Multi-Tier Enrichment Engine")
+    parser = argparse.ArgumentParser(description="WebTack Multi-Tier Enrichment Engine")
     parser.add_argument("--vault", default="vault", help="Path to vault directory (default: vault)")
     parser.add_argument("--target", choices=["all", "images", "articles"], default="all", help="Target atoms: images, articles, or all (default)")
     parser.add_argument("--limit", type=int, default=None, help="Max atoms to enrich per category")

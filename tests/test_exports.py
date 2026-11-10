@@ -1,4 +1,4 @@
-"""Tests for Webtack multi-format export pipelines."""
+"""Tests for WebTack multi-format export pipelines."""
 
 import json
 import os
@@ -14,7 +14,7 @@ CURATE_BIN = PROJECT_ROOT / "curate.py"
 DEMO_VAULT = PROJECT_ROOT / "fixtures" / "demo_vault"
 
 
-class TestWebtackExports(unittest.TestCase):
+class TestWebTackExports(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Ensure demo vault has an up-to-date index for querying exports
@@ -52,7 +52,7 @@ class TestWebtackExports(unittest.TestCase):
         """Verify NotebookLM Digest export generates markdown with content excerpts."""
         out = self._export("digest", "vault_digest.md")
         content = out.read_text(encoding="utf-8")
-        self.assertIn("# Webtack Vault", content)
+        self.assertIn("# WebTack Vault", content)
         self.assertIn("As We May Think", content)
         self.assertIn("The Mother of All Demos", content)
 
@@ -60,7 +60,7 @@ class TestWebtackExports(unittest.TestCase):
         """Verify llms.txt standard index generation."""
         out = self._export("llms-txt", "llms.txt")
         content = out.read_text(encoding="utf-8")
-        self.assertIn("# Webtack Vault Index", content)
+        self.assertIn("# WebTack Vault Index", content)
         self.assertIn("As We May Think", content)
 
     def test_export_obsidian_zip(self):

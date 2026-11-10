@@ -1,4 +1,4 @@
-"""Tests for Webtack JSON Schema (v3) and specimen vault validation."""
+"""Tests for WebTack JSON Schema (v3) and specimen vault validation."""
 
 import json
 import os
@@ -10,7 +10,7 @@ SCHEMA_PATH = PROJECT_ROOT / "schema" / "atom.schema.json"
 DEMO_VAULT_ATOMS = PROJECT_ROOT / "fixtures" / "demo_vault" / "atoms"
 
 
-class TestWebtackSchema(unittest.TestCase):
+class TestWebTackSchema(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         assert SCHEMA_PATH.exists(), f"Schema not found at {SCHEMA_PATH}"
@@ -21,7 +21,7 @@ class TestWebtackSchema(unittest.TestCase):
         """Verify atom.schema.json is non-empty and has proper root schema fields."""
         self.assertIn("$schema", self.schema)
         self.assertIn("title", self.schema)
-        self.assertIn("Webtack", self.schema.get("title", ""))
+        self.assertIn("WebTack", self.schema.get("title", ""))
         self.assertIn("properties", self.schema)
         self.assertIn("required", self.schema)
 

@@ -1,4 +1,4 @@
-# Google Cloud Storage (GCS) Integration for Webtack
+# Google Cloud Storage (GCS) Integration for WebTack
 
 Sync your public curated atoms and media assets to a Google Cloud Storage bucket to host public digital gardens (such as `drewshannon.net/garden`).
 

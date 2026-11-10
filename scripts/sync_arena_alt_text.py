@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Are.na Alt Text Sync Wrapper
+WebTack — Are.na Alt Text Sync Wrapper
 Delegates to integrations/arena/sync_alt_text.py
 """
 

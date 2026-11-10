@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Webtack — Reclassify and Clean Up "Notes" Atoms
-Converts misclassified text/link blocks imported into Webtack:
+WebTack — Reclassify and Clean Up "Notes" Atoms
+Converts misclassified text/link blocks imported into WebTack:
 - 18 Atoms -> 'quote'
 - 3 Atoms  -> 'bookmark'
 - 2 Atoms  -> 'image'
@@ -212,7 +212,7 @@ def get_atom_folder(atom_id: str, created_at: str) -> Path:
 
 
 def main():
-    print("🚀 Starting Webtack 'notes' atoms reclassification & cleanup...")
+    print("🚀 Starting WebTack 'notes' atoms reclassification & cleanup...")
     print(f"📦 Database: {DB_PATH}")
 
     # 1. Backup DB

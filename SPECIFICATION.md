@@ -1,8 +1,8 @@
-# The Webtack Specification (v3)
+# The WebTack Specification (v3)
 
 **Status:** Living Standard  
 **Version:** 3.0.0  
-**Authors:** Drew Shannon & Webtack Contributors  
+**Authors:** Drew Shannon & WebTack Contributors  
 **License:** [Creative Commons Zero v1.0 Universal (CC0 1.0)](LICENSE)  
 **Formal Schema:** [`schema/atom.schema.json`](schema/atom.schema.json)  
 **Canonical Spec:** https://webtack.net/spec
@@ -11,20 +11,20 @@
 
 ## 1. Abstract & Philosophy
 
-Webtack is an open, local-first data specification and framework for durable digital curation and personal knowledge management. It establishes a formal bridge between ephemeral browser bookmarks (which rot and lack offline content) and unstructured text notes.
+WebTack is an open, local-first data specification and framework for durable digital curation and personal knowledge management. It establishes a formal bridge between ephemeral browser bookmarks (which rot and lack offline content) and unstructured text notes.
 
-Webtack is built on four core architectural principles:
+WebTack is built on four core architectural principles:
 
 1. **The Content Sidecar Pattern**: Every captured unit of knowledge—called an **Atom**—is an isolated, self-contained directory on disk holding a structured metadata envelope (`atom.json`) alongside its offline media and text sidecars (`cover.jpg`, `article.md`, `transcript.txt`, `quote.md`, `note.md`).
 2. **Filesystem as Canonical Truth**: The directory tree on disk is the permanent source of truth. Databases (SQLite catalogs, vector stores, full-text indexes) are disposable, ephemeral artifacts that can be deleted and reconstructed in seconds from sidecars.
-3. **The 30-Year Horizon**: Software dies, platforms pivot, and APIs change. Webtack atoms rely exclusively on open, human-readable, and machine-inspectable standards (JSON, Markdown, JPEG, UTF-8 plain text) that can be read on any operating system decades from today without proprietary software.
+3. **The 30-Year Horizon**: Software dies, platforms pivot, and APIs change. WebTack atoms rely exclusively on open, human-readable, and machine-inspectable standards (JSON, Markdown, JPEG, UTF-8 plain text) that can be read on any operating system decades from today without proprietary software.
 4. **Sovereign Fidelity & Layered AI Involvement**: The user dictates the exact boundary of what is saved—down to the byte—and no more. Saving a lightweight web pointer must never mandate downloading 50MB of assets or making unrequested network calls. Enrichment is strictly optional, configurable across a clear spectrum from zero-network local parsing to offline on-device neural processing to opt-in cloud AI synthesis.
 
 ---
 
 ## 2. Directory Layout & Storage Contract
 
-A Webtack vault conforms to the following directory hierarchy:
+A WebTack vault conforms to the following directory hierarchy:
 
 ```text
 <vault_root>/
@@ -128,7 +128,7 @@ Holds metadata descriptors for offline sidecar assets:
 
 ## 5. The Enrichment Lifecycle: Ingress vs. Layered Enrichment
 
-Webtack enforces a strict operational separation between initial capture and downstream enrichment:
+WebTack enforces a strict operational separation between initial capture and downstream enrichment:
 
 1. **Lightweight Ingress (Capture Phase)**: Ingress operations (`curate.py save`, `bookmark`, `note`, `quote`) **MUST NOT** block on slow external APIs, speech transcription, or heavy AI inference. Ingress guarantees offline safety by saving the canonical `atom.json` envelope, core web metadata, and visual anchors in $\le 2$ seconds.
 2. **Layered Deep Enrichment (Post-Capture Phase)**: Heavy semantic enhancements are executed asynchronously as layered enrichment:
@@ -176,7 +176,7 @@ Third-party integrations **MUST** store custom fields under a reverse-domain or 
 }
 ```
 
-Standard Webtack parsers **MUST** preserve unknown keys inside `metadata_json` during updates and reindexing.
+Standard WebTack parsers **MUST** preserve unknown keys inside `metadata_json` during updates and reindexing.
 
 ---
 
@@ -194,7 +194,7 @@ Every atom carries an explicit `visibility` tier in its curation layer:
 
 ## 8. Validation & Conformance
 
-A valid Webtack vault complies with the following tests:
+A valid WebTack vault complies with the following tests:
 
 1. **Schema Conformance**: Every `atom.json` validates without error against `schema/atom.schema.json`.
 2. **Sidecar Integrity**: Every relative path specified in `content` resolves to an existing file on disk.

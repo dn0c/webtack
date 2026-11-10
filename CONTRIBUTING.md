@@ -1,6 +1,6 @@
-# Contributing to Webtack
+# Contributing to WebTack
 
-Thank you for your interest in contributing to **Webtack**! Webtack is a local-first, durable web curation and bookmarking framework built on the **Content Sidecar** pattern.
+Thank you for your interest in contributing to **WebTack**! WebTack is a local-first, durable web curation and bookmarking framework built on the **Content Sidecar** pattern.
 
 Before submitting a Pull Request, please take a moment to review this guide to understand our core design principles, development workflow, and testing requirements.
 
@@ -8,7 +8,7 @@ Before submitting a Pull Request, please take a moment to review this guide to u
 
 ## The Four Principles
 
-Every feature, CLI flag, and schema extension submitted to Webtack must respect our four foundational principles:
+Every feature, CLI flag, and schema extension submitted to WebTack must respect our four foundational principles:
 
 1. **The Content Sidecar Pattern**: Every atom is an isolated folder on disk containing an `atom.json` metadata sidecar and its physical assets (`cover.jpg`, `article.md`, `transcript.txt`, `quote.md`, `note.md`). No opaque single-database silos.
 2. **Filesystem as Canonical Truth**: The filesystem is the permanent source of truth; SQLite (`vault.db`) is strictly a disposable, high-performance query cache. If the database is deleted, running `python3 curate.py reindex` must fully reconstruct it from disk without data loss.
@@ -37,7 +37,7 @@ pip install -r requirements.txt
 ```
 
 ### 3. Explore the Specimen Vault
-You do not need to populate a personal library to develop or test Webtack. A self-contained specimen vault covering all canonical kinds is included in `fixtures/demo_vault`:
+You do not need to populate a personal library to develop or test WebTack. A self-contained specimen vault covering all canonical kinds is included in `fixtures/demo_vault`:
 
 ```bash
 # Validate demo atoms against the schema
@@ -51,7 +51,7 @@ python3 viewer.py --vault fixtures/demo_vault --server
 
 ## Testing & Quality Assurance
 
-Webtack has zero testing framework dependencies. The test suite runs natively using Python's standard library `unittest` runner.
+WebTack has zero testing framework dependencies. The test suite runs natively using Python's standard library `unittest` runner.
 
 ### Running the Full Test Suite
 ```bash
@@ -73,7 +73,7 @@ python3 curate.py --vault fixtures/demo_vault validate
 
 ## Schema Evolution & Extension Rules
 
-Webtack's schema is specified in **[SPECIFICATION.md](SPECIFICATION.md)** and formalized in **`schema/atom.schema.json`**.
+WebTack's schema is specified in **[SPECIFICATION.md](SPECIFICATION.md)** and formalized in **`schema/atom.schema.json`**.
 
 - **Additive Changes Only**: Avoid breaking changes to existing schema tiers (`curation`, `source`, `content`).
 - **Do Not Bloat the Core Schema**: Tool-specific or experimental metadata belongs in `metadata_json` using a reverse-DNS namespaced dictionary key (e.g., `metadata_json["com.myplugin"] = {...}`).

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Unwrap IFTTT Links
+WebTack — Unwrap IFTTT Links
 Resolves short ift.tt redirect links for quotes and bookmarks to their canonical destination URLs,
 updating provenance.source_url, provenance.site_name, notes, text_content, SQLite, and atom.json.
 """

@@ -10,4 +10,4 @@
 6. **Security and privacy by default** — Local storage encrypted on your own filesystem.
 7. **You retain ultimate ownership and control** — Plain, inspectable files on disk.
 
-*Application in Webtack*: The Content Sidecar pattern guarantees Ideal #5 and #7: every atom is a self-contained folder of open formats (`atom.json`, `cover.jpg`, `article.md`).
+*Application in WebTack*: The Content Sidecar pattern guarantees Ideal #5 and #7: every atom is a self-contained folder of open formats (`atom.json`, `cover.jpg`, `article.md`).

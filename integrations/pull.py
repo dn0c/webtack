@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Inbound Sync Orchestrator
+WebTack — Inbound Sync Orchestrator
 Coordinates inbound sync from configured upstream integrations (Instapaper, Are.na).
 """
 

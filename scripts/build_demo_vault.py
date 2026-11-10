@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Build Sample Demo Vault
+WebTack — Build Sample Demo Vault
 Constructs a pristine, self-contained fixtures/demo_vault directory with
 sample atoms representing the canonical kinds (article, bookmark, video, quote, note, image).
 """
@@ -291,7 +291,7 @@ Man cannot hope fully to duplicate this mental process artificially, but he cert
 6. **Security and privacy by default** — Local storage encrypted on your own filesystem.
 7. **You retain ultimate ownership and control** — Plain, inspectable files on disk.
 
-*Application in Webtack*: The Content Sidecar pattern guarantees Ideal #5 and #7: every atom is a self-contained folder of open formats (`atom.json`, `cover.jpg`, `article.md`).
+*Application in WebTack*: The Content Sidecar pattern guarantees Ideal #5 and #7: every atom is a self-contained folder of open formats (`atom.json`, `cover.jpg`, `article.md`).
 """
     (not_dir / "note.md").write_text(note_md, encoding="utf-8")
 

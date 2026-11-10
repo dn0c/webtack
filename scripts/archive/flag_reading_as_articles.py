@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Flag & Enrich Reading Collection as Articles
+WebTack — Flag & Enrich Reading Collection as Articles
 Converts all bookmark and note atoms from the Reading collection into first-class
 Article atoms with excerpts, word counts, reading time estimates, and updated atom.json documents.
 """
@@ -150,9 +150,9 @@ def main():
     out_file = generate_curation_export(pub_rows)
     print(f"✅ Generated {out_file} ({len(pub_rows)} public atoms)")
 
-    print("\n✨ Regenerating Webtack local viewer...")
+    print("\n✨ Regenerating WebTack local viewer...")
     generate_viewer(vault_dir)
-    print("✨ Webtack viewer updated successfully!")
+    print("✨ WebTack viewer updated successfully!")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Security Policy
 
-The Webtack project treats security, data integrity, and curator privacy as foundational requirements. Because Webtack manages personal knowledge archives that may include private notes, sensitive reading habits, and private media, we maintain strict privacy boundaries across all egress and storage pipelines.
+The WebTack project treats security, data integrity, and curator privacy as foundational requirements. Because WebTack manages personal knowledge archives that may include private notes, sensitive reading habits, and private media, we maintain strict privacy boundaries across all egress and storage pipelines.
 
 ---
 
@@ -17,14 +17,14 @@ Security patches and vulnerability assessments are provided for the following ve
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability or sensitive information disclosure in Webtack:
+If you discover a security vulnerability or sensitive information disclosure in WebTack:
 
 1. **Do not disclose the issue publicly** in a public GitHub issue, pull request, or forum.
 2. **Submit via GitHub Private Vulnerability Reporting**:
-   - Navigate to the **Security** tab of the [Webtack GitHub repository](https://github.com/dn0c/webtack).
+   - Navigate to the **Security** tab of the [WebTack GitHub repository](https://github.com/dn0c/webtack).
    - Click **Report a vulnerability** under "Private vulnerability reporting".
 3. **Alternative direct contact**:
-   - If GitHub Private Reporting is unavailable, email **`andrew.w.shannon@gmail.com`** with the subject line `[SECURITY] Webtack Vulnerability Report`.
+   - If GitHub Private Reporting is unavailable, email **`andrew.w.shannon@gmail.com`** with the subject line `[SECURITY] WebTack Vulnerability Report`.
    - Include a description of the issue, steps to reproduce or proof-of-concept, and the potential impact.
 
 ### Response Timeline
@@ -36,7 +36,7 @@ If you discover a security vulnerability or sensitive information disclosure in 
 
 ## Security & Privacy Architecture
 
-Webtack follows several defense-in-depth principles:
+WebTack follows several defense-in-depth principles:
 
 ### 1. Local-First Boundary
 * The web viewer (`viewer.py`) binds strictly to `127.0.0.1:8080` by default. It does not bind to `0.0.0.0` unless explicitly instructed via CLI flags.

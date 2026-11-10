@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Populate Missing Image Authors from Source URL Domains
+WebTack — Populate Missing Image Authors from Source URL Domains
 
 Finds image atoms that are missing an Author / Creator attribution, extracts
 the domain from the Source URL (or destination URL), maps it to a clean brand/site name
@@ -156,9 +156,9 @@ def main():
     out_file = generate_curation_export(vault_dir, pub_rows)
     print(f"✅ Generated {out_file}")
 
-    print("\n✨ Regenerating Webtack viewer (index.html / export.html)...")
+    print("\n✨ Regenerating WebTack viewer (index.html / export.html)...")
     generate_viewer(vault_dir)
-    print("✨ Webtack viewer updated successfully!")
+    print("✨ WebTack viewer updated successfully!")
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Webtack Vault</title>
+  <title>WebTack Vault</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -297,6 +297,35 @@
       justify-content: space-between;
       font-size: 12px;
       color: var(--muted);
+    }
+    .card-delete-btn {
+      opacity: 0;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+      line-height: 1;
+      margin-left: 6px;
+    }
+    .card:hover .card-delete-btn {
+      opacity: 0.6;
+    }
+    .card-delete-btn:hover {
+      opacity: 1 !important;
+      color: #ef4444 !important;
+      background: rgba(239, 68, 68, 0.12) !important;
+    }
+    .meta-btn.danger {
+      color: #ef4444 !important;
+      border-color: rgba(239, 68, 68, 0.4) !important;
+    }
+    .meta-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.12) !important;
+      border-color: #ef4444 !important;
     }
     .kind-pill {
       text-transform: uppercase;
@@ -968,6 +997,22 @@
       font-size: 12px;
       color: var(--muted);
     }
+    .bookmarklet-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--tag-bg);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+    }
+    .bookmarklet-banner strong {
+      color: var(--text);
+    }
     .bookmarklet-link {
       display: inline-block;
       padding: 4px 10px;
@@ -978,6 +1023,7 @@
       font-weight: 500;
       border: 1px dashed var(--muted);
       cursor: grab;
+      white-space: nowrap;
     }
     .toast {
       position: fixed;
@@ -1006,7 +1052,7 @@
     <header>
       <div class="top-bar">
         <div class="logo-area">
-          <span class="logo">Webtack</span>
+          <span class="logo">WebTack</span>
           <span class="subtitle">local curation vault</span>
         </div>
         <div class="top-actions">
@@ -1107,7 +1153,7 @@
   <!-- Capture Dialog Modal -->
   <dialog id="captureModal" closedby="any" style="max-width: 580px;">
     <div class="modal-header">
-      <h3 style="font-size: 16px; font-weight: 600;">Capture to Webtack</h3>
+      <h3 style="font-size: 16px; font-weight: 600;">Capture to WebTack</h3>
       <button class="modal-close" onclick="document.getElementById('captureModal').close()">✕</button>
     </div>
     <div class="capture-form">
@@ -1118,6 +1164,11 @@
         <button class="cap-tab-btn" data-tab="quote" onclick="switchCaptureTab('quote')">✍️ Quote</button>
         <button class="cap-tab-btn" data-tab="note" onclick="switchCaptureTab('note')">📝 Note</button>
         <button class="cap-tab-btn" data-tab="image" onclick="switchCaptureTab('image')">🎨 Image</button>
+      </div>
+
+      <div class="bookmarklet-banner">
+        <span>⚡ <strong>1-Click Web Capture:</strong> Drag to your browser bookmarks bar:</span>
+        <a class="bookmarklet-link" href="javascript:(function(){const d=document,e=d.getElementById('webtack-drawer-host');if(e){e.remove();return;}const s=d.createElement('script');s.id='webtack-script';s.src='http://127.0.0.1:8080/bookmarklet.js?r='+Date.now();s.onerror=function(){const u=location.href,t=document.title,q=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(q),'_blank');};d.body.appendChild(s);})();" onclick="alert('Drag this ⚡ Save to WebTack link to your browser Bookmarks Bar to capture articles, videos, quotes, and bookmarks from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WebTack</a>
       </div>
 
       <!-- Link / URL Form -->
@@ -1136,7 +1187,7 @@
         </div>
         <div class="form-actions">
           <div class="bookmarklet-box">
-            Bookmarklet: <a class="bookmarklet-link" href="javascript:(function(){const u=location.href,t=document.title,s=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(s),'_blank');})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to Webtack</a>
+            <a class="bookmarklet-link" href="javascript:(function(){const d=document,e=d.getElementById('webtack-drawer-host');if(e){e.remove();return;}const s=d.createElement('script');s.id='webtack-script';s.src='http://127.0.0.1:8080/bookmarklet.js?r='+Date.now();s.onerror=function(){const u=location.href,t=document.title,q=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(q),'_blank');};d.body.appendChild(s);})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WebTack</a>
           </div>
           <button type="submit" class="submit-btn" id="capLinkSubmit">Save Link</button>
         </div>
@@ -1156,9 +1207,13 @@
           <label>Tags (Comma separated)</label>
           <input type="text" id="capVideoTags" placeholder="interviews, music-gear, tech">
         </div>
+        <div class="form-group">
+          <label>Transcript / Dialogue (Optional)</label>
+          <textarea id="capVideoTranscript" rows="3" placeholder="Include your own transcription here if you choose (pasted text, timestamps, or .vtt/.srt cues)..."></textarea>
+        </div>
         <div class="form-actions">
           <div style="font-size: 11px; color: var(--muted); line-height: 1.3;">
-            ⚡ Auto-downloads poster thumbnail and fetches full spoken transcript subtitles for search & LLM digest.
+            ⚡ Auto-fetches video metadata and poster thumbnail. Users can include their own transcription if they choose to do so.
           </div>
           <button type="submit" class="submit-btn" id="capVideoSubmit">Save Video</button>
         </div>
@@ -1253,6 +1308,7 @@
     <div class="modal-header">
       <div id="modalMeta" class="modal-meta" style="margin-bottom:0;"></div>
       <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn danger" onclick="deleteCurrentReaderAtom()" style="padding: 4px 10px; font-size: 12px;" title="Delete this atom">🗑️ Delete</button>
         <button class="meta-btn" onclick="openMetaFromReader()" style="padding: 4px 10px; font-size: 12px;">ℹ️ View Metadata</button>
         <button class="modal-close" id="closeModalBtn" onclick="document.getElementById('readerModal').close()">✕</button>
       </div>
@@ -1268,6 +1324,7 @@
         <span id="metaIdPill" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; color: var(--muted); background: var(--tag-bg); padding: 2px 8px; border-radius: 4px;"></span>
       </div>
       <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn danger" onclick="deleteCurrentAtom()" style="padding: 4px 10px; font-size: 12px;" title="Delete this atom">🗑️ Delete</button>
         <button class="meta-btn" id="copyIdBtn" onclick="copyCurrentId()" title="Copy Atom ID">📋 Copy ID</button>
         <button class="modal-close" onclick="document.getElementById('metadataModal').close()">✕</button>
       </div>
@@ -1275,7 +1332,7 @@
     <div class="meta-dialog-body" id="metadataModalBody"></div>
   </dialog>
 
-  <div class="toast" id="toast">✨ Saved to Webtack vault!</div>
+  <div class="toast" id="toast">✨ Saved to WebTack vault!</div>
 
   <script>
     const ATOMS = [{"id": "atm_20261108200600_demoimg", "kind": "image", "visibility": "public", "title": "The Memex Desk Diagram (1945)", "notes": "Life Magazine illustration depicting the Memex desk conceived by Vannevar Bush in 'As We May Think'.", "tags": ["memex", "diagram", "vannevar-bush", "life-magazine"], "alt_text": "Preview card for The Memex Desk (1945)", "date": "2026-11-08", "created_at": "2026-11-08T20:06:00Z", "source_url": "https://en.wikipedia.org/wiki/Memex", "author": "Alfred D. Crimi", "cover_path": "cover.jpg", "metadata": {"word_count": null, "aspect_ratio": 1.7778, "blurhash": "L46sqDs=s=sr{ojbjbn+-DayWUj["}, "article_markdown": null, "excerpt": null, "folder_path": "atoms/2026/11/atm_20261108200600_demoimg", "raw": {"id": "atm_20261108200600_demoimg", "kind": "image", "version": 3, "created_at": "2026-11-08T20:06:00Z", "updated_at": "2026-11-08T20:06:00Z", "source": {"source_url": "https://en.wikipedia.org/wiki/Memex", "source_title": "Memex Desk Diagram", "site_name": "Wikipedia", "author": "Alfred D. Crimi", "published_at": "1945-11-19T00:00:00Z", "capture_method": "cli"}, "curation": {"atom_title": "The Memex Desk Diagram (1945)", "description": "Life Magazine illustration depicting the Memex desk conceived by Vannevar Bush in 'As We May Think'.", "tags": ["memex", "diagram", "vannevar-bush", "life-magazine"], "collections": ["Historical Artifacts"], "visibility": "public", "favorite": false}, "content": {"cover_image": {"file": "cover.jpg", "relative_path": "cover.jpg", "mime_type": "image/jpeg", "dimensions": {"width": 800, "height": 450}, "aspect_ratio": 1.7778, "blurhash": "L46sqDs=s=sr{ojbjbn+-DayWUj[", "color_palette": ["#4a044e", "#1e1b4b"], "alt_text": "Preview card for The Memex Desk (1945)"}}}}, {"id": "atm_20261108200500_demonot", "kind": "note", "visibility": "public", "title": "Seven Ideals of Local-First Software", "notes": "Reflections on Ink & Switch's foundational 2019 paper and how the Content Sidecar pattern achieves longevity and ownership.", "tags": ["local-first", "architecture", "data-ownership", "manifesto"], "alt_text": null, "date": "2026-11-08", "created_at": "2026-11-08T20:05:00Z", "source_url": null, "author": null, "cover_path": null, "metadata": {"word_count": 158}, "article_markdown": null, "excerpt": "Seven ideals of local-first software: no spinners, multi-device, offline-capable, collaboration, longevity, privacy, user ownership.", "folder_path": "atoms/2026/11/atm_20261108200500_demonot", "raw": {"id": "atm_20261108200500_demonot", "kind": "note", "version": 3, "created_at": "2026-11-08T20:05:00Z", "updated_at": "2026-11-08T20:05:00Z", "source": {"source_url": null, "capture_method": "cli"}, "curation": {"atom_title": "Seven Ideals of Local-First Software", "description": "Reflections on Ink & Switch's foundational 2019 paper and how the Content Sidecar pattern achieves longevity and ownership.", "tags": ["local-first", "architecture", "data-ownership", "manifesto"], "collections": ["Architecture Notes"], "visibility": "public", "favorite": true}, "content": {"text": {"file": "note.md", "relative_path": "note.md", "excerpt": "Seven ideals of local-first software: no spinners, multi-device, offline-capable, collaboration, longevity, privacy, user ownership.", "word_count": 158}}}}, {"id": "atm_20261108200400_demoqte", "kind": "quote", "visibility": "public", "title": "Ted Nelson on Files as Clumsy Containers", "notes": "From Literary Machines (1981). Nelson critiques rigid hierarchical filesystem folders as insufficient for associative thought.", "tags": ["ted-nelson", "hypertext", "information-architecture", "quotes"], "alt_text": null, "date": "2026-11-08", "created_at": "2026-11-08T20:04:00Z", "source_url": "https://archive.org/details/literarymachines0000nels", "author": "Ted Nelson", "cover_path": null, "metadata": {"word_count": 21}, "article_markdown": null, "excerpt": "A file is only a clumsy container for thoughts. The true structure of ideas is non-linear, interconnected, and deeply associative.", "folder_path": "atoms/2026/11/atm_20261108200400_demoqte", "raw": {"id": "atm_20261108200400_demoqte", "kind": "quote", "version": 3, "created_at": "2026-11-08T20:04:00Z", "updated_at": "2026-11-08T20:04:00Z", "source": {"source_url": "https://archive.org/details/literarymachines0000nels", "source_title": "Literary Machines", "site_name": "Project Xanadu", "author": "Ted Nelson", "published_at": "1981-01-01T00:00:00Z", "capture_method": "cli"}, "curation": {"atom_title": "Ted Nelson on Files as Clumsy Containers", "description": "From Literary Machines (1981). Nelson critiques rigid hierarchical filesystem folders as insufficient for associative thought.", "tags": ["ted-nelson", "hypertext", "information-architecture", "quotes"], "collections": ["Notable Quotes"], "visibility": "public", "favorite": false}, "content": {"text": {"file": "quote.md", "relative_path": "quote.md", "excerpt": "A file is only a clumsy container for thoughts. The true structure of ideas is non-linear, interconnected, and deeply associative.", "word_count": 21}}}}, {"id": "atm_20261108200300_demovid", "kind": "video", "visibility": "public", "title": "The Mother of All Demos (1968)", "notes": "Douglas Engelbart and the SRI team unveil the mouse, windowing, hypermedia, text editing, video conferencing, and collaborative computing.", "tags": ["computing-history", "interfaces", "doug-engelbart", "demo"], "alt_text": "Preview card for The Mother of All Demos", "date": "2026-11-08", "created_at": "2026-11-08T20:03:00Z", "source_url": "https://www.youtube.com/watch?v=yJDv-zdhzMY", "author": "Douglas Engelbart", "cover_path": "cover.jpg", "metadata": {"word_count": null, "aspect_ratio": 1.7778, "blurhash": "LMHlIxxFoes.}UoKfQoKxYfQayjt"}, "article_markdown": null, "excerpt": "[00:00:05] If in your office, you as an intellectual worker, were supplied with a computer display.\n[00:00:15] Backed up by a computer that was alive for you all day, and was instantly responsive to every action you had.\n[00:00:25] How much value could you derive from that?\n[00:00:40] Today, we will demonstrate the NLS system developed at the Augmentation Research Center.\n[00:01:02] We have here what we call the mouse, and a chord keyset for rapid textual manipulation.\n", "folder_path": "atoms/2026/11/atm_20261108200300_demovid", "raw": {"id": "atm_20261108200300_demovid", "kind": "video", "version": 3, "created_at": "2026-11-08T20:03:00Z", "updated_at": "2026-11-08T20:03:00Z", "source": {"source_url": "https://www.youtube.com/watch?v=yJDv-zdhzMY", "source_title": "Douglas Engelbart: The Mother of All Demos (1968)", "site_name": "YouTube", "author": "Douglas Engelbart", "published_at": "1968-12-09T00:00:00Z", "favicon": "https://www.youtube.com/s/desktop/favicon.ico", "capture_method": "cli"}, "curation": {"atom_title": "The Mother of All Demos (1968)", "description": "Douglas Engelbart and the SRI team unveil the mouse, windowing, hypermedia, text editing, video conferencing, and collaborative computing.", "tags": ["computing-history", "interfaces", "doug-engelbart", "demo"], "collections": ["Foundational Texts", "Talks"], "visibility": "public", "favorite": true}, "content": {"cover_image": {"file": "cover.jpg", "relative_path": "cover.jpg", "mime_type": "image/jpeg", "dimensions": {"width": 800, "height": 450}, "aspect_ratio": 1.7778, "blurhash": "LMHlIxxFoes.}UoKfQoKxYfQayjt", "color_palette": ["#b45309", "#78350f"], "alt_text": "Preview card for The Mother of All Demos"}, "video": {"provider": "youtube", "embed_url": "https://www.youtube.com/embed/yJDv-zdhzMY", "duration_seconds": 6000, "transcript_file": "transcript.txt", "transcript_language": "en", "transcript_is_generated": false, "has_transcript": true}}}}, {"id": "atm_20261108200200_demobmk", "kind": "bookmark", "visibility": "public", "title": "Internet Archive: Wayback Machine", "notes": "A digital library of Internet sites and cultural artifacts, providing permanent universal access to historical web pages.", "tags": ["web-archiving", "preservation", "digital-commons"], "alt_text": "Preview card for Wayback Machine", "date": "2026-11-08", "created_at": "2026-11-08T20:02:00Z", "source_url": "https://archive.org/web/", "author": "Brewster Kahle", "cover_path": "cover.jpg", "metadata": {"word_count": null, "aspect_ratio": 1.7778, "blurhash": "LK1qW*kDkCfmkvflfQflkYfQf6fk"}, "article_markdown": null, "excerpt": null, "folder_path": "atoms/2026/11/atm_20261108200200_demobmk", "raw": {"id": "atm_20261108200200_demobmk", "kind": "bookmark", "version": 3, "created_at": "2026-11-08T20:02:00Z", "updated_at": "2026-11-08T20:02:00Z", "source": {"source_url": "https://archive.org/web/", "source_title": "Wayback Machine", "site_name": "Internet Archive", "author": "Brewster Kahle", "published_at": "1996-05-10T00:00:00Z", "favicon": "https://archive.org/favicon.ico", "capture_method": "bookmarklet"}, "curation": {"atom_title": "Internet Archive: Wayback Machine", "description": "A digital library of Internet sites and cultural artifacts, providing permanent universal access to historical web pages.", "tags": ["web-archiving", "preservation", "digital-commons"], "collections": ["Preservation Tools"], "visibility": "public", "favorite": true}, "content": {"cover_image": {"file": "cover.jpg", "relative_path": "cover.jpg", "mime_type": "image/jpeg", "dimensions": {"width": 800, "height": 450}, "aspect_ratio": 1.7778, "blurhash": "LK1qW*kDkCfmkvflfQflkYfQf6fk", "color_palette": ["#0d47a1", "#012456"], "alt_text": "Preview card for Wayback Machine"}}}}, {"id": "atm_20261108200100_demoart", "kind": "article", "visibility": "public", "title": "As We May Think", "notes": "Vannevar Bush's seminal 1945 essay introducing the Memex\u2014an individualized desk anticipating hypertext, personal computing, and the web.", "tags": ["hypertext", "memex", "computing-history", "philosophy"], "alt_text": "Preview card for As We May Think", "date": "2026-11-08", "created_at": "2026-11-08T20:01:00Z", "source_url": "https://www.theatlantic.com/magazine/archive/1945/07/as-we-may-think/303881/", "author": "Vannevar Bush", "cover_path": "cover.jpg", "metadata": {"word_count": 310, "aspect_ratio": 1.7778, "blurhash": "L13SO~tSx]o#.Aj[j[j]%hayWAj["}, "article_markdown": "# As We May Think\n\n*By Vannevar Bush \u2014 The Atlantic Monthly, July 1945*\n\nThis has not been a scientist's war; it has been a war in which all have had a part. The scientists, burying their old professional competition in the demand of a common cause, have shared greatly and learned much.\n\nNow, as peace approaches, one asks where they will find objectives worthy of their best.\n\n## The Memex\n\nConsider a future device for individual use, which is a sort of mechanized private file and library. It needs a name, and, to coin one at random, \"memex\" will do. A memex is a device in which an individual stores all his books, records, and communications, and which is mechanized so that it may be consulted with exceeding speed and flexibility. It is an enlarged intimate supplement to his memory.\n\nIt consists of a desk, and while it can presumably be operated from a distance, it is primarily the piece of furniture at which he works. On the top are slanting translucent screens, on which material can be projected for convenient reading. There is a keyboard, and sets of buttons and levers. Otherwise it looks like an ordinary desk.\n\n### Associative Trails\n\nThe human mind does not work that way. It operates by association. With one item in its grasp, it snaps instantly to the next that is suggested by the association of thoughts, in accordance with some intricate web of trails carried by the cells of the brain. It has other characteristics, of course; trails that are not frequently followed are prone to fade, items are not fully recoverable, yet the speed of action, the intricacy of trails, the detail of mental pictures, is an awe-inspiring thing.\n\nMan cannot hope fully to duplicate this mental process artificially, but he certainly ought to be able to learn from it.\n", "excerpt": null, "folder_path": "atoms/2026/11/atm_20261108200100_demoart", "raw": {"id": "atm_20261108200100_demoart", "kind": "article", "version": 3, "created_at": "2026-11-08T20:01:00Z", "updated_at": "2026-11-08T20:01:00Z", "source": {"source_url": "https://www.theatlantic.com/magazine/archive/1945/07/as-we-may-think/303881/", "source_title": "As We May Think", "site_name": "The Atlantic", "author": "Vannevar Bush", "published_at": "1945-07-01T00:00:00Z", "favicon": "https://www.theatlantic.com/favicon.ico", "capture_method": "cli"}, "curation": {"atom_title": "As We May Think", "description": "Vannevar Bush's seminal 1945 essay introducing the Memex\u2014an individualized desk anticipating hypertext, personal computing, and the web.", "tags": ["hypertext", "memex", "computing-history", "philosophy"], "collections": ["Foundational Texts", "Web History"], "visibility": "public", "favorite": true}, "content": {"cover_image": {"file": "cover.jpg", "relative_path": "cover.jpg", "mime_type": "image/jpeg", "dimensions": {"width": 800, "height": 450}, "aspect_ratio": 1.7778, "blurhash": "L13SO~tSx]o#.Aj[j[j]%hayWAj[", "color_palette": ["#1e293b", "#0f172a"], "alt_text": "Preview card for As We May Think"}, "article": {"file": "article.md", "relative_path": "article.md", "word_count": 310, "byline": "Vannevar Bush"}}}}];
@@ -1403,7 +1460,10 @@
               <span class="kind-pill kind-${atom.kind}">${atom.kind}</span>
               ${visBadgeHtml}
             </div>
-            <span>${atom.date}</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span>${atom.date}</span>
+              <button class="card-delete-btn" onclick="event.stopPropagation(); deleteAtomPrompt('${atom.id}', '${escapeHtml(atom.title || '').replace(/'/g, "\\'")}')" title="Delete atom">✕</button>
+            </div>
           </div>
           ${coverHtml}
           ${bodyHtml}
@@ -1457,7 +1517,7 @@
           showToast('💾 Exported vault_backup.json');
           return;
         }
-        alert('Digest, llms.txt, and CSV exports require running Webtack with the local server:\n\nDouble-click "Launch Webtack.command" or run:\npython3 curate.py view --server');
+        alert('Digest, llms.txt, and CSV exports require running WebTack with the local server:\n\nDouble-click "Launch WebTack.command" or run:\npython3 curate.py view --server');
         return;
       }
       document.getElementById('exportMenu').classList.remove('show');
@@ -1516,6 +1576,7 @@
         payload.url = document.getElementById('capVideoUrl').value.trim();
         payload.title = document.getElementById('capVideoTitle').value.trim() || null;
         payload.tags = cleanTags(document.getElementById('capVideoTags').value);
+        payload.transcript = document.getElementById('capVideoTranscript') ? document.getElementById('capVideoTranscript').value.trim() || null : null;
       } else if (kind === 'quote') {
         submitBtn = document.getElementById('capQuoteSubmit');
         payload.quote = document.getElementById('capQuoteText').value.trim();
@@ -1539,7 +1600,7 @@
       }
 
       if (!isHttp) {
-        alert('Instant web capture requires Webtack to be running locally via:\n\npython3 curate.py view --server\n\n(Currently running as a static file:// document).');
+        alert('Instant web capture requires WebTack to be running locally via:\n\npython3 curate.py view --server\n\n(Currently running as a static file:// document).');
         return;
       }
 
@@ -1567,7 +1628,7 @@
           alert('Error saving atom: ' + (res.error || 'Unknown error'));
         }
       } catch (err) {
-        alert('Network error connecting to Webtack backend: ' + err.message);
+        alert('Network error connecting to WebTack backend: ' + err.message);
       } finally {
         submitBtn.textContent = origText;
         submitBtn.disabled = false;
@@ -1611,6 +1672,58 @@
           setTimeout(() => btn.textContent = orig, 1800);
         }
       });
+    }
+
+    async function deleteAtomPrompt(id, title) {
+      if (!confirm(`Are you sure you want to permanently delete "${title || id}" from your vault?`)) {
+        return;
+      }
+      const isHttp = window.location.protocol.startsWith('http');
+      if (!isHttp) {
+        alert('Deleting atoms requires WebTack to be running locally via:\n\npython3 curate.py view --server\n\n(Currently running as a static file:// document).');
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          const idx = ATOMS.findIndex(a => a.id === id);
+          if (idx !== -1) {
+            const removed = ATOMS.splice(idx, 1)[0];
+            COUNTS.all--;
+            if (COUNTS[removed.kind]) COUNTS[removed.kind]--;
+            updateBadges();
+            renderCards();
+          }
+          const metaModal = document.getElementById('metadataModal');
+          if (metaModal && metaModal.open) metaModal.close();
+          const readerModal = document.getElementById('readerModal');
+          if (readerModal && readerModal.open) readerModal.close();
+
+          showToast(`🗑️ Deleted atom ${id}`);
+        } else {
+          alert('Error deleting atom: ' + (res.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Failed to connect to WebTack backend: ' + err.message);
+      }
+    }
+
+    function deleteCurrentAtom() {
+      if (!window.currentMetaAtomId) return;
+      const atom = ATOMS.find(a => a.id === window.currentMetaAtomId);
+      deleteAtomPrompt(window.currentMetaAtomId, atom ? atom.title : window.currentMetaAtomId);
+    }
+
+    function deleteCurrentReaderAtom() {
+      if (!window.currentReaderAtomId) return;
+      const atom = ATOMS.find(a => a.id === window.currentReaderAtomId);
+      deleteAtomPrompt(window.currentReaderAtomId, atom ? atom.title : window.currentReaderAtomId);
     }
 
     function openReaderFromMeta(atomId) {
@@ -1798,7 +1911,11 @@
       window.currentMetaAtomId = atom.id;
 
       const raw = atom.raw || {};
-      const curation = raw.curation || {};
+      const curation = { ...(raw.curation || {}) };
+      if ('notes' in curation && !('description' in curation)) {
+        curation.description = curation.notes;
+        delete curation.notes;
+      }
       const source = raw.source || raw.provenance || {};
       const provenance = source;
       const payload = raw.content || raw.payload || {};
@@ -1913,16 +2030,16 @@
           <div style="display:flex; align-items:center; gap:12px; font-size:11.5px; color:var(--muted);">
             <span>Captured: <strong style="color:var(--text);">${escapeHtml(createdDateStr || '—')}</strong></span>
             ${updatedDateStr ? `<span>Updated: <strong style="color:var(--text);">${escapeHtml(updatedDateStr)}</strong></span>` : ''}
-            <a href="${escapeHtml(schemaUrl)}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;" title="Webtack Atom Spec">Schema ↗</a>
+            <a href="${escapeHtml(schemaUrl)}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;" title="WebTack Atom Spec">Schema ↗</a>
           </div>
         </div>
       `;
 
       // TIER 1: CURATION LAYER
-      const notesHtml = atom.notes ? `
+      const notesHtml = (atom.description || atom.notes) ? `
         <div class="meta-notes-banner" style="margin-top: 14px; margin-bottom: 0;">
-          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">notes</div>
-          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${renderMarkdown(atom.notes)}</div>
+          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">description</div>
+          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${renderMarkdown(atom.description || atom.notes)}</div>
         </div>
       ` : '';
 

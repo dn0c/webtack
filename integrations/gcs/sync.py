@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Google Cloud Storage (GCS) Asset & Manifest Sync Integration
+WebTack — Google Cloud Storage (GCS) Asset & Manifest Sync Integration
 Uploads public atom media (cover images, attachments) to Google Cloud Storage
 and exports curation_public.json to power public digital gardens (e.g. drewshannon.net/garden).
 """
@@ -34,7 +34,7 @@ def sync_to_gcs(vault_dir: Path, bucket: str = None, manifest_only: bool = False
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Sync Webtack public vault assets to Google Cloud Storage")
+    parser = argparse.ArgumentParser(description="Sync WebTack public vault assets to Google Cloud Storage")
     parser.add_argument("--vault", default="vault", help="Path to vault directory (default: vault)")
     parser.add_argument("--bucket", default=None, help="GCS bucket name (overrides WEBTACK_GCS_BUCKET in .env)")
     parser.add_argument("--manifest-only", action="store_true", help="Only upload curation_public.json without rsyncing media files")

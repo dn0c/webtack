@@ -1,4 +1,4 @@
-"""End-to-end CLI integration tests for Webtack."""
+"""End-to-end CLI integration tests for WebTack."""
 
 import json
 import os
@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CURATE_BIN = PROJECT_ROOT / "curate.py"
 
 
-class TestWebtackCLI(unittest.TestCase):
+class TestWebTackCLI(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.vault_dir = Path(self.temp_dir.name)
@@ -109,13 +109,13 @@ class TestWebtackCLI(unittest.TestCase):
 
         # 3. List
         list_res = self._run_cli(["list"])
-        self.assertIn("Webtack Vault (2 items shown)", list_res.stdout)
+        self.assertIn("WebTack Vault (2 items shown)", list_res.stdout)
         self.assertIn("[NOTE]", list_res.stdout)
         self.assertIn("[QUOTE]", list_res.stdout)
 
         # 4. List with filter
         filter_res = self._run_cli(["list", "--kind", "note"])
-        self.assertIn("Webtack Vault (1 items shown)", filter_res.stdout)
+        self.assertIn("WebTack Vault (1 items shown)", filter_res.stdout)
         self.assertIn("[NOTE]", filter_res.stdout)
         self.assertNotIn("[QUOTE]", filter_res.stdout)
 

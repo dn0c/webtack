@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Webtack — Deep Quote Enrichment
+WebTack — Deep Quote Enrichment
 Performs multi-pass metadata recovery for quotes across the vault:
 Pass 1: Parses 103 book quotes ("via <Book> by <Author>") to populate author and metadata.
 Pass 2: Enriches 40 highlight quotes with trapped URLs & titles from notes.

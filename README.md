@@ -1,4 +1,4 @@
-# Webtack
+# WebTack
 
 [![CI](https://github.com/dn0c/webtack/actions/workflows/ci.yml/badge.svg)](https://github.com/dn0c/webtack/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -34,7 +34,7 @@ python3 viewer.py --vault fixtures/demo_vault --server
 
 ## The 7 Kinds of Atoms
 
-Webtack categorizes every curated piece of content into an explicit semantic `kind`:
+WebTack categorizes every curated piece of content into an explicit semantic `kind`:
 
 | Kind | Role | Primary Content | Key Metadata |
 | :--- | :--- | :--- | :--- |
@@ -48,7 +48,7 @@ Webtack categorizes every curated piece of content into an explicit semantic `ki
 
 ---
 
-## Webtack Schema Specification (v3)
+## WebTack Schema Specification (v3)
 
 > For the formal data protocol, sidecar storage contracts, and extension rules, read the complete **[SPECIFICATION.md](SPECIFICATION.md)**.
 
@@ -247,7 +247,7 @@ Browse your vault with high-aesthetic typography, 4-tier schema inspection, resp
 
 ```bash
 # Zero-Terminal macOS Launcher:
-# Simply double-click "Launch Webtack.command" in Finder!
+# Simply double-click "Launch WebTack.command" in Finder!
 
 # Or launch via terminal:
 python3 curate.py view --server
@@ -260,13 +260,13 @@ python3 curate.py view --server
   - 📑 **`llms.txt` Index (`.txt`)**: Compact, LLM-friendly index standard.
   - 🧱 **Are.na CSV (`.csv`)**: Import-ready file for Are.na channels.
   - 💾 **Full Vault Backup (`.json`)**: Complete raw schemas & metadata.
-- **⚡ Bookmarklet**: Drag the "Save to Webtack" bookmarklet to your browser's favorites bar for 1-click capture from any web page.
+- **⚡ Bookmarklet**: Drag the "Save to WebTack" bookmarklet to your browser's favorites bar for 1-click capture from any web page.
 
 ---
 
 ## AI Integration: Model Context Protocol (MCP)
 
-Webtack includes an embedded [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server so AI assistants (**Claude Desktop**, **Antigravity**, **Cursor**) can search and read from your vault.
+WebTack includes an embedded [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server so AI assistants (**Claude Desktop**, **Antigravity**, **Cursor**) can search and read from your vault.
 
 ### 1. Claude Desktop Setup
 Add this to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
@@ -297,7 +297,7 @@ Once connected, your AI assistant can invoke:
 
 ## Knowledge Exports & Data Portability
 
-Webtack guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 12 open standards via the **Export Hub** (`/export.html`) or the CLI:
+WebTack guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 12 open standards via the **Export Hub** (`/export.html`) or the CLI:
 
 | Target | Command | Primary Ecosystem | Output File |
 | :--- | :--- | :--- | :--- |
@@ -320,7 +320,7 @@ To browse, search, and download all exports in your browser, click **📦 Export
 
 ## The Enrichment Lifecycle
 
-Webtack follows two core operational rules:
+WebTack follows two core operational rules:
 1. **Ingress is lightweight; enrichment is layered.** Capturing content should never fail or hang because an external AI service is down or audio transcription takes 30 seconds. Fast metadata is saved immediately at ingestion (`curate.py`); heavy semantic layers (vision alt-text, speech transcripts, full-text backfills) are layered onto atom sidecars asynchronously whenever you choose.
 2. **Sovereign Fidelity & Layered AI Involvement.** You decide exactly what enters your vault—down to the byte—and no more. Saving a lightweight bookmark pointer never forces asset downloads or unexpected AI token consumption.
 
@@ -345,7 +345,7 @@ Webtack follows two core operational rules:
 
 ### Configuring Generative AI Keys (`.env`)
 
-Webtack works 100% offline with zero keys. To enable **Level 3 AI superpowers**—automatic 2–3 sentence article summaries and accessibility image alt-text—copy `.env.example` to `.env` and set any **one** of the supported provider keys:
+WebTack works 100% offline with zero keys. To enable **Level 3 AI superpowers**—automatic 2–3 sentence article summaries and accessibility image alt-text—copy `.env.example` to `.env` and set any **one** of the supported provider keys:
 
 ```bash
 # Recommended: Fast, high-throughput, low-cost
@@ -388,7 +388,7 @@ Runs asynchronously, in the background, or in batch when you want to upgrade you
 
 #### Accessibility Alt Text & Vision Engine (`curate.py enrich`)
 
-Webtack resolves accessibility alt text through a cascading **5-tier resolution engine**:
+WebTack resolves accessibility alt text through a cascading **5-tier resolution engine**:
 1. **Embedded Metadata (EXIF/IPTC)**: Reads photographer descriptions stored inside the image binary (0ms, zero keys).
 2. **Upstream Web Scraping**: Extracts `<figcaption>`, `<img alt="...">`, or `og:image:alt` from the source webpage (zero keys).
 3. **Multi-Provider Cloud Vision**: If configured in `.env`, generates rich narrative descriptions via **Gemini** (`GEMINI_API_KEY`), **OpenAI** (`OPENAI_API_KEY`), **Anthropic** (`ANTHROPIC_API_KEY`), **Groq** (`GROQ_API_KEY`), or **OpenRouter** (`OPENROUTER_API_KEY`).
@@ -407,7 +407,7 @@ python3 curate.py enrich --limit 10 --force
 
 ## Upstream Integrations (`integrations/`)
 
-Webtack is designed to be local-first and platform-agnostic. Optional connectors to external services live in the modular `integrations/` folder:
+WebTack is designed to be local-first and platform-agnostic. Optional connectors to external services live in the modular `integrations/` folder:
 
 * **Are.na** (`integrations/arena/`):
   * Import entire channels: `python3 integrations/arena/import_channel.py <channel-slug>`

@@ -1,5 +1,5 @@
 name: Bug Report
-description: Create a report to help us improve Webtack
+description: Create a report to help us improve WebTack
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -21,7 +21,7 @@ body:
     id: component
     attributes:
       label: Affected Component
-      description: Which part of Webtack is affected?
+      description: Which part of WebTack is affected?
       options:
         - CLI (curate.py)
         - Web Viewer & Reader (viewer.py)
@@ -29,7 +29,7 @@ body:
         - Exporter (curate.py export / export.html)
         - Enrichment (scripts/enrich.py)
         - Schema & Validation (atom.schema.json / curate.py validate)
-        - macOS Launcher (Launch Webtack.command)
+        - macOS Launcher (Launch WebTack.command)
         - Documentation / Specification
     validations:
       required: true

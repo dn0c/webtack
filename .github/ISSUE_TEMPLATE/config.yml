@@ -1,6 +1,6 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Webtack Specification
+  - name: WebTack Specification
     url: https://github.com/dn0c/webtack/blob/main/SPECIFICATION.md
     about: Read the formal atom sidecar specification and schema contracts.
   - name: Official Website
