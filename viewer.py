@@ -80,25 +80,582 @@ def get_atoms_data(vault_dir: Path):
     return atoms_data, kind_counts
 
 
-def get_inlined_bookmarklet_href() -> str:
-    """Build a completely self-contained inlined bookmarklet href with zero external script dependencies."""
-    import re
-    script_path = Path(__file__).resolve().parent / "scripts" / "bookmarklet.js"
-    if not script_path.exists():
-        return "javascript:alert('WebTack bookmarklet script not found');"
-    with open(script_path, "r", encoding="utf-8") as f:
-        code = f.read()
+def get_inlined_bookmarklet_href(server_port: int = 8080) -> str:
+    """Build a lightweight, bulletproof bookmarklet href that opens the dedicated Quick Capture popup.
+    Works universally across every browser and website with zero CSP or Mixed Content restrictions."""
+    js = (
+        "javascript:(function(){"
+        "var u=location.href,"
+        "t=document.title,"
+        "q=window.getSelection()?window.getSelection().toString().trim():'',"
+        "d='',a='',img='';"
+        "try{"
+        "var md=document.querySelector('meta[property=\"og:description\"]')||document.querySelector('meta[name=\"description\"]');"
+        "if(md)d=md.getAttribute('content')||'';"
+        "var ma=document.querySelector('meta[name=\"author\"]')||document.querySelector('meta[property=\"article:author\"]');"
+        "if(ma)a=ma.getAttribute('content')||'';"
+        "var mi=document.querySelector('meta[property=\"og:image\"]')||document.querySelector('meta[name=\"twitter:image\"]');"
+        "if(mi)img=mi.getAttribute('content')||'';"
+        "}catch(e){}"
+        "var w=520,h=700,"
+        "l=Math.max(0,(screen.width-w)/2),"
+        "tp=Math.max(0,(screen.height-h)/4);"
+        f"var win=window.open('http://127.0.0.1:{server_port}/capture?url='+encodeURIComponent(u)+'&title='+encodeURIComponent(t)+'&description='+encodeURIComponent(d)+'&quote='+encodeURIComponent(q)+'&author='+encodeURIComponent(a)+'&image='+encodeURIComponent(img),'webtack_capture','width='+w+',height='+h+',top='+tp+',left='+l+',resizable=yes,scrollbars=yes');"
+        "if(win){"
+        "win.focus();"
+        "setTimeout(function(){"
+        "try{"
+        "var b=document.querySelector('article,main,.story-body,.article-body');"
+        "if(b&&b.innerText&&b.innerText.length>100&&b.innerText.length<60000){"
+        "win.postMessage({type:'WEBTACK_FULL_TEXT',text:b.innerText},'*');"
+        "}"
+        "}catch(e){}"
+        "},600);"
+        "}"
+        "})();"
+    )
+    return js
 
-    cleaned_lines = []
-    for line in code.split("\n"):
-        stripped = line.strip()
-        if stripped.startswith("//"):
-            continue
-        cleaned_lines.append(line)
-    cleaned = "\n".join(cleaned_lines)
-    cleaned = re.sub(r'/\*.*?\*/', '', cleaned, flags=re.DOTALL)
-    encoded = urllib.parse.quote(cleaned, safe="();{}=+*/<>!&|?:,.-_'[]~$^#@")
-    return f"javascript:{encoded}"
+
+def get_capture_page_html() -> str:
+    """Generate the lightweight standalone Quick Capture page used by the bookmarklet."""
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡ Quick Capture - WebTack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: -0.01em;
+    }
+    .brand-dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #10b981;
+    }
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      line-height: 1;
+    }
+    .close-btn:hover {
+      color: #f8fafc;
+      background: #1e293b;
+    }
+    .kind-pills {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+    .pill-btn {
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      padding: 5px 10px;
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .pill-btn:hover {
+      background: #334155;
+      color: #f8fafc;
+    }
+    .pill-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #3b82f6;
+    }
+    .preview-box {
+      display: none;
+      gap: 10px;
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+      border: 1px solid #334155;
+      align-items: center;
+    }
+    .preview-img {
+      width: 64px;
+      height: 44px;
+      object-fit: cover;
+      border-radius: 5px;
+      background: #0f172a;
+      flex-shrink: 0;
+    }
+    .preview-meta {
+      font-size: 11px;
+      color: #94a3b8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .preview-site {
+      font-weight: 700;
+      color: #38bdf8;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+    }
+    .alert-banner {
+      display: none;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      margin-bottom: 12px;
+      border: 1px solid #3b82f6;
+      background: rgba(59, 130, 246, 0.1);
+      color: #93c5fd;
+    }
+    .form-group {
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    input[type="text"], textarea, select {
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 7px;
+      padding: 7px 10px;
+      color: #f8fafc;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, textarea:focus, select:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    textarea {
+      resize: vertical;
+    }
+    .toggle-section {
+      margin-top: 6px;
+      margin-bottom: 10px;
+    }
+    .toggle-btn {
+      background: none;
+      border: none;
+      color: #60a5fa;
+      font-size: 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0;
+    }
+    .toggle-btn:hover {
+      text-decoration: underline;
+    }
+    .footer {
+      margin-top: auto;
+      padding-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid #1e293b;
+    }
+    .status-text {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .status-text.success {
+      color: #10b981;
+      font-weight: 600;
+    }
+    .status-text.error {
+      color: #ef4444;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-secondary {
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid #334155;
+      padding: 7px 12px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn-secondary:hover {
+      background: #334155;
+      color: #ffffff;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <span>WebTack Quick Capture</span>
+    </div>
+    <button class="close-btn" onclick="window.close()" title="Close (Esc)">✕</button>
+  </div>
+
+  <div class="kind-pills">
+    <button type="button" class="pill-btn active" data-kind="article" onclick="setKind('article')">📖 Article</button>
+    <button type="button" class="pill-btn" data-kind="bookmark" onclick="setKind('bookmark')">🔖 Bookmark</button>
+    <button type="button" class="pill-btn" data-kind="video" onclick="setKind('video')">🎬 Video</button>
+    <button type="button" class="pill-btn" data-kind="quote" onclick="setKind('quote')">💬 Quote</button>
+    <button type="button" class="pill-btn" data-kind="note" onclick="setKind('note')">📝 Note</button>
+    <button type="button" class="pill-btn" data-kind="image" onclick="setKind('image')">🎨 Image</button>
+  </div>
+
+  <div id="previewBox" class="preview-box">
+    <img id="previewImg" class="preview-img" alt="" />
+    <div class="preview-meta">
+      <div id="previewSite" class="preview-site"></div>
+      <div id="previewTitleText" style="overflow:hidden; text-overflow:ellipsis;"></div>
+    </div>
+  </div>
+
+  <div id="alertBanner" class="alert-banner"></div>
+
+  <form id="captureForm" onsubmit="handleFormSubmit(event)">
+    <!-- Kind-specific fields -->
+    <div id="fieldQuoteGroup" class="form-group" style="display:none;">
+      <label>Quote Text</label>
+      <textarea id="inputQuote" rows="3" placeholder="Enter quote..."></textarea>
+    </div>
+
+    <div id="fieldNoteGroup" class="form-group" style="display:none;">
+      <label>Note Body</label>
+      <textarea id="inputNote" rows="4" placeholder="Enter note..."></textarea>
+    </div>
+
+    <div id="fieldImageGroup" class="form-group" style="display:none;">
+      <label>Image Source / URL</label>
+      <input type="text" id="inputImageSrc" placeholder="https://..." />
+    </div>
+
+    <div id="fieldUrlGroup" class="form-group">
+      <label id="lblUrl">URL / Source</label>
+      <input type="text" id="inputUrl" placeholder="https://..." />
+    </div>
+
+    <div id="fieldTitleGroup" class="form-group">
+      <label>Title</label>
+      <input type="text" id="inputTitle" placeholder="Page or Atom Title" />
+    </div>
+
+    <div id="fieldAuthorGroup" class="form-group">
+      <label>Author / Channel (Optional)</label>
+      <input type="text" id="inputAuthor" placeholder="By author or creator..." />
+    </div>
+
+    <div class="form-group">
+      <label>Description / Notes (Editable)</label>
+      <textarea id="inputDescription" rows="3" placeholder="Add or edit summary or personal editorial notes..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Tags (Comma separated)</label>
+      <input type="text" id="inputTags" placeholder="systems, design, essay" />
+    </div>
+
+    <div id="fieldArticleBodyGroup" class="toggle-section">
+      <button type="button" class="toggle-btn" id="btnToggleFullText" onclick="toggleFullText()">➕ Add Full Article Text / Markdown (Optional)</button>
+      <div id="fullTextContainer" style="display:none; margin-top:6px;">
+        <textarea id="inputArticleBody" rows="4" placeholder="Include full article text if you choose (pasted text or markdown for offline reading &amp; AI summary)..."></textarea>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div id="statusText" class="status-text">Ready</div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" onclick="window.close()">Cancel</button>
+        <button type="submit" class="btn-primary" id="btnSave">Save to Vault</button>
+      </div>
+    </div>
+  </form>
+
+  <script>
+    let currentKind = 'article';
+    let existingAtomId = null;
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function toggleFullText(forceOpen) {
+      const container = document.getElementById('fullTextContainer');
+      const btn = document.getElementById('btnToggleFullText');
+      const shouldOpen = forceOpen !== undefined ? forceOpen : (container.style.display === 'none');
+      if (shouldOpen) {
+        container.style.display = 'block';
+        btn.textContent = '➖ Hide Full Article Text / Markdown';
+      } else {
+        container.style.display = 'none';
+        btn.textContent = '➕ Add Full Article Text / Markdown (Optional)';
+      }
+    }
+
+    function setKind(kind) {
+      currentKind = kind;
+      document.querySelectorAll('.pill-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-kind') === kind);
+      });
+
+      document.getElementById('fieldQuoteGroup').style.display = (kind === 'quote') ? 'block' : 'none';
+      document.getElementById('fieldNoteGroup').style.display = (kind === 'note') ? 'block' : 'none';
+      document.getElementById('fieldImageGroup').style.display = (kind === 'image') ? 'block' : 'none';
+      document.getElementById('fieldUrlGroup').style.display = (kind === 'note') ? 'none' : 'block';
+      document.getElementById('fieldAuthorGroup').style.display = (kind === 'note') ? 'none' : 'block';
+      document.getElementById('fieldArticleBodyGroup').style.display = (kind === 'article') ? 'block' : 'none';
+
+      const btnSave = document.getElementById('btnSave');
+      const kindLabels = { article: 'Article', bookmark: 'Bookmark', video: 'Video', quote: 'Quote', note: 'Note', image: 'Image' };
+      btnSave.textContent = `Save ${kindLabels[kind] || 'Atom'}`;
+    }
+
+    // Parse URL params
+    const params = new URLSearchParams(window.location.search);
+    const initialUrl = params.get('url') || params.get('capture_url') || '';
+    const initialTitle = params.get('title') || params.get('capture_title') || '';
+    const initialDesc = params.get('description') || params.get('capture_description') || '';
+    const initialQuote = params.get('quote') || params.get('capture_quote') || '';
+    const initialAuthor = params.get('author') || '';
+    const initialImage = params.get('image') || '';
+
+    if (initialUrl) document.getElementById('inputUrl').value = initialUrl;
+    if (initialTitle) document.getElementById('inputTitle').value = initialTitle;
+    if (initialDesc) document.getElementById('inputDescription').value = initialDesc;
+    if (initialQuote) document.getElementById('inputQuote').value = initialQuote;
+    if (initialAuthor) document.getElementById('inputAuthor').value = initialAuthor;
+    if (initialImage) document.getElementById('inputImageSrc').value = initialImage;
+
+    // Show preview card if image or domain present
+    if (initialUrl) {
+      try {
+        const u = new URL(initialUrl);
+        document.getElementById('previewSite').textContent = u.hostname.replace(/^www\\./, '');
+        document.getElementById('previewTitleText').textContent = initialTitle || initialUrl;
+        if (initialImage) {
+          const img = document.getElementById('previewImg');
+          img.src = initialImage;
+          img.style.display = 'block';
+        } else {
+          document.getElementById('previewImg').style.display = 'none';
+        }
+        document.getElementById('previewBox').style.display = 'flex';
+      } catch (_) {}
+    }
+
+    // Auto-detect Kind
+    if (initialQuote) {
+      setKind('quote');
+    } else if (initialUrl.match(/(youtube\\.com|youtu\\.be|vimeo\\.com)/i)) {
+      setKind('video');
+    } else {
+      setKind('article');
+    }
+
+    // Check if URL already exists in vault
+    if (initialUrl) {
+      fetch('/api/check?url=' + encodeURIComponent(initialUrl))
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.exists && data.atom) {
+            existingAtomId = data.atom.id;
+            const banner = document.getElementById('alertBanner');
+            banner.innerHTML = `⚡ <strong>Already in vault:</strong> ${escapeHtml(data.atom.title || initialTitle)} (saving will update this atom)`;
+            banner.style.display = 'block';
+            if (!document.getElementById('inputDescription').value && data.atom.description) {
+              document.getElementById('inputDescription').value = data.atom.description;
+            }
+            if (!document.getElementById('inputTags').value && data.atom.tags) {
+              document.getElementById('inputTags').value = Array.isArray(data.atom.tags) ? data.atom.tags.join(', ') : data.atom.tags;
+            }
+            document.getElementById('btnSave').textContent = 'Update Atom';
+          }
+        })
+        .catch(() => {});
+    }
+
+    // Listen for live postMessage transfer of full article text
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'WEBTACK_FULL_TEXT' && event.data.text) {
+        const ta = document.getElementById('inputArticleBody');
+        if (ta && !ta.value) {
+          ta.value = event.data.text;
+          toggleFullText(true);
+          const st = document.getElementById('statusText');
+          st.textContent = 'Full article text received';
+        }
+      }
+    });
+
+    // Form submission
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const btnSave = document.getElementById('btnSave');
+      const statusText = document.getElementById('statusText');
+
+      btnSave.disabled = true;
+      btnSave.textContent = 'Saving...';
+      statusText.className = 'status-text';
+      statusText.textContent = 'Saving to vault...';
+
+      const tagsVal = document.getElementById('inputTags').value.trim();
+      const tags = tagsVal ? tagsVal.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+
+      const payload = {
+        kind: currentKind,
+        title: document.getElementById('inputTitle').value.trim() || null,
+        tags: tags,
+        description: document.getElementById('inputDescription').value.trim() || null,
+        author: document.getElementById('inputAuthor').value.trim() || null,
+        visibility: 'public'
+      };
+
+      if (currentKind === 'article' || currentKind === 'bookmark') {
+        payload.url = document.getElementById('inputUrl').value.trim();
+        if (currentKind === 'article') {
+          const body = document.getElementById('inputArticleBody').value.trim();
+          if (body) payload.article_markdown = body;
+        }
+      } else if (currentKind === 'video') {
+        payload.url = document.getElementById('inputUrl').value.trim();
+      } else if (currentKind === 'quote') {
+        payload.quote = document.getElementById('inputQuote').value.trim();
+        payload.source = document.getElementById('inputUrl').value.trim();
+        payload.source_title = document.getElementById('inputTitle').value.trim() || null;
+      } else if (currentKind === 'note') {
+        payload.text = document.getElementById('inputNote').value.trim();
+      } else if (currentKind === 'image') {
+        payload.src = document.getElementById('inputImageSrc').value.trim();
+        payload.source = document.getElementById('inputUrl').value.trim();
+        payload.alt = document.getElementById('inputTitle').value.trim() || null;
+      }
+
+      try {
+        let endpoint = '/api/capture';
+        if (existingAtomId) {
+          payload.id = existingAtomId;
+          endpoint = '/api/update';
+        }
+
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const res = await resp.json();
+        if (res.success) {
+          statusText.className = 'status-text success';
+          statusText.textContent = `✨ Saved "${res.atom ? res.atom.title : (payload.title || 'Atom')}"!`;
+          btnSave.textContent = '✓ Saved';
+          setTimeout(() => {
+            window.close();
+            // If window.close() blocked by browser:
+            setTimeout(() => {
+              statusText.textContent = 'Saved! You can safely close this window.';
+              btnSave.textContent = 'Close Window';
+              btnSave.disabled = false;
+              btnSave.onclick = () => window.close();
+            }, 300);
+          }, 700);
+        } else {
+          throw new Error(res.error || 'Server error saving atom');
+        }
+      } catch (err) {
+        btnSave.disabled = false;
+        btnSave.textContent = 'Save to Vault';
+        statusText.className = 'status-text error';
+        statusText.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('captureForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      } else if (e.key === 'Escape') {
+        window.close();
+      }
+    });
+  </script>
+</body>
+</html>
+"""
 
 
 def generate_viewer(vault_dir: Path) -> Path:
@@ -3640,6 +4197,15 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(content_bytes)
             except Exception as e:
                 self.send_error(500, f"Export generation error: {e}")
+        elif parsed.path in ("/capture", "/capture.html"):
+            html = get_capture_page_html()
+            content_bytes = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(content_bytes)))
+            self.end_headers()
+            self.wfile.write(content_bytes)
         elif parsed.path == "/bookmarklet.js":
             script_path = Path(__file__).resolve().parent / "scripts" / "bookmarklet.js"
             if script_path.exists():

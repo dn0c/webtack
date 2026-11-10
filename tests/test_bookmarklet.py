@@ -32,6 +32,16 @@ class TestBookmarkletAndServer(unittest.TestCase):
         cls.httpd.shutdown()
         shutil.rmtree(cls.temp_dir, ignore_errors=True)
 
+    def test_capture_page_serving(self):
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}/capture?url=https://example.com/test&title=Test+Title")
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertIn("text/html", resp.headers.get("Content-Type"))
+            body = resp.read().decode("utf-8")
+            self.assertIn("WebTack Quick Capture", body)
+            self.assertIn("inputDescription", body)
+            self.assertIn("inputArticleBody", body)
+
     def test_bookmarklet_js_serving_and_cors(self):
         req = urllib.request.Request(f"http://127.0.0.1:{self.port}/bookmarklet.js")
         with urllib.request.urlopen(req) as resp:

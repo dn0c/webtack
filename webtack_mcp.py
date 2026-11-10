@@ -224,6 +224,10 @@ def save_video(url: str, title: str = "", tags: str = "", transcript: str = "") 
 
 def main():
     """Run the WebTack MCP server via stdio transport."""
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("WebTack MCP Server - stdio transport for Claude Desktop & AI coding assistants")
+        print("Usage: python webtack_mcp.py")
+        return
     app.run()
 
 
