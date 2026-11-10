@@ -1,6 +1,6 @@
 # Contributing to WebTack
 
-Thank you for your interest in contributing to **WebTack**! WebTack is a local-first, durable web curation and bookmarking framework built on the **Content Sidecar** pattern.
+Thank you for your interest in contributing to **WebTack**! WebTack is a new open-source framework for saving and storing content from the web.
 
 Before submitting a Pull Request, please take a moment to review this guide to understand our core design principles, development workflow, and testing requirements.
 

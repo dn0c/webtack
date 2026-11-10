@@ -6,7 +6,7 @@
 [![Schema: v3](https://img.shields.io/badge/schema-v3%20(CC0)-green.svg)](SPECIFICATION.md)
 [![Website](https://img.shields.io/badge/website-webtack.net-black.svg)](https://webtack.net)
 
-A local-first, durable web curation and bookmarking framework using the **Content Sidecar** pattern.  
+A new open-source framework for saving and storing content from the web.  
 **Website:** [https://webtack.net](https://webtack.net)
 
 Decouples capture and long-term storage from proprietary platforms. The filesystem is the canonical source of truth; SQLite is a disposable, fast index.

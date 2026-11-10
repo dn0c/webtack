@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 WebTack Curate CLI (v3)
-A local-first, durable web curation and bookmarking framework using the Content Sidecar pattern.
+A new open-source framework for saving and storing content from the web.
 https://webtack.net
 """
 
