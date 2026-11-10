@@ -1,7 +1,7 @@
 """
 Generate high-fidelity SVG diagram translating the user's Excalidraw architecture sketch
 into the editorial aesthetic: warm ivory paper background, serif italic headers,
-monospace typewriter cards, crisp dark-ink borders, and generous breathing room.
+monospace typewriter cards, crisp dark-ink borders, and snug, balanced columns with no dead gaps.
 """
 
 import os
@@ -18,20 +18,21 @@ SVG_OUTPUT = os.path.join(OUTPUT_DIR, "webtack-architecture.svg")
 HTML_OUTPUT = os.path.join(OUTPUT_DIR, "webtack-architecture.html")
 PNG_OUTPUT = os.path.join(OUTPUT_DIR, "webtack-architecture.png")
 
-# Canvas dimensions (generous proportions to prevent text clipping)
+# Canvas dimensions (tightened height: removed dead gaps at column bottoms)
 WIDTH = 1340
-HEIGHT = 810
+HEIGHT = 725
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}" width="100%" height="100%" style="background-color: #FAF6F0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@1,6..72,400;1,6..72,500;1,6..72,600&amp;family=Space+Mono:ital,wght@0,400;0,700;1,400&amp;display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Tenor+Sans&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&amp;family=Space+Mono:ital,wght@0,400;0,700;1,400&amp;display=swap');
       
       .title {{
-        font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
-        font-style: italic;
+        font-family: 'Tenor Sans', -apple-system, sans-serif;
+        font-style: normal;
         font-weight: 400;
-        font-size: 38px;
+        font-size: 36px;
+        letter-spacing: 0.05em;
         fill: #1C1917;
       }}
       .stage-title {{
@@ -130,16 +131,16 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
   <!-- ========================================== -->
   <g transform="translate(60, 100)">
     <!-- Stage Header Card -->
-    <g filter="url(#card-shadow)">
+    <g>
       <rect width="380" height="50" rx="6" fill="#1C1917"/>
       <text x="190" y="31" text-anchor="middle" class="stage-title">1. CAPTURE / IMPORT</text>
     </g>
 
-    <!-- Column Track Background -->
-    <rect x="0" y="62" width="380" height="475" rx="8" fill="#F4EFE6" stroke="#DCD3C5" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <!-- Column Track Background (tightened: height=420 ends at 482) -->
+    <rect x="0" y="62" width="380" height="420" rx="8" fill="#F4EFE6" stroke="#DCD3C5" stroke-width="1.2" stroke-dasharray="3,3"/>
 
     <!-- Sub-Item 1: Bookmarklet -->
-    <g transform="translate(18, 80)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 80)">
       <rect width="344" height="64" rx="8" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.5"/>
       <!-- Icon: Bookmark Ribbon -->
       <g transform="translate(14, 17)">
@@ -151,7 +152,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     </g>
 
     <!-- Sub-Item 2: Import from other services -->
-    <g transform="translate(18, 156)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 156)">
       <rect width="344" height="64" rx="8" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.5"/>
       <!-- Icon: Import Services -->
       <g transform="translate(14, 17)">
@@ -159,12 +160,11 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
         <circle cx="15" cy="15" r="7" fill="none" stroke="#1C1917" stroke-width="1.4"/>
         <polyline points="15,11 15,15 18,17" fill="none" stroke="#1C1917" stroke-width="1.4"/>
       </g>
-      <text x="56" y="30" class="card-title">Import from Other Services</text>
-      <text x="56" y="47" class="card-sub">Are.na, Instapaper, Pocket, Pinboard &amp; HTML</text>
+      <text x="56" y="37" class="card-title">Import from Other Services</text>
     </g>
 
     <!-- Sub-Item 3: Manually Add -->
-    <g transform="translate(18, 232)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 232)">
       <rect width="344" height="64" rx="8" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.5"/>
       <!-- Icon: Terminal & Studio -->
       <g transform="translate(14, 17)">
@@ -209,9 +209,9 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
         <text x="260" y="53" text-anchor="middle" font-family="Menlo, monospace" font-size="11px" font-weight="bold">video</text>
 
         <!-- Row 3 -->
-        <!-- Badge 7: document -->
-        <rect x="96" y="72" width="116" height="26" rx="4" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.2"/>
-        <text x="154" y="89" text-anchor="middle" font-family="Menlo, monospace" font-size="11px" font-weight="bold">document</text>
+        <!-- Badge 7: file -->
+        <rect x="106" y="72" width="96" height="26" rx="4" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.2"/>
+        <text x="154" y="89" text-anchor="middle" font-family="Menlo, monospace" font-size="11px" font-weight="bold">file</text>
       </g>
     </g>
   </g>
@@ -222,16 +222,16 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
   <!-- ========================================== -->
   <g transform="translate(480, 100)">
     <!-- Stage Header Card -->
-    <g filter="url(#card-shadow)">
+    <g>
       <rect width="380" height="50" rx="6" fill="#1C1917"/>
       <text x="190" y="31" text-anchor="middle" class="stage-title">2. STORAGE</text>
     </g>
 
-    <!-- Column Track Background -->
-    <rect x="0" y="62" width="380" height="475" rx="8" fill="#F4EFE6" stroke="#DCD3C5" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <!-- Column Track Background (tightened: height=420 ends at 482) -->
+    <rect x="0" y="62" width="380" height="420" rx="8" fill="#F4EFE6" stroke="#DCD3C5" stroke-width="1.2" stroke-dasharray="3,3"/>
 
     <!-- Sub-Item 1: Schema -->
-    <g transform="translate(18, 80)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 80)">
       <rect width="344" height="64" rx="8" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.5"/>
       <!-- Icon: Contract / Schema -->
       <g transform="translate(14, 17)">
@@ -245,7 +245,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     </g>
 
     <!-- Sub-Item 2: JSON + File Structure (THE VAULT) -->
-    <g transform="translate(18, 156)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 156)">
       <!-- Highlighted with green accent to signify Canonical Truth -->
       <rect width="344" height="74" rx="8" fill="#FFFFFF" stroke="#059669" stroke-width="2"/>
       <!-- Small "Canonical Truth" tag -->
@@ -263,7 +263,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     </g>
 
     <!-- Sub-Item 3: SQLite dB (Disposable Search Accelerator) -->
-    <g transform="translate(18, 244)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 244)">
       <!-- Dashed border to signify disposable accelerator -->
       <rect width="344" height="66" rx="8" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.5" stroke-dasharray="4,3"/>
       <!-- Small "Disposable" tag -->
@@ -277,11 +277,11 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
         <path d="M 8 11 L 8 19 C 8 21 22 21 22 19 L 22 11" fill="none" stroke="#1C1917" stroke-width="1.3"/>
       </g>
       <text x="56" y="30" class="card-title">SQLite dB (vault.db)</text>
-      <text x="56" y="47" class="card-sub">full-text index • Auto-rebuilt from JSON</text>
+      <text x="56" y="47" class="card-sub">FTS5 full-text index • Auto-rebuilt from JSON</text>
     </g>
 
     <!-- Sub-Item 4: (Optional) Cloud Sync -->
-    <g transform="translate(18, 324)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 324)">
       <rect width="344" height="64" rx="8" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" stroke-dasharray="3,3"/>
       <!-- Icon: Cloud Sync in amber -->
       <g transform="translate(14, 17)">
@@ -293,7 +293,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     </g>
 
     <!-- Sub-Item 5: (Optional) AI Enrichment -->
-    <g transform="translate(18, 400)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 400)">
       <rect width="344" height="64" rx="8" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" stroke-dasharray="3,3"/>
       <!-- Sparkle Icon -->
       <g transform="translate(14, 17)">
@@ -311,16 +311,16 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
   <!-- ========================================== -->
   <g transform="translate(900, 100)">
     <!-- Stage Header Card -->
-    <g filter="url(#card-shadow)">
+    <g>
       <rect width="380" height="50" rx="6" fill="#1C1917"/>
       <text x="190" y="31" text-anchor="middle" class="stage-title">3. PUBLISH / EXPORT / REFLECT</text>
     </g>
 
-    <!-- Column Track Background -->
-    <rect x="0" y="62" width="380" height="475" rx="8" fill="#F4EFE6" stroke="#DCD3C5" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <!-- Column Track Background (tightened: height=420 ends at 482) -->
+    <rect x="0" y="62" width="380" height="420" rx="8" fill="#F4EFE6" stroke="#DCD3C5" stroke-width="1.2" stroke-dasharray="3,3"/>
 
     <!-- Sub-Item 1: MCP Server -->
-    <g transform="translate(18, 80)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 80)">
       <rect width="344" height="64" rx="8" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.5"/>
       <!-- Icon: Gemini / Antigravity Starburst -->
       <g transform="translate(14, 17)">
@@ -331,11 +331,11 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
         <circle cx="22" cy="8" r="1.5" fill="#4F46E5"/>
       </g>
       <text x="56" y="30" class="card-title">MCP Server</text>
-      <text x="56" y="47" class="card-sub">AI Agent bridge for Claude, Cursor, and Antigravity</text>
+      <text x="56" y="47" class="card-sub">AI Agent bridge for Claude, Cursor &amp; Antigravity</text>
     </g>
 
     <!-- Sub-Item 2: Export in Common Formats -->
-    <g transform="translate(18, 156)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 156)">
       <rect width="344" height="114" rx="8" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.5"/>
       <!-- Icon: Export Arrows -->
       <g transform="translate(14, 17)">
@@ -344,7 +344,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
         <line x1="9" y1="14" x2="19" y2="14" stroke="#1C1917" stroke-width="1.4"/>
       </g>
       <text x="56" y="30" class="card-title">Export in Common Formats</text>
-      <text x="56" y="47" class="card-sub">Take your data elsewhere:</text>
+      <text x="56" y="47" class="card-sub">12 zero-loss cross-ecosystem formats:</text>
 
       <!-- Sub-format pills inside -->
       <g transform="translate(16, 58)">
@@ -369,7 +369,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
     </g>
 
     <!-- Sub-Item 3: Lightweight HTML file -->
-    <g transform="translate(18, 282)" filter="url(#pill-shadow)">
+    <g transform="translate(18, 282)">
       <rect width="344" height="64" rx="8" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.5"/>
       <!-- Icon: Eye / Desktop Browser -->
       <g transform="translate(14, 17)">
@@ -381,24 +381,18 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
       <text x="56" y="47" class="card-sub">Visual gallery, reader &amp; media players</text>
     </g>
 
-    <!-- Reflection / Garden Note -->
-    <g transform="translate(18, 360)">
-      <rect width="344" height="152" rx="8" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" stroke-dasharray="3,3"/>
-      <text x="172" y="32" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="11.5px" font-weight="600" fill="#B45309">
-        (Optional — publish to the web)
-      </text>
-      
-      <text x="172" y="62" text-anchor="middle" font-family="Menlo, monospace" font-size="11px" font-weight="700" fill="#92400E">
-        REFLECT &amp; GARDEN
-      </text>
-
-      <text x="172" y="88" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="14px" font-weight="700" fill="#78350F">
-        Personal Web Garden
-      </text>
-
-      <text x="172" y="122" text-anchor="middle" font-family="Menlo, monospace" font-size="11.5px" font-weight="bold" fill="#065F46">
-        e.g., drewshannon.net/garden
-      </text>
+    <!-- Sub-Item 4: (Optional) Reflect & Garden (aligned with Col 2 Card 5: ends at 464) -->
+    <g transform="translate(18, 400)">
+      <rect width="344" height="64" rx="8" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" stroke-dasharray="3,3"/>
+      <!-- Icon: Sprout / Garden in amber -->
+      <g transform="translate(14, 17)">
+        <rect width="30" height="30" rx="6" fill="#FDE68A"/>
+        <path d="M 15 22 L 15 13" stroke="#B45309" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M 15 16 C 11 16, 9 13, 10 9 C 14 9, 15 12, 15 16 Z" fill="none" stroke="#B45309" stroke-width="1.4"/>
+        <path d="M 15 14 C 19 14, 21 11, 20 7 C 16 7, 15 10, 15 14 Z" fill="none" stroke="#B45309" stroke-width="1.4"/>
+      </g>
+      <text x="56" y="30" class="bridge-title">(Optional) Reflect &amp; Garden</text>
+      <text x="56" y="47" class="bridge-sub">Publish to the web (drewshannon.net/garden)</text>
     </g>
   </g>
 
@@ -406,7 +400,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
   <!-- ========================================== -->
   <!-- 3. BOTTOM PAYOFF BANNER                    -->
   <!-- ========================================== -->
-  <g transform="translate(180, 660)" filter="url(#card-shadow)">
+  <g transform="translate(180, 604)">
     <!-- Container -->
     <rect width="980" height="92" rx="8" fill="#FFFFFF" stroke="#1C1917" stroke-width="1.6"/>
     
@@ -415,15 +409,15 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
 
     <!-- Content -->
     <text x="495" y="34" text-anchor="middle" class="payoff-title">
-      The Core Thesis: The Filesystem is Canonical Truth
+      Principles: The Filesystem is Canonical Truth
     </text>
     
     <text x="495" y="58" text-anchor="middle" class="payoff-body">
-      Zero vendor lock-in • Offline-first speed • Disposable SQLite index auto-rebuilt from JSON
+      Own your context • Offline-first, cloud-optional • AI-Agnostic • Zero vendor lock-in
     </text>
 
     <text x="495" y="76" text-anchor="middle" class="payoff-body" fill="#57534E">
-      Human-readable Markdown &amp; sidecar files on your drive — readable today, readable 30 years from now.
+      Human-readable Markdown &amp; sidecar files on your drive — readable today, readable tomorrow.
     </text>
   </g>
 
@@ -432,7 +426,7 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}"
 with open(SVG_OUTPUT, "w") as f:
     f.write(svg)
 
-print(f"Generated {SVG_OUTPUT} ({len(svg)} bytes)")
+print(f"✓ Generated {SVG_OUTPUT} ({len(svg)} bytes)")
 
 # Companion HTML preview
 html = f'''<!DOCTYPE html>
@@ -443,7 +437,7 @@ html = f'''<!DOCTYPE html>
   <title>WebTack Architecture Diagram</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@1,6..72,400;1,6..72,500;1,6..72,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Tenor+Sans&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <style>
     * {{
       box-sizing: border-box;
@@ -531,17 +525,42 @@ with open(HTML_OUTPUT, "w") as f:
 
 print(f"✓ Generated {HTML_OUTPUT} ({len(html)} bytes)")
 
-# Auto-generate high-res PNG via macOS qlmanage
-try:
-    res = subprocess.run(
-        ["qlmanage", "-t", "-s", "2600", "-o", OUTPUT_DIR, SVG_OUTPUT],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=True
-    )
-    temp_png = f"{SVG_OUTPUT}.png"
-    if os.path.exists(temp_png):
-        shutil.move(temp_png, PNG_OUTPUT)
-        print(f"✓ Generated {PNG_OUTPUT} (2600px high-res PNG)")
-except Exception as e:
-    print(f"Notice: PNG generation via qlmanage skipped ({e})")
+# Auto-generate high-res PNG (prefers headless Google Chrome for razor-sharp Retina rendering)
+chrome_app = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+rendered = False
+
+if os.path.exists(chrome_app):
+    try:
+        subprocess.run(
+            [
+                chrome_app,
+                "--headless",
+                "--disable-gpu",
+                "--force-device-scale-factor=2",
+                f"--window-size={WIDTH},{HEIGHT}",
+                f"--screenshot={PNG_OUTPUT}",
+                f"file://{SVG_OUTPUT}"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True
+        )
+        print(f"✓ Generated {PNG_OUTPUT} (2680px razor-sharp Retina PNG via Chrome)")
+        rendered = True
+    except Exception as e:
+        print(f"Notice: Chrome rasterization failed ({e}), falling back to qlmanage...")
+
+if not rendered:
+    try:
+        res = subprocess.run(
+            ["qlmanage", "-t", "-s", "2600", "-o", OUTPUT_DIR, SVG_OUTPUT],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True
+        )
+        temp_png = f"{SVG_OUTPUT}.png"
+        if os.path.exists(temp_png):
+            shutil.move(temp_png, PNG_OUTPUT)
+            print(f"✓ Generated {PNG_OUTPUT} (2600px PNG via qlmanage)")
+    except Exception as e:
+        print(f"Notice: PNG generation via qlmanage skipped ({e})")

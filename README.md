@@ -11,6 +11,10 @@ A local-first, durable web curation and bookmarking framework using the **Conten
 
 Decouples capture and long-term storage from proprietary platforms. The filesystem is the canonical source of truth; SQLite is a disposable, fast index.
 
+<p align="center">
+  <img src="docs/assets/webtack-architecture.png" alt="WebTack Architecture Diagram" width="100%">
+</p>
+
 ---
 
 ## Quickstart (Try it in 60 seconds)
@@ -54,6 +58,10 @@ WebTack categorizes every curated piece of content into an explicit semantic `ki
 
 Every atom is anchored by a canonical `atom.json` metadata sidecar structured into three decoupled knowledge tiers wrapped in a lightweight system envelope:
 
+<p align="center">
+  <img src="docs/assets/webtack-schema.png" alt="WebTack Schema Specification Diagram" width="100%">
+</p>
+
 ```
 ┌────────────────────────────────────────────────────────┐
 │  System Envelope (Document Header)                     │
@@ -75,7 +83,7 @@ Document identity, machine routing, and specification versioning.
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| **`id`** | `string` | Unique chronological identifier (e.g. `2026-11-05-d286-9ac7`). |
+| **`id`** | `string` | Unique chronological identifier (e.g. `atm_20261105024437_b2e3c4`). |
 | **`kind`** | `string` | Semantic discriminator: `article`, `bookmark`, `video`, `quote`, `note`, `image`, or `file`. |
 | **`version`** | `integer` | Schema specification version (`3`). |
 | **`created_at`** | `string (ISO 8601)` | Timestamp when the atom was first ingested into the vault. |
@@ -136,7 +144,7 @@ A flexible JSON dictionary for niche, plugin, or experimental metadata without b
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/dn0c/webtack/main/schema/atom.schema.json",
-  "id": "2026-11-05-b2e3-c4d5",
+  "id": "atm_20261105024437_b2e3c4",
   "kind": "article",
   "version": 3,
   "created_at": "2026-11-05T12:00:00Z",
@@ -238,7 +246,7 @@ List recent atoms with optional filtering by `kind`, `tag`, or `collection`:
 ```bash
 python3 curate.py list
 python3 curate.py list --kind quote
-python3 curate.py list --kind link
+python3 curate.py list --kind bookmark
 python3 curate.py list --tag systems
 ```
 
@@ -431,8 +439,8 @@ python3 curate.py pull
 
 Publishes public atoms to your live digital garden (e.g., `drewshannon.net/garden`):
 1. Exports `curation_public.json` containing metadata, tags, and excerpts for atoms where `visibility = 'public'` (keeps private atoms local-only).
-2. Uploads the manifest to Google Cloud Storage (`gs://webtack-assets-drew/curation_public.json`).
-3. Rsyncs public cover images to `gs://webtack-assets-drew/atoms/`.
+2. Uploads the manifest to Google Cloud Storage (`gs://<your-bucket-name>/curation_public.json`).
+3. Rsyncs public cover images to `gs://<your-bucket-name>/atoms/`.
 
 ```bash
 # Full sync: manifest + image assets
@@ -483,6 +491,8 @@ webtack/
 ├── SPECIFICATION.md          # Formal architectural specification & storage contract
 ├── schema/
 │   └── atom.schema.json      # Formal JSON Schema specification (v3)
+├── docs/
+│   └── assets/               # Architecture diagrams & visual schema specs
 ├── fixtures/
 │   └── demo_vault/           # Self-contained specimen vault (6 canonical kinds)
 └── vault/                    # Canonical user vault (gitignored / syncable)

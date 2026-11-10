@@ -296,6 +296,44 @@
         letter-spacing: 0.05em;
         margin-bottom: 2px;
       }
+      .btn-picker {
+        background: #2563eb;
+        color: #ffffff;
+        border: none;
+        border-radius: 6px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: background 0.15s;
+      }
+      .btn-picker:hover {
+        background: #1d4ed8;
+      }
+      .btn-picker-preview {
+        background: #1e293b;
+        color: #38bdf8;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.15s;
+      }
+      .btn-picker-preview:hover {
+        background: #334155;
+        color: #ffffff;
+        border-color: #38bdf8;
+      }
       .form-group {
         margin-bottom: 12px;
       }
@@ -426,15 +464,14 @@
         <button class="pill-btn ${currentKind === 'image' ? 'active' : ''}" data-kind="image">🎨 Image</button>
       </div>
 
-      ${imageUrl ? `
-        <div class="preview-box">
-          <img src="${imageUrl}" class="preview-img" onerror="this.style.display='none'">
-          <div class="preview-meta">
-            <div class="preview-site">${siteName}</div>
-            <div style="color: #cbd5e1; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${pageTitle}</div>
-          </div>
+      <div class="preview-box" id="previewBox" style="display: ${imageUrl ? 'flex' : 'none'};">
+        <img src="${imageUrl || ''}" class="preview-img" id="previewImg" onerror="this.style.display='none'">
+        <div class="preview-meta" style="flex: 1; min-width: 0;">
+          <div class="preview-site">${siteName}</div>
+          <div id="previewTitle" style="color: #cbd5e1; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(pageTitle)}</div>
         </div>
-      ` : ''}
+        <button type="button" class="btn-picker-preview" id="btnPickPreview" title="Click any image on the active page to capture it">🎯 Pick Image</button>
+      </div>
 
       <form id="captureForm">
         <div id="articleBadge" style="display: ${currentKind === 'article' ? 'flex' : 'none'}; align-items: center; gap: 6px; font-size: 11.5px; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 6px 10px; margin-bottom: 12px;">
@@ -468,7 +505,10 @@
 
         <!-- Image URL Input (Conditional for Image Kind) -->
         <div class="form-group" id="groupImageSrc" style="display: ${currentKind === 'image' ? 'block' : 'none'};">
-          <label>Image Source Link</label>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+            <label style="margin-bottom: 0;">Image Source Link</label>
+            <button type="button" class="btn-picker" id="btnPickImage">🎯 Pick from page</button>
+          </div>
           <input type="url" id="inputImageSrc" value="${escapeHtml(imageUrl || '')}" placeholder="https://.../photo.jpg">
         </div>
 
@@ -489,11 +529,12 @@
           <textarea id="inputDescription" rows="4" style="min-height: 84px; line-height: 1.45;" placeholder="Add or edit summary or personal editorial notes...">${escapeHtml(description)}</textarea>
         </div>
 
-        <!-- Tags & Visibility Row -->
+        <!-- Collection & Visibility Row -->
         <div class="row">
-          <div class="form-group" style="flex: 2;">
-            <label>Tags (Comma separated)</label>
-            <input type="text" id="inputTags" placeholder="e.g. design, ai, web">
+          <div class="form-group" style="flex: 1.4;">
+            <label>Collection / Channel</label>
+            <input type="text" id="inputCollection" list="collectionSuggestions" placeholder="e.g. Design, Wishlist, Ride">
+            <datalist id="collectionSuggestions"></datalist>
           </div>
           <div class="form-group" style="flex: 1;">
             <label>Visibility</label>
@@ -503,6 +544,12 @@
               <option value="private">🔒 Private</option>
             </select>
           </div>
+        </div>
+
+        <!-- Tags Row -->
+        <div class="form-group">
+          <label>Tags (Comma separated)</label>
+          <input type="text" id="inputTags" placeholder="e.g. design, ai, web">
         </div>
 
         <div class="server-warning" id="serverWarning">
@@ -584,6 +631,159 @@
     });
   });
 
+  // 5.5 Visual Image Picker Logic
+  function startImagePicker() {
+    const card = shadow.querySelector('.webtack-card');
+    const backdrop = shadow.getElementById('backdrop');
+    if (card) card.style.display = 'none';
+    if (backdrop) backdrop.style.display = 'none';
+
+    const badge = document.createElement('div');
+    badge.id = 'webtack-picker-badge';
+    badge.style.position = 'fixed';
+    badge.style.top = '16px';
+    badge.style.left = '50%';
+    badge.style.transform = 'translateX(-50%)';
+    badge.style.background = '#0f172a';
+    badge.style.color = '#38bdf8';
+    badge.style.padding = '8px 16px';
+    badge.style.borderRadius = '9999px';
+    badge.style.fontSize = '13px';
+    badge.style.fontWeight = '600';
+    badge.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5), 0 0 0 2px #38bdf8';
+    badge.style.zIndex = '2147483647';
+    badge.style.cursor = 'pointer';
+    badge.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    badge.innerHTML = '🎯 Click any image on page to capture • <span style="color:#94a3b8; font-weight:400;">Esc to cancel</span>';
+    document.body.appendChild(badge);
+
+    let currentHovered = null;
+    let prevOutline = '';
+    let prevOffset = '';
+    let prevCursor = '';
+
+    function cleanHover() {
+      if (currentHovered) {
+        currentHovered.style.outline = prevOutline;
+        currentHovered.style.outlineOffset = prevOffset;
+        currentHovered.style.cursor = prevCursor;
+        currentHovered = null;
+      }
+    }
+
+    function onOver(e) {
+      const el = e.target;
+      if (!el || el === badge || host.contains(el)) return;
+      let imgEl = el.closest('img') || (el.tagName === 'IMG' ? el : null);
+      if (!imgEl && el.tagName === 'PICTURE') {
+        imgEl = el.querySelector('img');
+      }
+      if (!imgEl) {
+        try {
+          const bg = window.getComputedStyle(el).backgroundImage;
+          if (bg && bg.startsWith('url(')) imgEl = el;
+        } catch (_) {}
+      }
+      if (imgEl) {
+        cleanHover();
+        currentHovered = imgEl;
+        prevOutline = imgEl.style.outline;
+        prevOffset = imgEl.style.outlineOffset;
+        prevCursor = imgEl.style.cursor;
+        imgEl.style.outline = '3px solid #38bdf8';
+        imgEl.style.outlineOffset = '2px';
+        imgEl.style.cursor = 'crosshair';
+      }
+    }
+
+    function onOut(e) {
+      if (currentHovered && (e.target === currentHovered || !currentHovered.contains(e.target))) {
+        cleanHover();
+      }
+    }
+
+    function stopPicker() {
+      cleanHover();
+      if (badge && badge.parentNode) badge.parentNode.removeChild(badge);
+      document.removeEventListener('mouseover', onOver, true);
+      document.removeEventListener('mouseout', onOut, true);
+      document.removeEventListener('click', onClick, true);
+      window.removeEventListener('keydown', onEsc, true);
+      if (card) card.style.display = 'block';
+      if (backdrop) backdrop.style.display = 'block';
+    }
+
+    function onEsc(e) {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        stopPicker();
+      }
+    }
+
+    function onClick(e) {
+      if (badge.contains(e.target)) {
+        stopPicker();
+        return;
+      }
+      const el = e.target;
+      if (host.contains(el)) return;
+
+      let src = null;
+      let alt = '';
+      let imgEl = el.closest('img') || (el.tagName === 'IMG' ? el : null);
+      if (imgEl) {
+        src = imgEl.currentSrc || imgEl.src || imgEl.getAttribute('src');
+        alt = imgEl.getAttribute('alt') || imgEl.getAttribute('title') || '';
+      } else {
+        try {
+          const bg = window.getComputedStyle(el).backgroundImage;
+          if (bg && bg.startsWith('url(')) {
+            src = bg.slice(4, -1).replace(/["']/g, '');
+          }
+        } catch (_) {}
+      }
+
+      if (src) {
+        e.preventDefault();
+        e.stopPropagation();
+        stopPicker();
+
+        // Switch to image kind
+        const imgPill = shadow.querySelector('.pill-btn[data-kind="image"]');
+        if (imgPill) imgPill.click();
+
+        // Update form inputs
+        const inputImg = shadow.getElementById('inputImageSrc');
+        if (inputImg) inputImg.value = src;
+
+        const inTitle = shadow.getElementById('inputTitle');
+        if (alt && (!inTitle.value || inTitle.value === pageTitle)) {
+          inTitle.value = alt;
+        }
+
+        // Update preview box
+        const pBox = shadow.getElementById('previewBox');
+        const pImg = shadow.getElementById('previewImg');
+        if (pBox) pBox.style.display = 'flex';
+        if (pImg) {
+          pImg.src = src;
+          pImg.style.display = 'block';
+        }
+      }
+    }
+
+    badge.addEventListener('click', stopPicker);
+    document.addEventListener('mouseover', onOver, true);
+    document.addEventListener('mouseout', onOut, true);
+    document.addEventListener('click', onClick, true);
+    window.addEventListener('keydown', onEsc, true);
+  }
+
+  const btnPickImage = shadow.getElementById('btnPickImage');
+  if (btnPickImage) btnPickImage.addEventListener('click', startImagePicker);
+  const btnPickPreview = shadow.getElementById('btnPickPreview');
+  if (btnPickPreview) btnPickPreview.addEventListener('click', startImagePicker);
+
   // Focus tags or quote
   setTimeout(() => {
     if (currentKind === 'quote') {
@@ -592,6 +792,19 @@
       inputTags.focus();
     }
   }, 100);
+
+  // Load collection suggestions
+  fetch('http://127.0.0.1:8080/api/collections')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.collections && Array.isArray(data.collections)) {
+        const datalist = shadow.getElementById('collectionSuggestions');
+        if (datalist) {
+          datalist.innerHTML = data.collections.map(c => `<option value="${escapeHtml(c)}"></option>`).join('');
+        }
+      }
+    })
+    .catch(() => {});
 
   // Check if URL is already in vault (to prefill existing description/tags and allow updating)
   fetch('http://127.0.0.1:8080/api/check?url=' + encodeURIComponent(canonicalUrl))
@@ -614,6 +827,9 @@
         }
         if (res.atom.tags && res.atom.tags.length) {
           shadow.getElementById('inputTags').value = res.atom.tags.join(', ');
+        }
+        if (res.atom.collection) {
+          shadow.getElementById('inputCollection').value = res.atom.collection;
         }
         if (res.atom.visibility) {
           shadow.getElementById('selectVisibility').value = res.atom.visibility;
@@ -654,6 +870,7 @@
     const payload = {
       kind: currentKind,
       title: inputTitle.value.trim() || null,
+      collection: shadow.getElementById('inputCollection').value.trim() || null,
       tags: tags,
       description: shadow.getElementById('inputDescription').value.trim() || null,
       visibility: shadow.getElementById('selectVisibility').value,
@@ -705,7 +922,7 @@
       // If direct fetch is blocked by site CSP (e.g. NYTimes connect-src),
       // seamlessly transfer the live tab data to WebTack via postMessage!
       try {
-        const win = window.open('http://127.0.0.1:8080/?capture_url=' + encodeURIComponent(payload.url || location.href) + '&capture_title=' + encodeURIComponent(payload.title || document.title) + '&capture_description=' + encodeURIComponent(payload.description || ''), '_blank');
+        const win = window.open('http://127.0.0.1:8080/?capture_url=' + encodeURIComponent(payload.url || location.href) + '&capture_title=' + encodeURIComponent(payload.title || document.title) + '&capture_description=' + encodeURIComponent(payload.description || '') + '&capture_collection=' + encodeURIComponent(payload.collection || ''), '_blank');
         if (win) {
           statusText.textContent = 'Transferring to WebTack...';
           const transferPayload = {

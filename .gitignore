@@ -10,6 +10,11 @@ __pycache__/
 *$py.class
 .pytest_cache/
 
+# Python Packaging & Distribution
+*.egg-info/
+dist/
+build/
+
 # Virtual Environments
 venv/
 .venv/

@@ -5,6 +5,7 @@ Builds a high-aesthetic, local-first masonry showcase for browsing, reading, and
 https://webtack.net
 """
 
+import html
 import json
 import os
 import sqlite3
@@ -81,40 +82,23 @@ def get_atoms_data(vault_dir: Path):
 
 
 def get_inlined_bookmarklet_href(server_port: int = 8080) -> str:
-    """Build a lightweight, bulletproof bookmarklet href that opens the dedicated Quick Capture popup.
-    Works universally across every browser and website with zero CSP or Mixed Content restrictions."""
+    """Build the canonical WebTack bookmarklet href that injects the in-page capture drawer,
+    with an automatic fallback to the standalone quick-capture popup on CSP-restricted sites."""
     js = (
         "javascript:(function(){"
-        "var u=location.href,"
-        "t=document.title,"
-        "q=window.getSelection()?window.getSelection().toString().trim():'',"
-        "d='',a='',img='';"
-        "try{"
-        "var md=document.querySelector('meta[property=\"og:description\"]')||document.querySelector('meta[name=\"description\"]');"
-        "if(md)d=md.getAttribute('content')||'';"
-        "var ma=document.querySelector('meta[name=\"author\"]')||document.querySelector('meta[property=\"article:author\"]');"
-        "if(ma)a=ma.getAttribute('content')||'';"
-        "var mi=document.querySelector('meta[property=\"og:image\"]')||document.querySelector('meta[name=\"twitter:image\"]');"
-        "if(mi)img=mi.getAttribute('content')||'';"
-        "}catch(e){}"
-        "var w=520,h=700,"
-        "l=Math.max(0,(screen.width-w)/2),"
-        "tp=Math.max(0,(screen.height-h)/4);"
-        f"var win=window.open('http://127.0.0.1:{server_port}/capture?url='+encodeURIComponent(u)+'&title='+encodeURIComponent(t)+'&description='+encodeURIComponent(d)+'&quote='+encodeURIComponent(q)+'&author='+encodeURIComponent(a)+'&image='+encodeURIComponent(img),'webtack_capture','width='+w+',height='+h+',top='+tp+',left='+l+',resizable=yes,scrollbars=yes');"
-        "if(win){"
-        "win.focus();"
-        "setTimeout(function(){"
-        "try{"
-        "var b=document.querySelector('article,main,.story-body,.article-body');"
-        "if(b&&b.innerText&&b.innerText.length>100&&b.innerText.length<60000){"
-        "win.postMessage({type:'WEBTACK_FULL_TEXT',text:b.innerText},'*');"
-        "}"
-        "}catch(e){}"
-        "},600);"
-        "}"
+        "const d=document,e=d.getElementById('webtack-drawer-host');"
+        "if(e){e.remove();return;}"
+        "const s=d.createElement('script');"
+        "s.id='webtack-script';"
+        f"s.src='http://127.0.0.1:{server_port}/bookmarklet.js?r='+Date.now();"
+        "s.onerror=function(){"
+        "const u=location.href,t=document.title,q=window.getSelection()?window.getSelection().toString():'';"
+        f"window.open('http://127.0.0.1:{server_port}/capture?url='+encodeURIComponent(u)+'&title='+encodeURIComponent(t)+'&quote='+encodeURIComponent(q),'_blank');"
+        "};"
+        "d.body.appendChild(s);"
         "})();"
     )
-    return js
+    return html.escape(js, quote=True)
 
 
 def get_capture_page_html() -> str:
@@ -423,9 +407,16 @@ def get_capture_page_html() -> str:
       <textarea id="inputDescription" rows="3" placeholder="Add or edit summary or personal editorial notes..."></textarea>
     </div>
 
-    <div class="form-group">
-      <label>Tags (Comma separated)</label>
-      <input type="text" id="inputTags" placeholder="systems, design, essay" />
+    <div class="row" style="display: flex; gap: 8px;">
+      <div class="form-group" style="flex: 1;">
+        <label>Collection / Channel</label>
+        <input type="text" id="inputCollection" list="collectionList" placeholder="e.g. Design, Reading, Ride" />
+        <datalist id="collectionList"></datalist>
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label>Tags (Comma separated)</label>
+        <input type="text" id="inputTags" placeholder="systems, design, essay" />
+      </div>
     </div>
 
     <div id="fieldArticleBodyGroup" class="toggle-section">
@@ -492,6 +483,7 @@ def get_capture_page_html() -> str:
     const initialQuote = params.get('quote') || params.get('capture_quote') || '';
     const initialAuthor = params.get('author') || '';
     const initialImage = params.get('image') || '';
+    const initialColl = params.get('collection') || params.get('capture_collection') || '';
 
     if (initialUrl) document.getElementById('inputUrl').value = initialUrl;
     if (initialTitle) document.getElementById('inputTitle').value = initialTitle;
@@ -499,6 +491,20 @@ def get_capture_page_html() -> str:
     if (initialQuote) document.getElementById('inputQuote').value = initialQuote;
     if (initialAuthor) document.getElementById('inputAuthor').value = initialAuthor;
     if (initialImage) document.getElementById('inputImageSrc').value = initialImage;
+    if (initialColl) document.getElementById('inputCollection').value = initialColl;
+
+    // Load collection suggestions
+    fetch('/api/collections')
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.collections) {
+          const dl = document.getElementById('collectionList');
+          if (dl) {
+            dl.innerHTML = data.collections.map(c => `<option value="${escapeHtml(c)}"></option>`).join('');
+          }
+        }
+      })
+      .catch(() => {});
 
     // Show preview card if image or domain present
     if (initialUrl) {
@@ -542,6 +548,9 @@ def get_capture_page_html() -> str:
             if (!document.getElementById('inputTags').value && data.atom.tags) {
               document.getElementById('inputTags').value = Array.isArray(data.atom.tags) ? data.atom.tags.join(', ') : data.atom.tags;
             }
+            if (!document.getElementById('inputCollection').value && data.atom.collection) {
+              document.getElementById('inputCollection').value = data.atom.collection;
+            }
             document.getElementById('btnSave').textContent = 'Update Atom';
           }
         })
@@ -578,6 +587,7 @@ def get_capture_page_html() -> str:
       const payload = {
         kind: currentKind,
         title: document.getElementById('inputTitle').value.trim() || null,
+        collection: document.getElementById('inputCollection').value.trim() || null,
         tags: tags,
         description: document.getElementById('inputDescription').value.trim() || null,
         author: document.getElementById('inputAuthor').value.trim() || null,
@@ -4219,6 +4229,40 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(content_bytes)
             else:
                 self.send_error(404, "Bookmarklet script not found")
+        elif parsed.path == "/api/collections":
+            script_dir = str(Path(__file__).resolve().parent)
+            if script_dir not in sys.path:
+                sys.path.insert(0, script_dir)
+            import curate
+            conn = curate.get_db(self.vault_dir)
+            cols_set = set()
+            try:
+                rows = conn.execute("SELECT DISTINCT collections FROM atoms WHERE collections IS NOT NULL AND TRIM(collections) != ''").fetchall()
+                for (c_json,) in rows:
+                    if not c_json:
+                        continue
+                    try:
+                        parsed_c = json.loads(c_json)
+                        if isinstance(parsed_c, list):
+                            for item in parsed_c:
+                                if item and isinstance(item, str) and item.strip():
+                                    cols_set.add(item.strip())
+                        elif isinstance(parsed_c, str) and parsed_c.strip():
+                            cols_set.add(parsed_c.strip())
+                    except Exception:
+                        if c_json.strip():
+                            cols_set.add(c_json.strip())
+            finally:
+                conn.close()
+
+            collections = sorted(cols_set, key=lambda s: s.lower())
+            response_bytes = json.dumps({"collections": collections}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(response_bytes)))
+            self.end_headers()
+            self.wfile.write(response_bytes)
         elif parsed.path == "/api/check":
             query = urllib.parse.parse_qs(parsed.query)
             target_url = query.get("url", [None])[0]
@@ -4233,7 +4277,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
             conn = curate.get_db(self.vault_dir)
             try:
                 row = conn.execute("""
-                    SELECT id, kind, atom_title, notes, tags, visibility, created_at, source_url
+                    SELECT id, kind, atom_title, notes, tags, visibility, created_at, source_url, collections
                     FROM atoms
                     WHERE source_url = ? OR destination_url = ?
                     ORDER BY created_at DESC LIMIT 1
@@ -4247,6 +4291,15 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                     tags = json.loads(row["tags"]) if row["tags"] else []
                 except Exception:
                     pass
+                col_name = None
+                try:
+                    c_list = json.loads(row["collections"]) if row["collections"] else []
+                    if isinstance(c_list, list) and c_list:
+                        col_name = c_list[0]
+                    elif isinstance(c_list, str):
+                        col_name = c_list
+                except Exception:
+                    pass
                 data = {
                     "exists": True,
                     "atom": {
@@ -4255,6 +4308,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                         "title": row["atom_title"],
                         "description": row["notes"],
                         "tags": tags,
+                        "collection": col_name,
                         "visibility": row["visibility"] or "public"
                     }
                 }
@@ -4290,6 +4344,13 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                     sys.path.insert(0, script_dir)
                 import curate
                 kind = data.get("kind", "bookmark")
+                raw_coll = data.get("collection")
+                if isinstance(raw_coll, list):
+                    coll_arg = ", ".join(str(c) for c in raw_coll if c)
+                elif isinstance(raw_coll, str) and raw_coll.strip():
+                    coll_arg = raw_coll.strip()
+                else:
+                    coll_arg = None
                 
                 if kind in ("article", "bookmark", "link"):
                     args = types.SimpleNamespace(
@@ -4301,7 +4362,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                         description=data.get("description") or data.get("notes"),
                         notes=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),
-                        collection=data.get("collection"),
+                        collection=coll_arg,
                         quote=data.get("quote"),
                         favorite=data.get("favorite", False),
                         visibility=data.get("visibility", "public"),
@@ -4320,7 +4381,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                         notes=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),
                         transcript=data.get("transcript"),
-                        collection=data.get("collection"),
+                        collection=coll_arg,
                         favorite=data.get("favorite", False),
                         visibility=data.get("visibility", "public"),
                         capture_method="bookmarklet",
@@ -4337,7 +4398,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                         notes=data.get("description") or data.get("notes"),
                         description=data.get("description") or data.get("notes"),
                         tags=data.get("tags"),
-                        collection=data.get("collection"),
+                        collection=coll_arg,
                         favorite=data.get("favorite", False),
                         visibility=data.get("visibility", "public"),
                         capture_method="bookmarklet",
@@ -4349,7 +4410,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                         text=data["text"],
                         title=data.get("title"),
                         tags=data.get("tags"),
-                        collection=data.get("collection"),
+                        collection=coll_arg,
                         favorite=data.get("favorite", False),
                         visibility=data.get("visibility", "public"),
                         capture_method="bookmarklet",
@@ -4365,7 +4426,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                         alt=data.get("alt"),
                         notes=data.get("notes") or data.get("description"),
                         tags=data.get("tags"),
-                        collection=data.get("collection"),
+                        collection=coll_arg,
                         favorite=data.get("favorite", False),
                         visibility=data.get("visibility", "public"),
                         capture_method="bookmarklet",
@@ -4547,6 +4608,19 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                             raw["curation"] = {}
                         raw["curation"]["tags"] = new_tags
 
+                    new_coll = data.get("collection")
+                    cols = None
+                    if new_coll is not None:
+                        if "curation" not in raw:
+                            raw["curation"] = {}
+                        if isinstance(new_coll, str):
+                            cols = [c.strip() for c in new_coll.split(",") if c.strip()]
+                        elif isinstance(new_coll, list):
+                            cols = [str(c).strip() for c in new_coll if str(c).strip()]
+                        else:
+                            cols = []
+                        raw["curation"]["collections"] = cols
+
                     created_at = row["created_at"]
                     atom_folder = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / atom_id
 
@@ -4595,6 +4669,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                         SET notes = COALESCE(?, notes),
                             atom_title = COALESCE(?, atom_title),
                             tags = COALESCE(?, tags),
+                            collections = COALESCE(?, collections),
                             text_content = COALESCE(?, text_content),
                             metadata = ?,
                             raw_json = ?,
@@ -4604,6 +4679,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                         new_desc,
                         new_title,
                         json.dumps(new_tags) if new_tags is not None else None,
+                        json.dumps(cols) if new_coll is not None else None,
                         new_text,
                         json.dumps(raw.get("metadata_json", {})),
                         json.dumps(raw),

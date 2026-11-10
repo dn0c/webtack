@@ -50,6 +50,17 @@ class TestBookmarkletAndServer(unittest.TestCase):
             self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
             body = resp.read().decode("utf-8")
             self.assertIn("webtack-drawer-host", body)
+            self.assertIn("startImagePicker", body)
+            self.assertIn("inputCollection", body)
+
+    def test_collections_api(self):
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/collections")
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertIn("collections", data)
+            self.assertIsInstance(data["collections"], list)
 
     def test_cors_options_preflight(self):
         req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/capture", method="OPTIONS")
@@ -82,7 +93,8 @@ class TestBookmarkletAndServer(unittest.TestCase):
         # Test updating description via /api/update
         up_payload = json.dumps({
             "id": atom_id,
-            "description": "Updated editorial description from user test."
+            "description": "Updated editorial description from user test.",
+            "collection": "Integration Tests"
         }).encode("utf-8")
         up_req = urllib.request.Request(
             f"http://127.0.0.1:{self.port}/api/update",
@@ -96,6 +108,12 @@ class TestBookmarkletAndServer(unittest.TestCase):
             up_res = json.loads(resp.read().decode("utf-8"))
             self.assertTrue(up_res.get("success"))
             self.assertEqual(up_res["description"], "Updated editorial description from user test.")
+
+        # Test collections endpoint returns the new collection
+        col_req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/collections")
+        with urllib.request.urlopen(col_req) as resp:
+            cols = json.loads(resp.read().decode("utf-8")).get("collections", [])
+            self.assertIn("Integration Tests", cols)
 
         # Test deleting the created atom via /api/delete
         del_payload = json.dumps({"id": atom_id}).encode("utf-8")

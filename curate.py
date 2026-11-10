@@ -3354,11 +3354,27 @@ def cmd_enrich(args):
 
 def cmd_mcp(args):
     """Run the WebTack Model Context Protocol (MCP) server for Claude Desktop / AI assistants."""
-    try:
-        import webtack_mcp as wideweb_mcp
-    except ImportError:
-        import wideweb_mcp
-    wideweb_mcp.main()
+    import webtack_mcp
+    webtack_mcp.main()
+
+
+def normalize_argv(argv):
+    """Allow --vault to be specified either before or after subcommands."""
+    new_argv = []
+    vault_args = []
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--vault" and i + 1 < len(argv):
+            vault_args = [arg, argv[i + 1]]
+            i += 2
+        elif arg.startswith("--vault="):
+            vault_args = [arg]
+            i += 1
+        else:
+            new_argv.append(arg)
+            i += 1
+    return vault_args + new_argv
 
 
 def main():
@@ -3588,7 +3604,7 @@ def main():
     p_del.add_argument("atom_id", help="ID of the atom to delete (e.g. atm_...)")
     p_del.set_defaults(func=cmd_delete)
 
-    args = parser.parse_args()
+    args = parser.parse_args(normalize_argv(sys.argv[1:]))
     args.func(args)
 
 
