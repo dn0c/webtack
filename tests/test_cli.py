@@ -162,6 +162,53 @@ Never gonna let you down
         val_res = self._run_cli(["validate"])
         self.assertIn("zero errors", val_res.stdout)
 
+    def test_save_file_creates_sidecar_and_schema(self):
+        """Verify 'curate.py file' captures a local document, attaches sidecar, and validates."""
+        sample_doc = self.vault_dir / "sample_specification.pdf"
+        sample_doc.write_bytes(b"""%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >> endobj
+xref
+0 4
+0000000000 65535 f 
+0000000010 00000 n 
+0000000060 00000 n 
+0000000117 00000 n 
+trailer << /Size 4 /Root 1 0 R >>
+startxref
+193
+%%EOF""")
+
+        res = self._run_cli([
+            "file",
+            str(sample_doc),
+            "--title", "Sample Specification PDF",
+            "--author", "Test Author",
+            "--tags", "standards,pdf",
+            "--description", "Curated technical paper"
+        ])
+        self.assertIn("File atom saved successfully", res.stdout)
+
+        atom_dirs = list((self.vault_dir / "atoms").glob("*/*/*"))
+        self.assertEqual(len(atom_dirs), 1)
+        atom_dir = atom_dirs[0]
+
+        atom_json_path = atom_dir / "atom.json"
+        self.assertTrue(atom_json_path.exists())
+        self.assertTrue((atom_dir / "sample_specification.pdf").exists())
+
+        with open(atom_json_path, "r", encoding="utf-8") as f:
+            atom = json.load(f)
+
+        self.assertEqual(atom["kind"], "file")
+        self.assertEqual(atom["content"]["file"]["page_count"], 1)
+        self.assertEqual(atom["content"]["file"]["file_extension"], ".pdf")
+        self.assertEqual(atom["curation"]["atom_title"], "Sample Specification PDF")
+
+        val_res = self._run_cli(["validate"])
+        self.assertIn("zero errors", val_res.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

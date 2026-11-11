@@ -1020,6 +1020,7 @@ def generate_viewer(vault_dir: Path) -> Path:
     .kind-quote {{ color: #9B2C2C; background: rgba(155,44,44,0.1); }}
     .kind-note {{ color: #7B341E; background: rgba(123,52,30,0.1); }}
     .kind-image {{ color: #2C7A7B; background: rgba(44,122,123,0.1); }}
+    .kind-file {{ color: #4A5568; background: rgba(74,85,104,0.12); }}
 
     .vis-badge {{
       font-size: 10px;
@@ -1814,6 +1815,7 @@ def generate_viewer(vault_dir: Path) -> Path:
           <button class="tab-btn" data-filter="quote">Quotes <span class="tab-badge" id="badge-quote"></span></button>
           <button class="tab-btn" data-filter="note">Notes <span class="tab-badge" id="badge-note"></span></button>
           <button class="tab-btn" data-filter="image">Images <span class="tab-badge" id="badge-image"></span></button>
+          <button class="tab-btn" data-filter="file">Files <span class="tab-badge" id="badge-file"></span></button>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
           <div class="visibility-tabs" style="display: flex; gap: 2px; background: var(--tag-bg); padding: 3px; border-radius: 8px; border: 1px solid var(--border);">
@@ -2132,6 +2134,27 @@ def generate_viewer(vault_dir: Path) -> Path:
               <div class="card-notes markdown-body" style="-webkit-line-clamp: 8;">${{renderMarkdown(atom.excerpt || '')}}</div>
             </div>
           `;
+        }} else if (atom.kind === 'file') {{
+          const fileMeta = (rawContent.file) || {{}};
+          const sizeBytes = fileMeta.file_size_bytes || (atom.metadata && atom.metadata.file_size_bytes);
+          const sizeStr = sizeBytes ? (sizeBytes < 1048576 ? `${{(sizeBytes / 1024).toFixed(1)}} KB` : `${{(sizeBytes / 1048576).toFixed(2)}} MB`) : '';
+          const extStr = (fileMeta.file_extension || (atom.metadata && atom.metadata.file_extension) || 'FILE').toUpperCase().replace('.', '');
+          const pagesCount = fileMeta.page_count || (atom.metadata && atom.metadata.page_count);
+          const pagesStr = pagesCount ? ` · ${{pagesCount}} pg` : '';
+          const targetLink = atom.source_url;
+          bodyHtml = `
+            <div class="card-body">
+              <div class="card-title">
+                ${{targetLink ? `<a href="${{targetLink}}" target="_blank" rel="noopener">${{escapeHtml(atom.title)}}</a>` : escapeHtml(atom.title)}}
+              </div>
+              <div style="font-size: 11.5px; color: var(--muted); margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.05em; background: var(--tag-bg); color: var(--tag-text); padding: 1px 5px; border-radius: 3px;">${{extStr}}</span>
+                <span>${{sizeStr}}${{pagesStr}}</span>
+              </div>
+              ${{atom.author ? `<div class="author-byline">${{escapeHtml(atom.author)}}</div>` : ''}}
+              ${{atom.notes ? `<div class="card-notes markdown-body">${{renderMarkdown(atom.notes)}}</div>` : ''}}
+            </div>
+          `;
         }} else if (atom.kind === 'image') {{
           const altDisplay = atom.alt_text ? `<div style="font-size:11.5px; color:var(--muted); margin-top:4px;"><span style="font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.04em;">alt:</span> “${{escapeHtml(atom.alt_text)}}”</div>` : `<div style="font-size:11.5px; color:var(--muted); margin-top:4px;"><span style="font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.04em;">alt:</span> <span class="tier-null">null</span></div>`;
           const targetLink = atom.source_url;
@@ -2167,6 +2190,12 @@ def generate_viewer(vault_dir: Path) -> Path:
           extrasHtml = `<button class="read-btn" onclick="openReader('${{atom.id}}')">📖 Read</button>`;
         }} else if (atom.kind === 'note') {{
           extrasHtml = `<button class="read-btn" style="background:#4A5568;" onclick="openReader('${{atom.id}}')">📝 Open</button>`;
+        }} else if (atom.kind === 'file') {{
+          const fileObj = rawContent.file || {{}};
+          const fileHref = fileObj.relative_path || (fileObj.filename ? `${{atom.folder_path}}/${{fileObj.filename}}` : '');
+          if (fileHref) {{
+            extrasHtml = `<a class="read-btn" style="background:#4A5568; text-decoration:none;" href="${{fileHref}}" target="_blank" download>📄 File</a>`;
+          }}
         }} else if (atom.kind === 'bookmark' && atom.source_url) {{
           const visitUrl = atom.source_url;
           extrasHtml = `<a class="read-btn" style="background:transparent; border:1px solid var(--border); color:var(--text); text-decoration:none;" href="${{visitUrl}}" target="_blank" rel="noopener">↗ Visit</a>`;

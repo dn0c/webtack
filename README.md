@@ -240,17 +240,29 @@ python3 curate.py image "/path/to/diagram.png" \
   --tags "diagram,systems"
 ```
 
-### 5. List Saved Atoms (`curate.py list`)
+### 5. Save a Local File or Document (`curate.py file`)
+Ingests any local document (PDF, CSV dataset, whitepaper, archive) into the vault with gentle enrichment: calculates file size, SHA-256 hash, extracts PDF page counts and QuickLook thumbnail previews, and indexes text excerpts:
+
+```bash
+python3 curate.py file "/path/to/whitepaper.pdf" \
+  --title "Next-Generation Information Architecture" \
+  --author "Vannevar Bush" \
+  --tags "research,systems" \
+  --collection "Reading List"
+```
+
+### 6. List Saved Atoms (`curate.py list`)
 List recent atoms with optional filtering by `kind`, `tag`, or `collection`:
 
 ```bash
 python3 curate.py list
+python3 curate.py list --kind file
 python3 curate.py list --kind quote
 python3 curate.py list --kind bookmark
 python3 curate.py list --tag systems
 ```
 
-### 6. Visual Gallery & Live Capture Studio (`curate.py view`)
+### 7. Visual Gallery & Live Capture Studio (`curate.py view`)
 Browse your vault with high-aesthetic typography, 4-tier schema inspection, responsive video player, and distraction-free reader mode:
 
 ```bash

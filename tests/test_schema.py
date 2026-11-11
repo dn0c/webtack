@@ -52,24 +52,33 @@ class TestWebTackSchema(unittest.TestCase):
             atom_dir = af.parent
             content = atom_data.get("content", {})
 
-            if "cover_image" in content and content["cover_image"].get("file"):
-                cover_file = atom_dir / content["cover_image"]["file"]
+            cover = content.get("cover_image")
+            if isinstance(cover, dict) and cover.get("file"):
+                cover_file = atom_dir / cover["file"]
                 self.assertTrue(cover_file.exists(), f"Cover image {cover_file} missing for {af}")
 
-            if "article" in content and content["article"].get("file"):
-                article_file = atom_dir / content["article"]["file"]
+            article = content.get("article")
+            if isinstance(article, dict) and article.get("file"):
+                article_file = atom_dir / article["file"]
                 self.assertTrue(article_file.exists(), f"Article file {article_file} missing for {af}")
 
-            if "text" in content and content["text"].get("file"):
-                text_file = atom_dir / content["text"]["file"]
+            text = content.get("text")
+            if isinstance(text, dict) and text.get("file"):
+                text_file = atom_dir / text["file"]
                 self.assertTrue(text_file.exists(), f"Text file {text_file} missing for {af}")
 
-            if "video" in content and content["video"].get("transcript_file"):
-                t_file = atom_dir / content["video"]["transcript_file"]
+            video = content.get("video")
+            if isinstance(video, dict) and video.get("transcript_file"):
+                t_file = atom_dir / video["transcript_file"]
                 self.assertTrue(t_file.exists(), f"Transcript file {t_file} missing for {af}")
 
-        # Ensure all 6 specimen kinds are covered in demo_vault
-        expected_kinds = {"article", "bookmark", "video", "quote", "note", "image"}
+            file_slot = content.get("file")
+            if isinstance(file_slot, dict) and file_slot.get("filename"):
+                f_file = atom_dir / file_slot["filename"]
+                self.assertTrue(f_file.exists(), f"File sidecar {f_file} missing for {af}")
+
+        # Ensure all 7 specimen kinds are covered in demo_vault
+        expected_kinds = {"article", "bookmark", "video", "quote", "note", "image", "file"}
         self.assertTrue(expected_kinds.issubset(kinds_found), f"Missing demo kinds: {expected_kinds - kinds_found}")
 
     def test_invalid_atom_missing_required_field_fails(self):

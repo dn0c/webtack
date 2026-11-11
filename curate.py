@@ -8,10 +8,12 @@ https://webtack.net
 import argparse
 import csv
 import email.utils
+import glob
 import gzip
 import hashlib
 import html
 import json
+import mimetypes
 import os
 import random
 import re
@@ -19,6 +21,7 @@ import sqlite3
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import types
 import zipfile
@@ -1650,6 +1653,281 @@ def cmd_image(args):
     return atom_doc
 
 
+def cmd_file(args):
+    """Save a local file or document (PDF, dataset, archive, document) into the vault with gentle enrichment."""
+    vault_dir = Path(args.vault).resolve()
+    atom_id = generate_atom_id()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+
+    src = args.path.strip()
+    src_path = Path(src).expanduser().resolve()
+    if not src_path.exists():
+        sys.exit(f"File not found: {src_path}")
+    if not src_path.is_file():
+        sys.exit(f"Path is not a regular file: {src_path}")
+
+    # Read binary content and calculate basic file metrics
+    with open(src_path, "rb") as fin:
+        content = fin.read()
+
+    file_size = len(content)
+    file_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
+    file_ext = src_path.suffix.lower()
+    guessed_mime, _ = mimetypes.guess_type(str(src_path))
+    mime_type = guessed_mime or "application/octet-stream"
+
+    # Set up atom destination folder: atoms/YYYY/MM/<atom_id>
+    rel_folder = Path("atoms") / f"{now.year}" / f"{now.month:02d}" / atom_id
+    abs_folder = vault_dir / rel_folder
+    abs_folder.mkdir(parents=True, exist_ok=True)
+
+    # Preserve file name, guarding against collisions with reserved sidecar names
+    orig_filename = src_path.name
+    if orig_filename in ("atom.json", "vault.db", "metadata.json"):
+        dest_filename = f"file_{orig_filename}"
+    else:
+        dest_filename = orig_filename
+
+    abs_file_path = abs_folder / dest_filename
+    with open(abs_file_path, "wb") as fout:
+        fout.write(content)
+    file_rel_path = str(rel_folder / dest_filename)
+
+    # 1. Gentle Enrichment: Page count (for PDF documents)
+    page_count = None
+    if file_ext == ".pdf":
+        try:
+            pages = re.findall(rb"/Type\s*/Page\b", content)
+            if pages:
+                page_count = len(pages)
+        except Exception:
+            page_count = None
+
+    # 2. Gentle Enrichment: Text excerpt & word count (for text/markdown/code/tabular files)
+    text_slot = None
+    text_content_for_db = None
+    text_exts = {".txt", ".md", ".markdown", ".rst", ".csv", ".json", ".yaml", ".yml", ".html", ".htm", ".xml", ".tsv"}
+    if file_ext in text_exts and file_size < 10_000_000:
+        try:
+            decoded = content.decode("utf-8", errors="replace").strip()
+            if decoded:
+                words = len(decoded.split())
+                excerpt = decoded[:400].strip()
+                if len(decoded) > 400:
+                    excerpt += "..."
+                text_slot = {
+                    "file": dest_filename if file_ext in {".txt", ".md", ".markdown"} else None,
+                    "relative_path": file_rel_path if file_ext in {".txt", ".md", ".markdown"} else None,
+                    "excerpt": excerpt,
+                    "word_count": words
+                }
+                text_content_for_db = decoded[:5000]
+        except Exception:
+            pass
+
+    # 3. Gentle Enrichment: Cover image / Visual preview
+    cover_image_slot = None
+    cover_rel_path = None
+    cover_alt = getattr(args, "alt", None)
+
+    # Priority A: Explicit user-supplied cover
+    cover_arg = getattr(args, "cover", None)
+    if cover_arg:
+        cover_src_path = Path(cover_arg).expanduser().resolve()
+        if cover_src_path.exists() and cover_src_path.is_file():
+            c_ext = cover_src_path.suffix.lower() or ".jpg"
+            c_filename = f"cover{c_ext}"
+            abs_cover = abs_folder / c_filename
+            with open(cover_src_path, "rb") as fin, open(abs_cover, "wb") as fout:
+                c_bytes = fin.read()
+                fout.write(c_bytes)
+            c_hash = f"sha256:{hashlib.sha256(c_bytes).hexdigest()}"
+            try:
+                with Image.open(abs_cover) as img:
+                    w, h = img.size
+                    ratio = round(w / h, 3) if h > 0 else None
+                cover_image_slot = {
+                    "file": c_filename,
+                    "relative_path": str(rel_folder / c_filename),
+                    "mime_type": f"image/{c_ext.lstrip('.')}",
+                    "hash": c_hash,
+                    "dimensions": {"width": w, "height": h},
+                    "aspect_ratio": ratio,
+                    "blurhash": compute_blurhash(abs_cover),
+                    "color_palette": extract_dominant_colors(abs_cover),
+                    "alt_text": cover_alt or f"Cover for {src_path.stem}"
+                }
+                cover_rel_path = cover_image_slot["relative_path"]
+            except Exception:
+                pass
+
+    # Priority B: The file itself is an image format
+    elif file_ext in {".png", ".jpg", ".jpeg", ".webp", ".gif"} and not getattr(args, "no_enrich", False):
+        try:
+            c_filename = f"cover{file_ext}"
+            abs_cover = abs_folder / c_filename
+            with open(abs_file_path, "rb") as fin, open(abs_cover, "wb") as fout:
+                fout.write(fin.read())
+            with Image.open(abs_cover) as img:
+                w, h = img.size
+                ratio = round(w / h, 3) if h > 0 else None
+            cover_image_slot = {
+                "file": c_filename,
+                "relative_path": str(rel_folder / c_filename),
+                "mime_type": mime_type,
+                "hash": file_hash,
+                "dimensions": {"width": w, "height": h},
+                "aspect_ratio": ratio,
+                "blurhash": compute_blurhash(abs_cover),
+                "color_palette": extract_dominant_colors(abs_cover),
+                "alt_text": cover_alt or f"Image attachment {src_path.name}"
+            }
+            cover_rel_path = cover_image_slot["relative_path"]
+        except Exception:
+            pass
+
+    # Priority C: PDF preview extraction (macOS QuickLook / qlmanage)
+    elif file_ext == ".pdf" and not getattr(args, "no_enrich", False):
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                res = subprocess.run(
+                    ["qlmanage", "-t", "-s", "1000", "-o", tmp_dir, str(abs_file_path)],
+                    capture_output=True,
+                    timeout=5
+                )
+                if res.returncode == 0:
+                    generated = glob.glob(os.path.join(tmp_dir, "*"))
+                    if generated:
+                        gen_img = Path(generated[0])
+                        abs_cover = abs_folder / "cover.png"
+                        with open(gen_img, "rb") as fin, open(abs_cover, "wb") as fout:
+                            c_bytes = fin.read()
+                            fout.write(c_bytes)
+                        c_hash = f"sha256:{hashlib.sha256(c_bytes).hexdigest()}"
+                        with Image.open(abs_cover) as img:
+                            w, h = img.size
+                            ratio = round(w / h, 3) if h > 0 else None
+                        cover_image_slot = {
+                            "file": "cover.png",
+                            "relative_path": str(rel_folder / "cover.png"),
+                            "mime_type": "image/png",
+                            "hash": c_hash,
+                            "dimensions": {"width": w, "height": h},
+                            "aspect_ratio": ratio,
+                            "blurhash": compute_blurhash(abs_cover),
+                            "color_palette": extract_dominant_colors(abs_cover),
+                            "alt_text": cover_alt or f"Document preview for {src_path.name}"
+                        }
+                        cover_rel_path = cover_image_slot["relative_path"]
+        except Exception:
+            pass
+
+    # Title & Metadata
+    clean_stem = src_path.stem.replace("_", " ").replace("-", " ").strip()
+    atom_title = args.title or clean_stem.title() or src_path.name
+    tags = normalize_tags(args.tags)
+    collections = [c.strip() for c in args.collection.split(",") if c.strip()] if args.collection else []
+    visibility = getattr(args, "visibility", None) or "public"
+    if visibility not in ("public", "shared", "private"):
+        visibility = "public"
+
+    cap_prov = resolve_capture_provenance(args, default_method="cli")
+
+    meta_bag = {
+        "file_size_bytes": file_size,
+        "file_extension": file_ext,
+        "page_count": page_count,
+        "mime_type": mime_type,
+        "sha256": file_hash
+    }
+    if cover_image_slot:
+        if cover_image_slot.get("aspect_ratio"):
+            meta_bag["aspect_ratio"] = cover_image_slot["aspect_ratio"]
+        if cover_image_slot.get("blurhash"):
+            meta_bag["blurhash"] = cover_image_slot["blurhash"]
+        if cover_image_slot.get("color_palette"):
+            meta_bag["color_palette"] = cover_image_slot["color_palette"]
+    if text_slot and text_slot.get("word_count"):
+        meta_bag["word_count"] = text_slot["word_count"]
+
+    atom_doc = {
+        "$schema": SCHEMA_URL,
+        "id": atom_id,
+        "kind": "file",
+        "version": SCHEMA_VERSION,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+        "source": {
+            "source_url": getattr(args, "source", None),
+            "source_title": None,
+            "site_name": None,
+            "author": getattr(args, "author", None),
+            "published_at": None,
+            "favicon": None,
+            "capture_method": cap_prov["capture_method"],
+            "capture_id": cap_prov["capture_id"],
+            "capture_url": cap_prov["capture_url"]
+        },
+        "curation": {
+            "atom_title": atom_title,
+            "description": getattr(args, "description", None) or getattr(args, "notes", None),
+            "tags": tags,
+            "collections": collections,
+            "visibility": visibility,
+            "favorite": args.favorite
+        },
+        "content": {
+            "cover_image": cover_image_slot,
+            "text": text_slot,
+            "article": None,
+            "video": None,
+            "file": {
+                "filename": dest_filename,
+                "relative_path": file_rel_path,
+                "file_size_bytes": file_size,
+                "file_extension": file_ext,
+                "page_count": page_count
+            }
+        },
+        "metadata_json": meta_bag
+    }
+
+    atom_json_path = abs_folder / "atom.json"
+    with open(atom_json_path, "w", encoding="utf-8") as f:
+        json.dump(atom_doc, f, indent=2)
+
+    notes_val = getattr(args, "description", None) or getattr(args, "notes", None)
+    alt_val = cover_image_slot.get("alt_text") if cover_image_slot else None
+
+    conn = get_db(vault_dir)
+    with conn:
+        conn.execute("""
+            INSERT INTO atoms (
+                id, kind, created_at, updated_at, atom_title, notes, tags, collections,
+                visibility, favorite, destination_url, cover_file_path, alt_text, text_content, source_url,
+                author, capture_method, capture_id, metadata, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            atom_id, "file", now_iso, now_iso, atom_title, notes_val, json.dumps(tags),
+            json.dumps(collections), visibility, 1 if args.favorite else 0, getattr(args, "source", None),
+            cover_rel_path, alt_val, text_content_for_db, getattr(args, "source", None),
+            getattr(args, "author", None), cap_prov["capture_method"], cap_prov["capture_id"],
+            json.dumps(meta_bag), json.dumps(atom_doc)
+        ))
+
+    size_formatted = f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024*1024):.2f} MB"
+    pages_str = f" | {page_count} pages" if page_count else ""
+    preview_str = " (with visual preview)" if cover_image_slot else ""
+    print(f"\n📄 File atom saved successfully!")
+    print(f"   ID:       {atom_id}")
+    print(f"   Kind:     file ({size_formatted}{pages_str}){preview_str}")
+    print(f"   Title:    {atom_title}")
+    print(f"   Sidecar:  {dest_filename}")
+    print(f"   Folder:   {abs_folder}")
+    return atom_doc
+
+
 def delete_atom(vault_dir: Path, atom_id: str) -> bool:
     """Delete an atom from the vault by removing its sidecar directory and database entry."""
     vault_dir = Path(vault_dir).resolve()
@@ -2564,6 +2842,14 @@ def cmd_reindex(args):
                     meta_bag["aspect_ratio"] = cover.get("aspect_ratio")
                 if "blurhash" not in meta_bag and cover.get("blurhash"):
                     meta_bag["blurhash"] = cover.get("blurhash")
+                file_info = content.get("file") or {}
+                if isinstance(file_info, dict):
+                    if "file_size_bytes" not in meta_bag and file_info.get("file_size_bytes"):
+                        meta_bag["file_size_bytes"] = file_info["file_size_bytes"]
+                    if "file_extension" not in meta_bag and file_info.get("file_extension"):
+                        meta_bag["file_extension"] = file_info["file_extension"]
+                    if "page_count" not in meta_bag and file_info.get("page_count"):
+                        meta_bag["page_count"] = file_info["page_count"]
 
                 atom_notes = cur.get("description") or cur.get("notes")
                 if isinstance(atom_notes, dict):
@@ -2687,6 +2973,13 @@ def cmd_validate(args):
             if isinstance(video, dict) and video.get("transcript_file"):
                 if not _check_sidecar(video["transcript_file"]):
                     print(f"⚠️  [{atom_dir.name}] Missing transcript sidecar: {video['transcript_file']}")
+                    warnings += 1
+
+            file_slot = content.get("file")
+            if isinstance(file_slot, dict):
+                f_rel = file_slot.get("relative_path") or file_slot.get("filename")
+                if f_rel and not _check_sidecar(f_rel):
+                    print(f"⚠️  [{atom_dir.name}] Missing file sidecar: {f_rel}")
                     warnings += 1
 
     print("\n" + "─" * 60)
@@ -3535,7 +3828,23 @@ def main():
     add_capture_args(p_video)
     p_video.set_defaults(func=cmd_video)
 
-    # 6. List command
+    # 6. File command
+    p_file = subparsers.add_parser("file", help="Save a local file or document (PDF, dataset, archive, document) into the vault")
+    p_file.add_argument("path", help="Path to local file on disk")
+    p_file.add_argument("--title", help="Custom document/file title")
+    p_file.add_argument("--cover", help="Path to optional cover image or visual preview")
+    p_file.add_argument("--alt", help="Accessibility alt text / visual description for the cover preview")
+    p_file.add_argument("--author", help="Author, creator, or organization")
+    p_file.add_argument("--source", help="Original source URL or origin context")
+    p_file.add_argument("--description", "--notes", dest="description", help="Curator description or notes")
+    p_file.add_argument("--tags", help="Comma-separated tags")
+    p_file.add_argument("--collection", help="Collection name")
+    p_file.add_argument("--visibility", choices=["public", "shared", "private"], default="public", help="Visibility tier (public, shared, private)")
+    p_file.add_argument("--favorite", action="store_true", help="Mark as favorite")
+    add_capture_args(p_file)
+    p_file.set_defaults(func=cmd_file)
+
+    # 7. List command
     p_list = subparsers.add_parser("list", help="List atoms in the vault")
     p_list.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file"], help="Filter by kind")
     p_list.add_argument("--tag", help="Filter by tag")
@@ -3544,7 +3853,7 @@ def main():
     p_list.add_argument("--limit", type=int, default=20, help="Number of items to show")
     p_list.set_defaults(func=cmd_list)
 
-    # 6. Export command
+    # 8. Export command
     p_export = subparsers.add_parser("export", help="Export atoms to platform formats")
     p_export.add_argument(
         "--target",

@@ -1,0 +1,75 @@
+{
+  "": "https://raw.githubusercontent.com/dn0c/webtack/main/schema/atom.schema.json",
+  "id": "atm_20261108200700_demofil",
+  "kind": "file",
+  "version": 3,
+  "created_at": "2026-11-08T20:07:00Z",
+  "updated_at": "2026-11-08T20:07:00Z",
+  "source": {
+    "source_url": "https://webtack.net/spec",
+    "source_title": "WebTack Specification Document",
+    "site_name": "WebTack",
+    "author": "WebTack Working Group",
+    "published_at": "2026-11-08T00:00:00Z",
+    "favicon": null,
+    "capture_method": "cli",
+    "capture_id": null,
+    "capture_url": null
+  },
+  "curation": {
+    "atom_title": "WebTack Open Specification (v3.0.0)",
+    "description": "The formal specification document defining the WebTack envelope, sidecar architecture, and sovereign curation format.",
+    "tags": [
+      "specification",
+      "standards",
+      "architecture"
+    ],
+    "collections": [
+      "Documentation"
+    ],
+    "visibility": "public",
+    "favorite": true
+  },
+  "content": {
+    "cover_image": {
+      "file": "cover.jpg",
+      "relative_path": "atoms/2026/11/atm_20261108200700_demofil/cover.jpg",
+      "mime_type": "image/jpeg",
+      "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "dimensions": {
+        "width": 800,
+        "height": 450
+      },
+      "aspect_ratio": 1.778,
+      "blurhash": "L46sqDs=s=sr{ojbjbn+-DayWUj[",
+      "color_palette": [
+        "#2d3748",
+        "#1a202c"
+      ],
+      "alt_text": "Cover preview for WebTack Open Specification"
+    },
+    "text": {
+      "file": null,
+      "relative_path": null,
+      "excerpt": "WebTack Atom Specification v3.0.0. The sovereign web archive standard.",
+      "word_count": 9
+    },
+    "article": null,
+    "video": null,
+    "file": {
+      "filename": "webtack_v3_specification.pdf",
+      "relative_path": "atoms/2026/11/atm_20261108200700_demofil/webtack_v3_specification.pdf",
+      "file_size_bytes": 522,
+      "file_extension": ".pdf",
+      "page_count": 3
+    }
+  },
+  "metadata_json": {
+    "file_size_bytes": 522,
+    "file_extension": ".pdf",
+    "page_count": 3,
+    "mime_type": "application/pdf",
+    "aspect_ratio": 1.778,
+    "blurhash": "L46sqDs=s=sr{ojbjbn+-DayWUj["
+  }
+}
