@@ -1787,10 +1787,17 @@ def generate_viewer(vault_dir: Path) -> Path:
                   <div class="export-item-desc">Format for Raindrop collections, tags & notes</div>
                 </div>
               </a>
+              <a href="/api/export?target=csv" download="vault.csv" class="export-item" onclick="handleExportClick(event, 'csv')">
+                <span class="export-item-icon">📊</span>
+                <div>
+                  <div class="export-item-title">SQLite Vault CSV (.csv)</div>
+                  <div class="export-item-desc">Full tabular dump of all database fields</div>
+                </div>
+              </a>
               <a href="export.html" class="export-item" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;">
                 <span class="export-item-icon">✨</span>
                 <div>
-                  <div class="export-item-title" style="color: var(--accent);">View All 12 Formats in Hub →</div>
+                  <div class="export-item-title" style="color: var(--accent);">View All 13 Formats in Hub →</div>
                   <div class="export-item-desc">BibTeX, RSS Feed, JSONL, llms.txt & more</div>
                 </div>
               </a>
@@ -3764,7 +3771,7 @@ def generate_export_page(vault_dir: Path) -> Path:
         </p>
         <div class="hero-stats-row">
           <div class="hero-stat">
-            <span class="hero-stat-val">12 Formats</span>
+            <span class="hero-stat-val">13 Formats</span>
             <span class="hero-stat-lbl">Active Export Targets</span>
           </div>
           <div class="hero-stat">
@@ -3966,6 +3973,19 @@ def generate_export_page(vault_dir: Path) -> Path:
         included: "Complete raw JSON array of all atom schemas and sidecar metadata",
         tools: ["Disaster Recovery", "Vault Migration", "Automated Backups"],
         cli: "python3 curate.py export --target json"
+      }},
+      {{
+        id: "csv",
+        category: "syndication",
+        category_name: "Database Backup",
+        title: "SQLite Vault CSV (Full Dump)",
+        filename: "vault.csv",
+        ext: ".csv",
+        icon: "📊",
+        summary: "Exact, full tabular copy of the SQLite atoms table with every single column preserved (ID, title, URLs, notes, tags, metadata JSON, and raw JSON).",
+        included: "All columns: id, kind, created_at, updated_at, atom_title, notes, tags, collections, visibility, favorite, destination_url, cover_file_path, text_content, source_url, author, metadata, raw_json",
+        tools: ["Excel", "Google Sheets", "Airtable", "SQLite / Postgres Importers", "Pandas"],
+        cli: "python3 curate.py export --target csv"
       }}
     ];
 
@@ -4151,12 +4171,18 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                     curate.cmd_export(args)
                     mime = "text/csv; charset=utf-8"
                     filename = "readwise.csv"
-                elif target in ("arena-csv", "csv"):
+                elif target in ("arena-csv", "arena"):
                     out_path = export_dir / "arena_export.csv"
                     args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="arena-csv", out=str(out_path))
                     curate.cmd_export(args)
                     mime = "text/csv; charset=utf-8"
                     filename = "arena_export.csv"
+                elif target in ("csv", "vault-csv", "sqlite-csv"):
+                    out_path = export_dir / "vault.csv"
+                    args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="csv", out=str(out_path))
+                    curate.cmd_export(args)
+                    mime = "text/csv; charset=utf-8"
+                    filename = "vault.csv"
                 elif target in ("pinterest-csv", "pinterest"):
                     out_path = export_dir / "pinterest_pins.csv"
                     args = types.SimpleNamespace(vault=str(self.vault_dir), kind=None, tag=None, target="pinterest-csv", out=str(out_path), board="WebTack")

@@ -55,17 +55,15 @@ def extract_arena_block_id(source_url: str = None, doc: dict = None) -> str | No
             return m_api.group(1)
 
     if doc:
-        meta = doc.get("metadata_json") or {}
-        if isinstance(meta, dict) and meta.get("arena_block_id"):
-            return str(meta["arena_block_id"])
-        prov_src = (doc.get("source") or doc.get("provenance") or {}).get("source_url")
+        source_layer = doc.get("source") or {}
+        cap_id = source_layer.get("capture_id")
+        if cap_id and source_layer.get("capture_method") == "arena":
+            return str(cap_id)
+        prov_src = (source_layer or doc.get("provenance") or {}).get("source_url")
         if prov_src:
             m = re.search(r"are\.na/block/(\d+)", prov_src)
             if m:
                 return m.group(1)
-        cap_id = (doc.get("source") or {}).get("capture_id")
-        if cap_id and (doc.get("source") or {}).get("capture_method") == "arena":
-            return str(cap_id)
 
     return None
 

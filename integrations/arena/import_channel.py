@@ -215,7 +215,6 @@ def import_channel(channel_input: str, vault_dir: Path, limit: int = 100, tag: s
                     visibility=block_vis,
                     favorite=False,
                     vault=str(vault_dir),
-                    arena_block_id=b.get("id"),
                     capture_method="arena",
                     capture_id=b_id,
                     capture_url=b_url

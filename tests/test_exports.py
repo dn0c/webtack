@@ -1,5 +1,6 @@
 """Tests for WebTack multi-format export pipelines."""
 
+import csv
 import json
 import os
 import subprocess
@@ -145,6 +146,33 @@ class TestWebTackExports(unittest.TestCase):
             data = json.load(f)
         self.assertIsInstance(data, list)
         self.assertGreaterEqual(len(data), 6)
+
+    def test_export_sqlite_csv(self):
+        """Verify exact tabular copy of the SQLite atoms database with all fields."""
+        out = self._export("csv", "vault.csv")
+        with open(out, "r", newline="", encoding="utf-8") as f:
+            reader = list(csv.reader(f))
+        
+        self.assertGreater(len(reader), 1)
+        headers = reader[0]
+        expected_fields = [
+            "id", "kind", "created_at", "updated_at", "atom_title",
+            "notes", "tags", "collections", "visibility", "favorite",
+            "destination_url", "cover_file_path", "text_content",
+            "source_url", "author", "metadata", "raw_json"
+        ]
+        for field in expected_fields:
+            self.assertIn(field, headers)
+
+        # Ensure rows parse properly and have matching field counts
+        data_rows = reader[1:]
+        self.assertGreaterEqual(len(data_rows), 6)
+        id_idx = headers.index("id")
+        kind_idx = headers.index("kind")
+        for row in data_rows:
+            self.assertEqual(len(row), len(headers))
+            self.assertTrue(row[id_idx].startswith("atm_"))
+            self.assertIn(row[kind_idx], ["article", "bookmark", "video", "quote", "note", "image", "file"])
 
 
 if __name__ == "__main__":

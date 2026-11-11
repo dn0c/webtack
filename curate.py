@@ -1765,7 +1765,7 @@ def get_atom_content_body(vault_dir: Path, r: sqlite3.Row) -> str:
 
 
 def cmd_export(args):
-    """Export atoms to third-party formats (NotebookLM, Obsidian, Bookmarks, Readwise, Are.na, Raindrop.io, Pinterest, RSS, BibTeX, JSONL, JSON)."""
+    """Export atoms to third-party formats (NotebookLM, Obsidian, Bookmarks, Readwise, Are.na, Raindrop.io, Pinterest, CSV, RSS, BibTeX, JSONL, JSON)."""
     vault_dir = Path(args.vault).resolve()
     conn = get_db(vault_dir)
     query = "SELECT * FROM atoms WHERE 1=1"
@@ -1785,7 +1785,7 @@ def cmd_export(args):
     export_dir = vault_dir / "export"
     export_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.target == "arena-csv":
+    if args.target in ("arena-csv", "arena"):
         out_path = Path(args.out) if args.out else export_dir / "arena_export.csv"
         out_stream = open(out_path, "w", newline="", encoding="utf-8")
         writer = csv.writer(out_stream)
@@ -1808,6 +1808,18 @@ def cmd_export(args):
 
         out_stream.close()
         print(f"✅ Exported {len(rows)} items for are.na/import/csv to: {out_path}")
+
+    elif args.target in ("csv", "vault-csv", "sqlite-csv"):
+        out_path = Path(args.out) if args.out else export_dir / "vault.csv"
+        table_info = conn.execute("PRAGMA table_info(atoms);").fetchall()
+        columns = [col[1] for col in table_info] if table_info else (list(rows[0].keys()) if rows else [])
+
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(columns)
+            for r in rows:
+                writer.writerow([r[c] if r[c] is not None else "" for c in columns])
+        print(f"✅ Exported full SQLite vault table ({len(rows)} atoms, {len(columns)} columns) to: {out_path}")
 
     elif args.target in ("pinterest-csv", "pinterest"):
         out_path = Path(args.out) if args.out else export_dir / "pinterest_pins.csv"
@@ -3516,16 +3528,17 @@ def main():
             "obsidian", "logseq",
             "bookmarks-html", "bookmarks", "netscape",
             "readwise",
-            "arena-csv", "csv",
+            "arena-csv", "arena",
             "raindrop-csv", "raindrop",
             "pinterest-csv", "pinterest",
+            "csv", "vault-csv", "sqlite-csv",
             "rss", "feed",
             "bibtex", "bib",
             "jsonl",
             "json"
         ],
         default="digest",
-        help="Export target format (digest, llms-txt, obsidian, bookmarks-html, readwise, arena-csv, raindrop-csv, pinterest-csv, rss, bibtex, jsonl, json)"
+        help="Export target format (digest, llms-txt, obsidian, bookmarks-html, readwise, arena-csv, raindrop-csv, pinterest-csv, csv, rss, bibtex, jsonl, json)"
     )
     p_export.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file"], help="Filter by kind")
     p_export.add_argument("--tag", help="Filter by tag")
