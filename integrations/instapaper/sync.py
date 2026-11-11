@@ -19,6 +19,31 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import curate
+import trafilatura
+from bs4 import BeautifulSoup
+
+
+def html_to_clean_markdown(html_content: str, url: str = None) -> tuple[str, int]:
+    """Convert HTML article body to clean Markdown using trafilatura with BeautifulSoup fallback."""
+    if not html_content:
+        return "", 0
+    try:
+        md = trafilatura.extract(
+            html_content,
+            url=url,
+            include_links=True,
+            include_images=True,
+            output_format="markdown"
+        )
+        if md and len(md.split()) >= 40:
+            return md.strip(), len(md.split())
+    except Exception:
+        pass
+    soup = BeautifulSoup(html_content, "html.parser")
+    for tag in soup(["script", "style", "nav", "footer", "aside"]):
+        tag.decompose()
+    text = soup.get_text(separator="\n\n").strip()
+    return text, len(text.split())
 
 
 def get_instapaper_token(vault_dir: Path = None) -> str | None:
@@ -120,7 +145,6 @@ def sync_instapaper(vault_dir: Path, limit: int = 25, visibility: str = "public"
                     p_data = p_resp.json()
                     c_body = p_data.get("content", {}).get("body") if isinstance(p_data.get("content"), dict) else p_data.get("content")
                     if c_body:
-                        from scripts.backfill_instapaper_fulltext import html_to_clean_markdown
                         article_md, article_wc = html_to_clean_markdown(c_body, url=bm_url)
             except Exception:
                 pass
