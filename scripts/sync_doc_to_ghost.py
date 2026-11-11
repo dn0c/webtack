@@ -101,7 +101,6 @@ def main():
   <li><strong>Avoid linkrot</strong> - WebTack doesn't just save a bookmark pointer, it also supports saving the full text of articles, YouTube video transcripts (transcript.txt), and high-res photos, protecting against link rot and paywalls.</li>
   <li><strong>Privacy</strong> - WebTack is Zero-AI by default and runs 100% offline with no dependencies or API keys needed. Because it’s open-source and you own the data, you’re of course welcome to connect your database to any tools you’d like (I gotta say, giving Antigravity access to it feels magical), but that’s all opt-in.</li>
 </ul>
-<p><strong>A few other things to mention:</strong></p>
 <figure class="kg-card kg-image-card"><img src="{img_schema}" class="kg-image" alt="The WebTack Atom Schema: a 3-tier decoupled model preserving editorial intent, source provenance, and raw content." loading="lazy"><figcaption>The WebTack Atom Schema: a 3-tier decoupled model preserving editorial intent, source provenance, and raw content.</figcaption></figure>
 <hr>
 <p>Curious to check it out or build with it? Visit <a href="https://webtack.net">https://webtack.net</a> and get started in less than 1 minute. Free forever, no account needed.</p>"""

@@ -4,6 +4,7 @@ WebTack — Batch Alt Text Applier
 Applies generated alt text to atoms (atom.json & SQLite) and pushes to Are.na for owned blocks.
 """
 
+import os
 import sys
 import json
 import sqlite3
@@ -12,8 +13,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 vault_dir = Path(__file__).resolve().parent.parent / "vault"
-token = "5rWBdFgiZ8e_UlNUGFRBs_0xFwMaD1AwM8PWO_reTeY"
-headers = {"Authorization": f"Bearer {token}"}
+token = os.environ.get("ARENA_API_TOKEN") or os.environ.get("ARENA_TOKEN")
+if not token:
+    env_file = vault_dir.parent / ".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("ARENA_API_TOKEN=") or line.startswith("ARENA_TOKEN="):
+                token = line.split("=", 1)[1].strip().strip('"').strip("'")
+                break
+
+headers = {"Authorization": f"Bearer {token}"} if token else {}
 
 def apply_batch(updates: dict[str, str]):
     """

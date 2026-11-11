@@ -56,8 +56,7 @@ def get_atoms_data(vault_dir: Path):
 
         visibility = r["visibility"] if "visibility" in r.keys() and r["visibility"] else raw.get("curation", {}).get("visibility", "public")
 
-        cover_image_data = (raw.get("content") or raw.get("payload") or {}).get("cover_image") or {}
-        alt_text = cover_image_data.get("alt_text")
+        alt_text = r["alt_text"] if "alt_text" in r.keys() and r["alt_text"] else ((raw.get("content") or raw.get("payload") or {}).get("cover_image") or {}).get("alt_text")
 
         atoms_data.append({
             "id": r["id"],
@@ -3983,7 +3982,7 @@ def generate_export_page(vault_dir: Path) -> Path:
         ext: ".csv",
         icon: "📊",
         summary: "Exact, full tabular copy of the SQLite atoms table with every single column preserved (ID, title, URLs, notes, tags, metadata JSON, and raw JSON).",
-        included: "All columns: id, kind, created_at, updated_at, atom_title, notes, tags, collections, visibility, favorite, destination_url, cover_file_path, text_content, source_url, author, metadata, raw_json",
+        included: "All columns: id, kind, created_at, updated_at, atom_title, notes, tags, collections, visibility, favorite, destination_url, cover_file_path, alt_text, text_content, source_url, author, capture_method, capture_id, metadata, raw_json",
         tools: ["Excel", "Google Sheets", "Airtable", "SQLite / Postgres Importers", "Pandas"],
         cli: "python3 curate.py export --target csv"
       }}
@@ -4351,11 +4350,35 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+    def is_unauthorized_cross_origin(self) -> bool:
+        """Reject cross-site requests to sensitive endpoints (/api/delete, /api/update)."""
+        if self.headers.get("Sec-Fetch-Site") == "cross-site":
+            return True
+        origin = self.headers.get("Origin")
+        if origin:
+            try:
+                parsed = urllib.parse.urlparse(origin)
+                if parsed.hostname not in ("127.0.0.1", "localhost", None):
+                    return True
+            except Exception:
+                return True
+        return False
+
     def do_OPTIONS(self):
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path in ("/api/delete", "/api/update") and self.is_unauthorized_cross_origin():
+            self.send_error(403, "Cross-origin requests to this endpoint are forbidden")
+            return
+
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = self.headers.get("Origin", "")
+        if parsed.path in ("/api/delete", "/api/update"):
+            self.send_header("Access-Control-Allow-Origin", origin if origin else "http://127.0.0.1:8080")
+        else:
+            self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
         self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
 
@@ -4565,6 +4588,15 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(err_bytes)
         elif self.path == "/api/delete":
+            if self.is_unauthorized_cross_origin():
+                err_bytes = json.dumps({"success": False, "error": "Cross-origin requests to /api/delete are forbidden"}).encode("utf-8")
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err_bytes)))
+                self.end_headers()
+                self.wfile.write(err_bytes)
+                return
+
             content_length = int(self.headers.get("Content-Length", 0))
             post_body = self.rfile.read(content_length)
             try:
@@ -4582,7 +4614,8 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                 response_bytes = json.dumps({"success": True, "id": atom_id}).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                origin = self.headers.get("Origin")
+                self.send_header("Access-Control-Allow-Origin", origin if origin else "*")
                 self.send_header("Access-Control-Allow-Headers", "Content-Type")
                 self.send_header("Content-Length", str(len(response_bytes)))
                 self.end_headers()
@@ -4591,12 +4624,22 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                 err_bytes = json.dumps({"success": False, "error": str(e)}).encode("utf-8")
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                origin = self.headers.get("Origin")
+                self.send_header("Access-Control-Allow-Origin", origin if origin else "*")
                 self.send_header("Access-Control-Allow-Headers", "Content-Type")
                 self.send_header("Content-Length", str(len(err_bytes)))
                 self.end_headers()
                 self.wfile.write(err_bytes)
         elif self.path == "/api/update":
+            if self.is_unauthorized_cross_origin():
+                err_bytes = json.dumps({"success": False, "error": "Cross-origin requests to /api/update are forbidden"}).encode("utf-8")
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err_bytes)))
+                self.end_headers()
+                self.wfile.write(err_bytes)
+                return
+
             content_length = int(self.headers.get("Content-Length", 0))
             post_body = self.rfile.read(content_length)
             try:
@@ -4662,7 +4705,7 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                             "file": "article.md",
                             "relative_path": f"atoms/{created_at[:4]}/{created_at[5:7]}/{atom_id}/article.md",
                             "word_count": w_count,
-                            "byline": raw.get("source", {}).get("author") or "The New York Times"
+                            "byline": raw.get("source", {}).get("author") or None
                         }
                         if "metadata_json" not in raw:
                             raw["metadata_json"] = {}
@@ -4718,7 +4761,8 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                 response_bytes = json.dumps({"success": True, "id": atom_id, "description": new_desc}).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                origin = self.headers.get("Origin")
+                self.send_header("Access-Control-Allow-Origin", origin if origin else "*")
                 self.send_header("Access-Control-Allow-Headers", "Content-Type")
                 self.send_header("Content-Length", str(len(response_bytes)))
                 self.end_headers()
@@ -4727,7 +4771,8 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                 err_bytes = json.dumps({"success": False, "error": str(e)}).encode("utf-8")
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                origin = self.headers.get("Origin")
+                self.send_header("Access-Control-Allow-Origin", origin if origin else "*")
                 self.send_header("Access-Control-Allow-Headers", "Content-Type")
                 self.send_header("Content-Length", str(len(err_bytes)))
                 self.end_headers()

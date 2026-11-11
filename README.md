@@ -128,7 +128,7 @@ The immutable physical foundation: offline readable text, media streams, visual 
 
 | Slot / Field | Type | Description |
 | :--- | :--- | :--- |
-| **`cover_image`** | `object \| null` | **Universal Visual Anchor**: photo, article OG card, video poster, or PDF preview. Holds `file`, `relative_path`, `mime_type`, `dimensions`, `aspect_ratio`, `blurhash`, `color_palette`, `alt_text`, and `public_url`. |
+| **`cover_image`** | `object \| null` | **Universal Visual Anchor**: photo, article OG card, video poster, or PDF preview. Holds `file`, `relative_path`, `mime_type`, `dimensions`, `aspect_ratio`, `blurhash`, `color_palette`, and `alt_text`. |
 | **`text`** | `object \| null` | **Shortform Body**: quotes and notes. Holds `file` (`quote.md` or `note.md`), `excerpt` (inline markdown), and `word_count`. |
 | **`article`** | `object \| null` | **Offline Longform Body**: extracted full text. Holds `file` (`article.md`), `word_count`, and `byline`. |
 | **`video`** | `object \| null` | **Video & Transcripts**: stream player and audio captions. Holds `provider`, `embed_url`, `duration_seconds`, `transcript_file`, `transcript_json`, `transcript_language`, `transcript_is_generated`, and `has_transcript`. |
@@ -151,7 +151,7 @@ A flexible JSON dictionary for niche, plugin, or experimental metadata without b
   "updated_at": "2026-11-05T12:00:00Z",
   "curation": {
     "atom_title": "On Information Routing",
-    "notes": "Essential thesis on treating productivity as a routing problem.",
+    "description": "Essential thesis on treating productivity as a routing problem.",
     "tags": ["systems", "productivity"],
     "collections": ["Core Essays"],
     "visibility": "public",
@@ -179,7 +179,7 @@ A flexible JSON dictionary for niche, plugin, or experimental metadata without b
       "color_palette": ["#1A202C", "#EDF2F7"],
       "alt_text": "Minimalist diagram of information nodes and network routing"
     },
-    "text": "Productivity is an information routing problem, not an attention shortage problem.",
+    "text": null,
     "article": {
       "file": "article.md",
       "relative_path": "atoms/2026/11/atm_20261105024437_b2e3c4/article.md",
@@ -197,7 +197,7 @@ A flexible JSON dictionary for niche, plugin, or experimental metadata without b
 
 ---
 
-## Quickstart
+## Command Line Interface (CLI)
 
 Run commands from the repository directory:
 
@@ -206,7 +206,7 @@ python3 -m pip install -r requirements.txt
 ```
 
 ### 1. Save a Link or Article (`curate.py link`)
-Fetches Open Graph metadata, downloads the cover image (`cover.png`), extracts dominant colors + blurhash + aspect ratio, and saves the full offline readable article text (`article.md`):
+Fetches Open Graph metadata, downloads the cover image (`cover.jpg`), extracts dominant colors + blurhash + aspect ratio, and saves the full offline readable article text (`article.md`):
 
 ```bash
 python3 curate.py link "https://www.drewshannon.net/a-series-of-tubes/" \
@@ -305,7 +305,7 @@ Once connected, your AI assistant can invoke:
 
 ## Knowledge Exports & Data Portability
 
-WebTack guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 12 open standards via the **Export Hub** (`/export.html`) or the CLI:
+WebTack guarantees your knowledge is never held hostage in a proprietary silo. You can export your library into 13 open standards via the **Export Hub** (`/export.html`) or the CLI:
 
 | Target | Command | Primary Ecosystem | Output File |
 | :--- | :--- | :--- | :--- |
@@ -504,7 +504,7 @@ webtack/
         └── YYYY/
             └── MM/
                 └── atm_YYYYMMDD.../
-                    ├── atom.json      # 4-tier structured metadata envelope (Envelope, Provenance, Curation, Content)
+                    ├── atom.json      # 4-tier structured metadata envelope (System Envelope, Curation, Source, Content)
                     ├── cover.jpg      # Universal visual preview (480px, blurhash, palette)
                     ├── article.md     # Offline readable article text (for articles)
                     ├── transcript.txt # Timestamped spoken dialogue (for videos)

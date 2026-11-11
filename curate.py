@@ -121,11 +121,14 @@ def get_db(vault_dir: Path) -> sqlite3.Connection:
                 -- Operational Anchors (Fast search, dedup, and existence checks)
                 destination_url TEXT,
                 cover_file_path TEXT,         -- Universal visual anchor (cover.png / cover.jpg)
+                alt_text TEXT,                -- Visual description & image accessibility text
                 
-                -- High-frequency Text Pointers
+                -- High-frequency Text Pointers & Provenance
                 text_content TEXT,
                 source_url TEXT,
                 author TEXT,
+                capture_method TEXT,          -- arena, instapaper, cli, etc.
+                capture_id TEXT,              -- Upstream item/bookmark/block ID
                 
                 -- Specialized & Descriptive Metadata JSON Bag
                 metadata TEXT NOT NULL,
@@ -134,16 +137,23 @@ def get_db(vault_dir: Path) -> sqlite3.Connection:
                 raw_json TEXT NOT NULL
             );
         """)
-        # Ensure visibility column exists on older schemas
+        # Ensure schema migrations on older schemas
         cols = [c[1] for c in conn.execute("PRAGMA table_info(atoms);").fetchall()]
         if "visibility" not in cols:
             conn.execute("ALTER TABLE atoms ADD COLUMN visibility TEXT DEFAULT 'public';")
+        if "alt_text" not in cols:
+            conn.execute("ALTER TABLE atoms ADD COLUMN alt_text TEXT;")
+        if "capture_method" not in cols:
+            conn.execute("ALTER TABLE atoms ADD COLUMN capture_method TEXT;")
+        if "capture_id" not in cols:
+            conn.execute("ALTER TABLE atoms ADD COLUMN capture_id TEXT;")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_kind ON atoms(kind);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_created ON atoms(created_at);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_dest_url ON atoms(destination_url) WHERE destination_url IS NOT NULL;")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_source_url ON atoms(source_url) WHERE source_url IS NOT NULL;")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_visibility ON atoms(visibility);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_fav ON atoms(favorite) WHERE favorite = 1;")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_capture ON atoms(capture_method, capture_id) WHERE capture_id IS NOT NULL;")
     return conn
 
 
@@ -955,16 +965,19 @@ def cmd_video(args):
             INSERT OR REPLACE INTO atoms (
                 id, kind, created_at, updated_at,
                 atom_title, notes, tags, collections, visibility, favorite,
-                destination_url, cover_file_path,
+                destination_url, cover_file_path, alt_text,
                 text_content, source_url, author,
+                capture_method, capture_id,
                 metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, "video", now_iso, now_iso,
             atom_title, notes, json.dumps(tags), json.dumps(collections),
             visibility, 1 if getattr(args, "favorite", False) else 0,
             video_info["canonical_url"], cover_rel_path,
+            cover_meta.get("alt_text") if cover_meta else None,
             transcript_data["plain_text"] if transcript_data else None, args.url, video_info["author"],
+            cap_prov["capture_method"], cap_prov["capture_id"],
             json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
@@ -1230,22 +1243,27 @@ def cmd_save_link(args):
         conn.execute("""
             INSERT INTO atoms (
                 id, kind, created_at, updated_at, atom_title, notes, tags, collections,
-                visibility, favorite, destination_url, cover_file_path, text_content, source_url,
-                author, metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                visibility, favorite, destination_url, cover_file_path, alt_text, text_content, source_url,
+                author, capture_method, capture_id, metadata, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 updated_at = excluded.updated_at,
                 atom_title = excluded.atom_title,
                 notes = excluded.notes,
                 tags = excluded.tags,
+                alt_text = excluded.alt_text,
                 text_content = excluded.text_content,
                 author = excluded.author,
+                capture_method = excluded.capture_method,
+                capture_id = excluded.capture_id,
                 metadata = excluded.metadata,
                 raw_json = excluded.raw_json
         """, (
             atom_id, kind, now_iso, datetime.now(timezone.utc).isoformat(), atom_title, notes, json.dumps(tags),
             json.dumps(collections), visibility, 1 if args.favorite else 0, args.url, cover_rel_path,
+            cover_meta.get("alt_text") if cover_meta else None,
             args.quote.strip() if getattr(args, "quote", None) else (scraped.get("article_markdown") if kind == "article" else None), args.url, getattr(args, "author", None) or scraped["author"],
+            cap_prov["capture_method"], cap_prov["capture_id"],
             json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
@@ -1347,14 +1365,15 @@ def cmd_quote(args):
         conn.execute("""
             INSERT INTO atoms (
                 id, kind, created_at, updated_at, atom_title, notes, tags, collections,
-                visibility, favorite, destination_url, cover_file_path, text_content, source_url,
-                author, metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                visibility, favorite, destination_url, cover_file_path, alt_text, text_content, source_url,
+                author, capture_method, capture_id, metadata, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, "quote", now_iso, now_iso, atom_title, getattr(args, "description", None) or getattr(args, "notes", None), json.dumps(tags),
             json.dumps(collections), visibility, 1 if args.favorite else 0, args.source, None,
-            args.quote.strip(), args.source, args.author, json.dumps(meta_bag),
-            json.dumps(atom_doc)
+            None, args.quote.strip(), args.source, args.author,
+            cap_prov["capture_method"], cap_prov["capture_id"],
+            json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
     print(f"\n✍️ Quote atom saved successfully!")
@@ -1449,13 +1468,15 @@ def cmd_note(args):
         conn.execute("""
             INSERT INTO atoms (
                 id, kind, created_at, updated_at, atom_title, notes, tags, collections,
-                visibility, favorite, destination_url, cover_file_path, text_content, source_url,
-                author, metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                visibility, favorite, destination_url, cover_file_path, alt_text, text_content, source_url,
+                author, capture_method, capture_id, metadata, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, "note", now_iso, now_iso, atom_title, None, json.dumps(tags),
             json.dumps(collections), visibility, 1 if args.favorite else 0, None, None,
-            args.text.strip(), None, None, json.dumps(meta_bag), json.dumps(atom_doc)
+            None, args.text.strip(), None, None,
+            cap_prov["capture_method"], cap_prov["capture_id"],
+            json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
     print(f"\n📝 Note atom saved successfully!")
@@ -1610,13 +1631,15 @@ def cmd_image(args):
         conn.execute("""
             INSERT INTO atoms (
                 id, kind, created_at, updated_at, atom_title, notes, tags, collections,
-                visibility, favorite, destination_url, cover_file_path, text_content, source_url,
-                author, metadata, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                visibility, favorite, destination_url, cover_file_path, alt_text, text_content, source_url,
+                author, capture_method, capture_id, metadata, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             atom_id, "image", now_iso, now_iso, atom_title, getattr(args, "description", None) or getattr(args, "notes", None), json.dumps(tags),
             json.dumps(collections), visibility, 1 if args.favorite else 0, args.source or source_candidate, cover_rel_path,
-            None, source_candidate, author, json.dumps(meta_bag), json.dumps(atom_doc)
+            alt_text, None, source_candidate, author,
+            cap_prov["capture_method"], cap_prov["capture_id"],
+            json.dumps(meta_bag), json.dumps(atom_doc)
         ))
 
     print(f"\n🖼️ Image atom saved successfully!")
@@ -1675,9 +1698,6 @@ def cmd_list(args):
     if args.tag:
         query += " AND tags LIKE ?"
         params.append(f"%{args.tag}%")
-    if getattr(args, "visibility", None):
-        query += " AND visibility = ?"
-        params.append(args.visibility)
     if args.collection:
         query += " AND collections LIKE ?"
         params.append(f"%{args.collection}%")
@@ -1694,11 +1714,13 @@ def cmd_list(args):
         return
 
     kind_icons = {
+        "article": "📖",
+        "bookmark": "🔖",
+        "link": "🔖",
+        "video": "🎬",
         "quote": "✍️",
         "note": "📝",
-        "link": "🔗",
         "image": "🖼️",
-        "video": "🎬",
         "file": "📄"
     }
 
@@ -2548,22 +2570,25 @@ def cmd_reindex(args):
                     atom_notes = atom_notes.get("plain") or atom_notes.get("markdown") or str(atom_notes)
 
                 source_url_val = prov.get("source_url") or content.get("destination_url")
+                alt_text_val = cover.get("alt_text")
+                cap_method_val = prov.get("capture_method")
+                cap_id_val = prov.get("capture_id")
 
                 with conn:
                     conn.execute("""
                         INSERT INTO atoms (
                             id, kind, created_at, updated_at, atom_title, notes, tags,
-                            collections, visibility, favorite, destination_url, cover_file_path,
-                            text_content, source_url, author, metadata, raw_json
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            collections, visibility, favorite, destination_url, cover_file_path, alt_text,
+                            text_content, source_url, author, capture_method, capture_id, metadata, raw_json
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         atom_id, kind, now_iso, doc.get("updated_at", now_iso),
                         cur.get("atom_title", "Untitled"), atom_notes,
                         json.dumps(normalize_tags(cur.get("tags", []))), json.dumps(cur.get("collections", [])),
                         cur.get("visibility", "public"),
                         1 if cur.get("favorite") else 0, source_url_val,
-                        cover_rel_path, text_content, source_url_val,
-                        prov.get("author"), json.dumps(meta_bag), json.dumps(doc)
+                        cover_rel_path, alt_text_val, text_content, source_url_val,
+                        prov.get("author"), cap_method_val, cap_id_val, json.dumps(meta_bag), json.dumps(doc)
                     ))
                 count += 1
             except Exception as e:

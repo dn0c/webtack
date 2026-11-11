@@ -1110,10 +1110,17 @@
                   <div class="export-item-desc">Format for Raindrop collections, tags & notes</div>
                 </div>
               </a>
+              <a href="/api/export?target=csv" download="vault.csv" class="export-item" onclick="handleExportClick(event, 'csv')">
+                <span class="export-item-icon">📊</span>
+                <div>
+                  <div class="export-item-title">SQLite Vault CSV (.csv)</div>
+                  <div class="export-item-desc">Full tabular dump of all database fields</div>
+                </div>
+              </a>
               <a href="export.html" class="export-item" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;">
                 <span class="export-item-icon">✨</span>
                 <div>
-                  <div class="export-item-title" style="color: var(--accent);">View All 12 Formats in Hub →</div>
+                  <div class="export-item-title" style="color: var(--accent);">View All 13 Formats in Hub →</div>
                   <div class="export-item-desc">BibTeX, RSS Feed, JSONL, llms.txt & more</div>
                 </div>
               </a>
@@ -1168,7 +1175,7 @@
 
       <div class="bookmarklet-banner">
         <span>⚡ <strong>1-Click Web Capture:</strong> Drag to your browser bookmarks bar:</span>
-        <a class="bookmarklet-link" href="javascript:(function(){const d=document,e=d.getElementById('webtack-drawer-host');if(e){e.remove();return;}const s=d.createElement('script');s.id='webtack-script';s.src='http://127.0.0.1:8080/bookmarklet.js?r='+Date.now();s.onerror=function(){const u=location.href,t=document.title,q=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(q),'_blank');};d.body.appendChild(s);})();" onclick="alert('Drag this ⚡ Save to WebTack link to your browser Bookmarks Bar to capture articles, videos, quotes, and bookmarks from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WebTack</a>
+        <a class="bookmarklet-link" href="javascript:(function(){const d=document,e=d.getElementById(&#x27;webtack-drawer-host&#x27;);if(e){e.remove();return;}const s=d.createElement(&#x27;script&#x27;);s.id=&#x27;webtack-script&#x27;;s.src=&#x27;http://127.0.0.1:8080/bookmarklet.js?r=&#x27;+Date.now();s.onerror=function(){const u=location.href,t=document.title,q=window.getSelection()?window.getSelection().toString():&#x27;&#x27;;window.open(&#x27;http://127.0.0.1:8080/capture?url=&#x27;+encodeURIComponent(u)+&#x27;&amp;title=&#x27;+encodeURIComponent(t)+&#x27;&amp;quote=&#x27;+encodeURIComponent(q),&#x27;_blank&#x27;);};d.body.appendChild(s);})();" onclick="alert('Drag this ⚡ Save to WebTack link to your browser Bookmarks Bar to capture articles, videos, quotes, and bookmarks from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WebTack</a>
       </div>
 
       <!-- Link / URL Form -->
@@ -1182,12 +1189,23 @@
           <input type="text" id="capLinkTitle" placeholder="Leave blank to auto-scrape">
         </div>
         <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Notes (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Editable summary or thoughts</span>
+          </div>
+          <textarea id="capLinkDescription" rows="3" placeholder="Add or edit summary or personal editorial notes..."></textarea>
+        </div>
+        <div class="form-group">
           <label>Tags (Comma separated)</label>
           <input type="text" id="capLinkTags" placeholder="systems, design, essay">
         </div>
+        <div class="form-group" id="groupArticleBody">
+          <label>Article Text / Markdown (Optional)</label>
+          <textarea id="capLinkArticleBody" rows="3" placeholder="Include full article text if you choose (pasted text or markdown for offline reading &amp; AI summary)..."></textarea>
+        </div>
         <div class="form-actions">
           <div class="bookmarklet-box">
-            <a class="bookmarklet-link" href="javascript:(function(){const d=document,e=d.getElementById('webtack-drawer-host');if(e){e.remove();return;}const s=d.createElement('script');s.id='webtack-script';s.src='http://127.0.0.1:8080/bookmarklet.js?r='+Date.now();s.onerror=function(){const u=location.href,t=document.title,q=window.getSelection().toString();window.open('http://127.0.0.1:8080/?capture_url='+encodeURIComponent(u)+'&capture_title='+encodeURIComponent(t)+'&capture_quote='+encodeURIComponent(q),'_blank');};d.body.appendChild(s);})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WebTack</a>
+            <a class="bookmarklet-link" href="javascript:(function(){const d=document,e=d.getElementById(&#x27;webtack-drawer-host&#x27;);if(e){e.remove();return;}const s=d.createElement(&#x27;script&#x27;);s.id=&#x27;webtack-script&#x27;;s.src=&#x27;http://127.0.0.1:8080/bookmarklet.js?r=&#x27;+Date.now();s.onerror=function(){const u=location.href,t=document.title,q=window.getSelection()?window.getSelection().toString():&#x27;&#x27;;window.open(&#x27;http://127.0.0.1:8080/capture?url=&#x27;+encodeURIComponent(u)+&#x27;&amp;title=&#x27;+encodeURIComponent(t)+&#x27;&amp;quote=&#x27;+encodeURIComponent(q),&#x27;_blank&#x27;);};d.body.appendChild(s);})();" onclick="alert('Drag this link to your browser bookmarks bar for 1-click capture from any tab!'); return false;" title="Drag to bookmarks bar">⚡ Save to WebTack</a>
           </div>
           <button type="submit" class="submit-btn" id="capLinkSubmit">Save Link</button>
         </div>
@@ -1202,6 +1220,13 @@
         <div class="form-group">
           <label>Custom Title (Optional)</label>
           <input type="text" id="capVideoTitle" placeholder="Leave blank to auto-fetch video title">
+        </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Notes (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Video summary or commentary</span>
+          </div>
+          <textarea id="capVideoDescription" rows="3" placeholder="Context or summary of the video..."></textarea>
         </div>
         <div class="form-group">
           <label>Tags (Comma separated)</label>
@@ -1234,6 +1259,13 @@
           <input type="url" id="capQuoteSource" placeholder="https://...">
         </div>
         <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Commentary (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Why this quote matters</span>
+          </div>
+          <textarea id="capQuoteDescription" rows="2" placeholder="Context, commentary, or why this quote matters..."></textarea>
+        </div>
+        <div class="form-group">
           <label>Tags (Comma separated)</label>
           <input type="text" id="capQuoteTags" placeholder="design, philosophy">
         </div>
@@ -1252,6 +1284,13 @@
         <div class="form-group">
           <label>Title (Optional)</label>
           <input type="text" id="capNoteTitle" placeholder="Short memo title">
+        </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Summary (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Brief annotation</span>
+          </div>
+          <textarea id="capNoteDescription" rows="2" placeholder="Optional editorial summary..."></textarea>
         </div>
         <div class="form-group">
           <label>Tags (Comma separated)</label>
@@ -1286,7 +1325,10 @@
           <input type="text" id="capImageAlt" placeholder="Accessibility description of what the image depicts">
         </div>
         <div class="form-group">
-          <label>Notes (Optional)</label>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Description / Notes (Optional)</label>
+            <span style="font-size: 11px; color: var(--muted);">Thoughts on this image</span>
+          </div>
           <textarea id="capImageNotes" placeholder="Context or thoughts on why you saved this image..."></textarea>
         </div>
         <div class="form-group">
@@ -1304,16 +1346,27 @@
   </dialog>
 
   <!-- Reader Dialog Modal -->
-  <dialog id="readerModal" closedby="any">
+  <dialog id="readerModal" closedby="any" style="max-width: 840px; width: 92%;">
     <div class="modal-header">
       <div id="modalMeta" class="modal-meta" style="margin-bottom:0;"></div>
       <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="meta-btn" onclick="toggleEditArticleText()" id="editArticleBtn" style="padding: 4px 10px; font-size: 12px;" title="Edit or Paste Full Article Text">✏️ Edit / Paste Text</button>
         <button class="meta-btn danger" onclick="deleteCurrentReaderAtom()" style="padding: 4px 10px; font-size: 12px;" title="Delete this atom">🗑️ Delete</button>
         <button class="meta-btn" onclick="openMetaFromReader()" style="padding: 4px 10px; font-size: 12px;">ℹ️ View Metadata</button>
         <button class="modal-close" id="closeModalBtn" onclick="document.getElementById('readerModal').close()">✕</button>
       </div>
     </div>
     <div class="modal-body" id="modalBody"></div>
+    <div id="modalEditBody" style="display:none; padding: 24px;">
+      <div style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">
+        Paste or edit the full article text below. Saving will update <code>article.md</code> and automatically generate an AI summary.
+      </div>
+      <textarea id="articleTextInput" rows="18" style="width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; color: var(--text); font-family: inherit; line-height: 1.6; resize: vertical;"></textarea>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+        <button class="meta-btn" onclick="toggleEditArticleText(false)">Cancel</button>
+        <button class="meta-btn primary" id="saveArticleTextBtn" onclick="saveFullArticleText()">💾 Save Full Text & Re-Summarize</button>
+      </div>
+    </div>
   </dialog>
 
   <!-- Metadata Inspector Dialog Modal -->
@@ -1570,11 +1623,19 @@
         submitBtn = document.getElementById('capLinkSubmit');
         payload.url = document.getElementById('capUrl').value.trim();
         payload.title = document.getElementById('capLinkTitle').value.trim() || null;
+        payload.description = document.getElementById('capLinkDescription') ? document.getElementById('capLinkDescription').value.trim() || null : null;
+        payload.notes = payload.description;
         payload.tags = cleanTags(document.getElementById('capLinkTags').value);
+        const pastedBody = document.getElementById('capLinkArticleBody') ? document.getElementById('capLinkArticleBody').value.trim() : null;
+        payload.article_markdown = pastedBody || window.inboundArticleMarkdown || null;
+        if (window.inboundCoverImageUrl) payload.image_url = window.inboundCoverImageUrl;
+        if (window.inboundAuthor) payload.author = window.inboundAuthor;
       } else if (kind === 'video') {
         submitBtn = document.getElementById('capVideoSubmit');
         payload.url = document.getElementById('capVideoUrl').value.trim();
         payload.title = document.getElementById('capVideoTitle').value.trim() || null;
+        payload.description = document.getElementById('capVideoDescription') ? document.getElementById('capVideoDescription').value.trim() || null : null;
+        payload.notes = payload.description;
         payload.tags = cleanTags(document.getElementById('capVideoTags').value);
         payload.transcript = document.getElementById('capVideoTranscript') ? document.getElementById('capVideoTranscript').value.trim() || null : null;
       } else if (kind === 'quote') {
@@ -1582,11 +1643,15 @@
         payload.quote = document.getElementById('capQuoteText').value.trim();
         payload.author = document.getElementById('capQuoteAuthor').value.trim() || null;
         payload.source = document.getElementById('capQuoteSource').value.trim() || null;
+        payload.description = document.getElementById('capQuoteDescription') ? document.getElementById('capQuoteDescription').value.trim() || null : null;
+        payload.notes = payload.description;
         payload.tags = cleanTags(document.getElementById('capQuoteTags').value);
       } else if (kind === 'note') {
         submitBtn = document.getElementById('capNoteSubmit');
         payload.text = document.getElementById('capNoteText').value.trim();
         payload.title = document.getElementById('capNoteTitle').value.trim() || null;
+        payload.description = document.getElementById('capNoteDescription') ? document.getElementById('capNoteDescription').value.trim() || null : null;
+        payload.notes = payload.description;
         payload.tags = cleanTags(document.getElementById('capNoteTags').value);
       } else if (kind === 'image') {
         submitBtn = document.getElementById('capImageSubmit');
@@ -1595,7 +1660,8 @@
         payload.source = document.getElementById('capImageSource').value.trim() || null;
         payload.author = document.getElementById('capImageAuthor').value.trim() || null;
         payload.alt = document.getElementById('capImageAlt').value.trim() || null;
-        payload.notes = document.getElementById('capImageNotes').value.trim() || null;
+        payload.notes = document.getElementById('capImageNotes') ? document.getElementById('capImageNotes').value.trim() || null : null;
+        payload.description = payload.notes;
         payload.tags = cleanTags(document.getElementById('capImageTags').value);
       }
 
@@ -1731,6 +1797,68 @@
       openReader(atomId);
     }
 
+    function toggleEditMetaDescription(forceEdit) {
+      const viewEl = document.getElementById('metaDescView');
+      const editEl = document.getElementById('metaDescEdit');
+      const btn = document.getElementById('metaEditDescBtn');
+      if (!viewEl || !editEl) return;
+      const isEditing = (forceEdit !== undefined) ? !forceEdit : (editEl.style.display !== 'none');
+      if (isEditing) {
+        editEl.style.display = 'none';
+        viewEl.style.display = 'block';
+        if (btn) btn.textContent = '✏️ Edit';
+      } else {
+        editEl.style.display = 'block';
+        viewEl.style.display = 'none';
+        if (btn) btn.textContent = '✕ Cancel';
+        const textarea = document.getElementById('metaDescInput');
+        if (textarea) textarea.focus();
+      }
+    }
+
+    async function saveMetaDescription(atomId) {
+      const textarea = document.getElementById('metaDescInput');
+      const saveBtn = document.getElementById('saveDescBtn');
+      if (!textarea || !saveBtn) return;
+      const newDesc = textarea.value.trim();
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      try {
+        const res = await fetch('/api/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: atomId, description: newDesc })
+        });
+        if (!res.ok) throw new Error('Update failed');
+        
+        // Update local in-memory atom
+        const atom = ATOMS.find(a => a.id === atomId);
+        if (atom) {
+          atom.description = newDesc;
+          atom.notes = newDesc;
+          if (atom.raw && atom.raw.curation) {
+            atom.raw.curation.description = newDesc;
+          }
+        }
+        
+        // Update DOM view
+        const viewEl = document.getElementById('metaDescView');
+        if (viewEl) {
+          viewEl.innerHTML = newDesc ? renderMarkdown(newDesc) : '<em style="color:var(--muted); font-size: 12px;">No description added yet. Click ✏️ Edit to write one.</em>';
+        }
+        toggleEditMetaDescription(false);
+        showToast('✨ Description updated!');
+        
+        // Refresh cards
+        renderCards();
+      } catch (err) {
+        alert('Failed to save description: ' + err.message);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Save Description';
+      }
+    }
+
     function formatSeconds(seconds) {
       const s = Math.floor(seconds);
       const m = Math.floor(s / 60);
@@ -1830,7 +1958,100 @@
 
       let parsedHtml = renderMarkdown(content);
       body.innerHTML = `<h1>${escapeHtml(atom.title)}</h1>` + parsedHtml;
+      
+      const editBody = document.getElementById('modalEditBody');
+      if (editBody) editBody.style.display = 'none';
+      if (body) body.style.display = 'block';
+      const editBtn = document.getElementById('editArticleBtn');
+      if (editBtn) editBtn.textContent = '✏️ Edit / Paste Text';
+      
       modal.showModal();
+    }
+
+    function toggleEditArticleText(forceEdit) {
+      const viewEl = document.getElementById('modalBody');
+      const editEl = document.getElementById('modalEditBody');
+      const btn = document.getElementById('editArticleBtn');
+      if (!viewEl || !editEl) return;
+      const isEditing = (forceEdit !== undefined) ? !forceEdit : (editEl.style.display !== 'none');
+      if (isEditing) {
+        editEl.style.display = 'none';
+        viewEl.style.display = 'block';
+        if (btn) btn.textContent = '✏️ Edit / Paste Text';
+      } else {
+        editEl.style.display = 'block';
+        viewEl.style.display = 'none';
+        if (btn) btn.textContent = '✕ Cancel';
+        const atom = ATOMS.find(a => a.id === window.currentReaderAtomId);
+        const textarea = document.getElementById('articleTextInput');
+        if (textarea && atom) {
+          textarea.value = atom.article_markdown || (atom.kind === 'note' ? atom.excerpt : '');
+          textarea.focus();
+        }
+      }
+    }
+
+    async function saveFullArticleText() {
+      const atomId = window.currentReaderAtomId;
+      const textarea = document.getElementById('articleTextInput');
+      const saveBtn = document.getElementById('saveArticleTextBtn');
+      if (!atomId || !textarea || !saveBtn) return;
+      const newText = textarea.value.trim();
+      if (!newText) {
+        alert('Please enter or paste article text.');
+        return;
+      }
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving & Summarizing with AI...';
+      try {
+        const res = await fetch('/api/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: atomId, article_markdown: newText, enrich: true })
+        });
+        if (!res.ok) throw new Error('Update failed');
+        const data = await res.json();
+        
+        // Update local in-memory atom
+        const atom = ATOMS.find(a => a.id === atomId);
+        if (atom) {
+          atom.article_markdown = newText;
+          if (data.description) {
+            atom.description = data.description;
+            atom.notes = data.description;
+            if (atom.raw && atom.raw.curation) atom.raw.curation.description = data.description;
+          }
+          const wCount = newText.split(/\s+/).length;
+          if (!atom.metadata) atom.metadata = {};
+          atom.metadata.word_count = wCount;
+        }
+
+        // Re-render reader view
+        const body = document.getElementById('modalBody');
+        if (body && atom) {
+          body.innerHTML = `<h1>${escapeHtml(atom.title)}</h1>` + renderMarkdown(newText);
+        }
+        const meta = document.getElementById('modalMeta');
+        if (meta && atom) {
+          const wordCount = `${atom.metadata.word_count} words`;
+          const readTime = `~${Math.ceil(atom.metadata.word_count / 225)} min read`;
+          meta.innerHTML = `
+            <span><strong>${atom.author || 'Author'}</strong></span>
+            <span>•</span>
+            <span>${atom.date}</span>
+            <span>•</span><span>${wordCount}</span>
+            <span>•</span><span>${readTime}</span>
+          `;
+        }
+        toggleEditArticleText(false);
+        showToast('✨ Full article text and AI summary saved!');
+        renderCards();
+      } catch (err) {
+        alert('Failed to save article text: ' + err.message);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Save Full Text & Re-Summarize';
+      }
     }
 
     function renderVal(val, isMono = false, isUrl = false, truncateLen = 48) {
@@ -2036,12 +2257,23 @@
       `;
 
       // TIER 1: CURATION LAYER
-      const notesHtml = (atom.description || atom.notes) ? `
+      const curDesc = atom.description || atom.notes || '';
+      const notesHtml = `
         <div class="meta-notes-banner" style="margin-top: 14px; margin-bottom: 0;">
-          <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: lowercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px;">description</div>
-          <div class="markdown-body" style="font-size: 13px; line-height: 1.6;">${renderMarkdown(atom.description || atom.notes)}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <div class="meta-notes-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600;">Description / Editorial Notes</div>
+            <button id="metaEditDescBtn" onclick="toggleEditMetaDescription()" style="background: none; border: 1px solid var(--border); color: var(--muted); padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.15s;">✏️ Edit</button>
+          </div>
+          <div id="metaDescView" class="markdown-body" style="font-size: 13px; line-height: 1.6;">${curDesc ? renderMarkdown(curDesc) : '<em style="color:var(--muted); font-size: 12px;">No description added yet. Click ✏️ Edit to write one.</em>'}</div>
+          <div id="metaDescEdit" style="display: none; margin-top: 8px;">
+            <textarea id="metaDescInput" rows="4" style="width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 13px; color: var(--text); font-family: inherit; resize: vertical; line-height: 1.5; outline: none;">${escapeHtml(curDesc)}</textarea>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+              <button onclick="toggleEditMetaDescription(false)" class="meta-btn" style="padding: 4px 10px; font-size: 12px;">Cancel</button>
+              <button onclick="saveMetaDescription('${atom.id}')" class="meta-btn primary" id="saveDescBtn" style="padding: 4px 12px; font-size: 12px;">💾 Save Description</button>
+            </div>
+          </div>
         </div>
-      ` : '';
+      `;
 
       const tier1Html = `
         <div class="schema-tier-card tier-curation">
@@ -2265,16 +2497,73 @@
       document.getElementById('metadataModal').showModal();
     }
 
+    // Listen for live DOM transfers from bookmarklet on strict CSP sites (e.g. NYTimes)
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'WEBTACK_DOM_TRANSFER') {
+        const d = event.data;
+        if (d.title && !document.getElementById('capLinkTitle').value) {
+          document.getElementById('capLinkTitle').value = d.title;
+        }
+        if (d.description && !document.getElementById('capLinkDescription').value) {
+          document.getElementById('capLinkDescription').value = d.description;
+        }
+        if (d.articleMarkdown) {
+          window.inboundArticleMarkdown = d.articleMarkdown;
+          let badge = document.getElementById('tabTransferBadge');
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.id = 'tabTransferBadge';
+            badge.style = 'font-size: 11.5px; color: #10b981; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 6px; padding: 6px 10px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;';
+            badge.innerHTML = '<span>⚡</span><span>Full article text captured live from tab! Ready for offline reader.</span>';
+            const form = document.getElementById('linkForm');
+            if (form) form.insertBefore(badge, form.firstChild);
+          }
+        }
+        if (d.imageUrl) {
+          window.inboundCoverImageUrl = d.imageUrl;
+        }
+        if (d.author) {
+          window.inboundAuthor = d.author;
+        }
+        if (event.source && event.source.postMessage) {
+          try { event.source.postMessage({ type: 'WEBTACK_RECEIVED' }, '*'); } catch (e) {}
+        }
+      }
+    });
+
     // Check URL parameters for bookmarklet pre-fill
     window.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('capture_url')) {
+      const capUrl = params.get('capture_url');
+      if (capUrl) {
         openCaptureModal();
-        switchCaptureTab('link');
-        document.getElementById('capUrl').value = params.get('capture_url');
+        switchCaptureTab('article');
+        document.getElementById('capUrl').value = capUrl;
         if (params.get('capture_title')) {
           document.getElementById('capLinkTitle').value = params.get('capture_title');
         }
+        if (params.get('capture_description') || params.get('capture_notes')) {
+          const descEl = document.getElementById('capLinkDescription');
+          if (descEl) descEl.value = params.get('capture_description') || params.get('capture_notes');
+        }
+        // Check if exists in vault
+        fetch('/api/check?url=' + encodeURIComponent(capUrl))
+          .then(r => r.json())
+          .then(data => {
+            if (data && data.exists && data.atom) {
+              if (data.atom.title && !document.getElementById('capLinkTitle').value) {
+                document.getElementById('capLinkTitle').value = data.atom.title;
+              }
+              if (data.atom.description && !document.getElementById('capLinkDescription').value) {
+                document.getElementById('capLinkDescription').value = data.atom.description;
+              }
+              if (data.atom.tags && data.atom.tags.length && !document.getElementById('capLinkTags').value) {
+                document.getElementById('capLinkTags').value = data.atom.tags.join(', ');
+              }
+              const btn = document.getElementById('capLinkSubmit');
+              if (btn) btn.textContent = 'Update ' + (data.atom.kind === 'article' ? 'Article' : 'Atom');
+            }
+          }).catch(() => {});
       } else if (params.get('capture_quote')) {
         openCaptureModal();
         switchCaptureTab('quote');
@@ -2282,6 +2571,36 @@
         if (params.get('capture_url')) {
           document.getElementById('capQuoteSource').value = params.get('capture_url');
         }
+        if (params.get('capture_description') || params.get('capture_notes')) {
+          const descEl = document.getElementById('capQuoteDescription');
+          if (descEl) descEl.value = params.get('capture_description') || params.get('capture_notes');
+        }
+      }
+
+      // Auto-check on capUrl blur
+      const urlInput = document.getElementById('capUrl');
+      if (urlInput) {
+        urlInput.addEventListener('blur', function() {
+          const val = this.value.trim();
+          if (!val) return;
+          fetch('/api/check?url=' + encodeURIComponent(val))
+            .then(r => r.json())
+            .then(data => {
+              if (data && data.exists && data.atom) {
+                if (data.atom.title && !document.getElementById('capLinkTitle').value) {
+                  document.getElementById('capLinkTitle').value = data.atom.title;
+                }
+                if (data.atom.description && !document.getElementById('capLinkDescription').value) {
+                  document.getElementById('capLinkDescription').value = data.atom.description;
+                }
+                if (data.atom.tags && data.atom.tags.length && !document.getElementById('capLinkTags').value) {
+                  document.getElementById('capLinkTags').value = data.atom.tags.join(', ');
+                }
+                const btn = document.getElementById('capLinkSubmit');
+                if (btn) btn.textContent = 'Update ' + (data.atom.kind === 'article' ? 'Article' : 'Atom');
+              }
+            }).catch(() => {});
+        });
       }
     });
 

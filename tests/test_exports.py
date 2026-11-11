@@ -158,8 +158,9 @@ class TestWebTackExports(unittest.TestCase):
         expected_fields = [
             "id", "kind", "created_at", "updated_at", "atom_title",
             "notes", "tags", "collections", "visibility", "favorite",
-            "destination_url", "cover_file_path", "text_content",
-            "source_url", "author", "metadata", "raw_json"
+            "destination_url", "cover_file_path", "alt_text", "text_content",
+            "source_url", "author", "capture_method", "capture_id",
+            "metadata", "raw_json"
         ]
         for field in expected_fields:
             self.assertIn(field, headers)

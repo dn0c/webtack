@@ -61,7 +61,7 @@ python3 -m unittest discover -s tests -v
 All 20+ tests should pass in under 10 seconds:
 - **`tests/test_schema.py`**: Schema structure, kind enums, required fields, and specimen validation.
 - **`tests/test_cli.py`**: End-to-end CLI operations (note, quote, reindex, search, list, validate) in isolated temporary vaults.
-- **`tests/test_exports.py`**: Verification of all 12 export pipelines (NotebookLM, `llms.txt`, Obsidian, Netscape HTML, CSVs, RSS, BibTeX, JSONL).
+- **`tests/test_exports.py`**: Verification of all 13 export pipelines (NotebookLM, `llms.txt`, Obsidian, Netscape HTML, CSVs, RSS, BibTeX, JSONL).
 
 ### Running Schema Validation on Changes
 Whenever you touch schema definitions, fixture atoms, or intake parsers, run:

@@ -419,7 +419,7 @@
         </p>
         <div class="hero-stats-row">
           <div class="hero-stat">
-            <span class="hero-stat-val">12 Formats</span>
+            <span class="hero-stat-val">13 Formats</span>
             <span class="hero-stat-lbl">Active Export Targets</span>
           </div>
           <div class="hero-stat">
@@ -621,6 +621,19 @@
         included: "Complete raw JSON array of all atom schemas and sidecar metadata",
         tools: ["Disaster Recovery", "Vault Migration", "Automated Backups"],
         cli: "python3 curate.py export --target json"
+      },
+      {
+        id: "csv",
+        category: "syndication",
+        category_name: "Database Backup",
+        title: "SQLite Vault CSV (Full Dump)",
+        filename: "vault.csv",
+        ext: ".csv",
+        icon: "📊",
+        summary: "Exact, full tabular copy of the SQLite atoms table with every single column preserved (ID, title, URLs, notes, tags, metadata JSON, and raw JSON).",
+        included: "All columns: id, kind, created_at, updated_at, atom_title, notes, tags, collections, visibility, favorite, destination_url, cover_file_path, text_content, source_url, author, metadata, raw_json",
+        tools: ["Excel", "Google Sheets", "Airtable", "SQLite / Postgres Importers", "Pandas"],
+        cli: "python3 curate.py export --target csv"
       }
     ];
 

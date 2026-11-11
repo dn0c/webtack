@@ -46,7 +46,7 @@ A WebTack vault conforms to the following directory hierarchy:
 ```
 
 ### Path Resolution Rules
-* **Relative Sidecars**: All file paths referenced in `atom.json` (such as `content.cover_image.relative_path` or `content.article.relative_path`) **MUST** be relative to the directory containing the `atom.json` file.
+* **Relative Sidecars**: Canonical sidecar filenames (`content.cover_image.file`, `content.article.file`) **MUST** be local filenames relative to the atom directory containing `atom.json`. Pointer paths (`relative_path`) **MUST** be relative to the vault root (`atoms/YYYY/MM/<id>/<file>`).
 * **Identifier Format**: Atom IDs **MUST** start with the `atm_` prefix followed by a timestamp and entropy string (e.g. `atm_YYYYMMDDHHMMSS_xxxxxx`).
 
 ---

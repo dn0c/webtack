@@ -130,6 +130,53 @@ class TestBookmarkletAndServer(unittest.TestCase):
             self.assertTrue(del_res.get("success"))
             self.assertEqual(del_res["id"], atom_id)
 
+    def test_destructive_endpoints_reject_unauthorized_cross_origin(self):
+        # 1. Cross-origin POST to /api/delete with Origin: https://evil.com should return 403 Forbidden
+        del_payload = json.dumps({"id": "atm_dummy"}).encode("utf-8")
+        del_req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/delete",
+            data=del_payload,
+            headers={
+                "Content-Type": "application/json",
+                "Origin": "https://evil-third-party-site.com"
+            },
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(del_req) as resp:
+                self.fail(f"Expected 403 HTTPError, got status {resp.status}")
+        except urllib.error.HTTPError as err:
+            self.assertEqual(err.code, 403)
+
+        # 2. Cross-origin POST to /api/update with Sec-Fetch-Site: cross-site should return 403 Forbidden
+        up_payload = json.dumps({"id": "atm_dummy", "description": "Hacked"}).encode("utf-8")
+        up_req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/update",
+            data=up_payload,
+            headers={
+                "Content-Type": "application/json",
+                "Sec-Fetch-Site": "cross-site"
+            },
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(up_req) as resp:
+                self.fail(f"Expected 403 HTTPError, got status {resp.status}")
+        except urllib.error.HTTPError as err:
+            self.assertEqual(err.code, 403)
+
+        # 3. Cross-origin OPTIONS preflight to /api/delete with Origin: https://evil.com should return 403 Forbidden
+        opt_req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/delete",
+            headers={"Origin": "https://evil-third-party-site.com"},
+            method="OPTIONS"
+        )
+        try:
+            with urllib.request.urlopen(opt_req) as resp:
+                self.fail(f"Expected 403 HTTPError, got status {resp.status}")
+        except urllib.error.HTTPError as err:
+            self.assertEqual(err.code, 403)
+
 
 if __name__ == "__main__":
     unittest.main()
