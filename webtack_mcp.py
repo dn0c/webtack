@@ -11,6 +11,7 @@ import json
 import sqlite3
 from pathlib import Path
 from mcp.server.mcpserver import MCPServer
+import curate
 
 # Initialize MCP server
 app = MCPServer("WebTack Vault")
@@ -36,42 +37,35 @@ def get_db():
 
 @app.tool()
 def search_vault(query: str = "", kind: str = "", tag: str = "", visibility: str = "", limit: int = 15) -> list[dict]:
-    """Search the WebTack curation vault by keyword, semantic title, spoken dialogue, article text, notes, or tags."""
+    """Search the WebTack curation vault by keyword, semantic title, spoken dialogue, article text, notes, or tags (powered by SQLite FTS5 BM25 relevance ranking)."""
     conn, vault_dir = get_db()
-    sql = "SELECT id, kind, created_at, atom_title, author, source_url, destination_url, tags, notes, text_content, visibility FROM atoms WHERE 1=1"
-    params = []
-    if query:
-        sql += " AND (atom_title LIKE ? OR text_content LIKE ? OR notes LIKE ? OR tags LIKE ?)"
-        q_wild = f"%{query}%"
-        params.extend([q_wild, q_wild, q_wild, q_wild])
-    if kind:
-        sql += " AND kind = ?"
-        params.append(kind)
-    if tag:
-        sql += " AND tags LIKE ?"
-        params.append(f"%{tag}%")
-    if visibility:
-        sql += " AND visibility = ?"
-        params.append(visibility)
-    sql += " ORDER BY created_at DESC LIMIT ?"
-    params.append(limit)
-
-    rows = conn.execute(sql, params).fetchall()
-    results = []
-    for r in rows:
-        results.append({
-            "id": r["id"],
-            "kind": r["kind"],
-            "title": r["atom_title"],
-            "author": r["author"],
-            "url": r["source_url"] or r["destination_url"],
-            "date": r["created_at"][:10],
-            "visibility": r["visibility"] if "visibility" in r.keys() else "public",
-            "tags": json.loads(r["tags"]) if r["tags"] else [],
-            "notes": r["notes"],
-            "excerpt": r["text_content"][:300] if r["text_content"] else None
-        })
-    return results
+    try:
+        rows = curate.query_atoms_fts(
+            conn,
+            query=query,
+            kind=kind or None,
+            tag=tag or None,
+            visibility=visibility or None,
+            limit=limit
+        )
+        results = []
+        for r in rows:
+            results.append({
+                "id": r["id"],
+                "kind": r["kind"],
+                "title": r["atom_title"],
+                "author": r["author"],
+                "url": r["source_url"] or r["destination_url"],
+                "date": r["created_at"][:10],
+                "visibility": r["visibility"] if "visibility" in r.keys() else "public",
+                "tags": json.loads(r["tags"]) if r["tags"] else [],
+                "notes": r["notes"],
+                "match_snippet": r["snippet"] if "snippet" in r.keys() and r["snippet"] else None,
+                "excerpt": r["text_content"][:300] if r["text_content"] else None
+            })
+        return results
+    finally:
+        conn.close()
 
 
 @app.tool()

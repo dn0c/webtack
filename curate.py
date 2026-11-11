@@ -157,6 +157,46 @@ def get_db(vault_dir: Path) -> sqlite3.Connection:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_visibility ON atoms(visibility);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_fav ON atoms(favorite) WHERE favorite = 1;")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_atoms_capture ON atoms(capture_method, capture_id) WHERE capture_id IS NOT NULL;")
+
+        # High-performance SQLite FTS5 Full-Text Search index and auto-sync triggers
+        conn.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS atoms_fts USING fts5(
+                id UNINDEXED,
+                atom_title,
+                author,
+                notes,
+                tags,
+                text_content,
+                content='atoms',
+                content_rowid='rowid',
+                tokenize='unicode61 remove_diacritics 2'
+            );
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS atoms_ai AFTER INSERT ON atoms BEGIN
+              INSERT INTO atoms_fts(rowid, id, atom_title, author, notes, tags, text_content)
+              VALUES (new.rowid, new.id, new.atom_title, new.author, new.notes, new.tags, new.text_content);
+            END;
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS atoms_ad AFTER DELETE ON atoms BEGIN
+              INSERT INTO atoms_fts(atoms_fts, rowid, id, atom_title, author, notes, tags, text_content)
+              VALUES('delete', old.rowid, old.id, old.atom_title, old.author, old.notes, old.tags, old.text_content);
+            END;
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS atoms_au AFTER UPDATE ON atoms BEGIN
+              INSERT INTO atoms_fts(atoms_fts, rowid, id, atom_title, author, notes, tags, text_content)
+              VALUES('delete', old.rowid, old.id, old.atom_title, old.author, old.notes, old.tags, old.text_content);
+              INSERT INTO atoms_fts(rowid, id, atom_title, author, notes, tags, text_content)
+              VALUES (new.rowid, new.id, new.atom_title, new.author, new.notes, new.tags, new.text_content);
+            END;
+        """)
+        atoms_cnt = conn.execute("SELECT COUNT(*) FROM atoms;").fetchone()[0]
+        if atoms_cnt > 0:
+            docsize_cnt = conn.execute("SELECT COUNT(*) FROM atoms_fts_docsize;").fetchone()[0]
+            if docsize_cnt == 0:
+                conn.execute("INSERT INTO atoms_fts(atoms_fts) VALUES('rebuild');")
     return conn
 
 
@@ -1963,30 +2003,169 @@ def cmd_delete(args):
         print(f"ℹ️ Atom {args.atom_id} removed from database (no on-disk folder found).")
 
 
-def cmd_list(args):
-    """List recent atoms in the vault, with optional filtering by kind, tag, or collection."""
+def sanitize_fts_query(query: str) -> str:
+    """Sanitize user query for SQLite FTS5 prefix and term matching."""
+    if not query:
+        return ""
+    clean = "".join(c if c.isalnum() or c in " _" else " " for c in query)
+    tokens = clean.strip().split()
+    if not tokens:
+        return ""
+    return " ".join(f"{t}*" for t in tokens)
+
+
+def query_atoms_fts(conn: sqlite3.Connection, query: str = "", kind: str = None, tag: str = None, collection: str = None, visibility: str = None, limit: int = 20):
+    """Execute high-speed full-text search with BM25 ranking or filtered recent listing."""
+    fts_clean = sanitize_fts_query(query) if query else ""
+    if not fts_clean:
+        sql = "SELECT *, NULL as snippet FROM atoms WHERE 1=1"
+        params = []
+        if kind:
+            sql += " AND kind = ?"
+            params.append(kind)
+        if tag:
+            sql += " AND tags LIKE ?"
+            params.append(f"%{tag}%")
+        if collection:
+            sql += " AND collections LIKE ?"
+            params.append(f"%{collection}%")
+        if visibility:
+            sql += " AND visibility = ?"
+            params.append(visibility)
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        return conn.execute(sql, params).fetchall()
+
+    sql = """
+        SELECT a.*, snippet(atoms_fts, 5, '«', '»', '...', 16) as snippet, bm25(atoms_fts) as rank
+        FROM atoms_fts f
+        JOIN atoms a ON f.rowid = a.rowid
+        WHERE atoms_fts MATCH ?
+    """
+    params = [fts_clean]
+    if kind:
+        sql += " AND a.kind = ?"
+        params.append(kind)
+    if tag:
+        sql += " AND a.tags LIKE ?"
+        params.append(f"%{tag}%")
+    if collection:
+        sql += " AND a.collections LIKE ?"
+        params.append(f"%{collection}%")
+    if visibility:
+        sql += " AND a.visibility = ?"
+        params.append(visibility)
+    sql += " ORDER BY rank LIMIT ?"
+    params.append(limit)
+    try:
+        return conn.execute(sql, params).fetchall()
+    except sqlite3.OperationalError:
+        # Graceful fallback to substring match if FTS table has transient syntax error
+        sql_fallback = "SELECT *, NULL as snippet FROM atoms WHERE (atom_title LIKE ? OR text_content LIKE ? OR notes LIKE ? OR tags LIKE ?)"
+        q_wild = f"%{query}%"
+        fallback_params = [q_wild, q_wild, q_wild, q_wild]
+        if kind:
+            sql_fallback += " AND kind = ?"
+            fallback_params.append(kind)
+        if tag:
+            sql_fallback += " AND tags LIKE ?"
+            fallback_params.append(f"%{tag}%")
+        if collection:
+            sql_fallback += " AND collections LIKE ?"
+            fallback_params.append(f"%{collection}%")
+        if visibility:
+            sql_fallback += " AND visibility = ?"
+            fallback_params.append(visibility)
+        sql_fallback += " ORDER BY created_at DESC LIMIT ?"
+        fallback_params.append(limit)
+        return conn.execute(sql_fallback, fallback_params).fetchall()
+
+
+def cmd_search(args):
+    """Full-text search across atoms, full article markdown, transcripts, notes, and tags using SQLite FTS5."""
     vault_dir = Path(args.vault).resolve()
     conn = get_db(vault_dir)
-    query = "SELECT id, kind, created_at, atom_title, tags, cover_file_path, text_content, destination_url, metadata FROM atoms WHERE 1=1"
-    params = []
-    
-    if args.kind:
-        query += " AND kind = ?"
-        params.append(args.kind)
-    if args.tag:
-        query += " AND tags LIKE ?"
-        params.append(f"%{args.tag}%")
-    if args.collection:
-        query += " AND collections LIKE ?"
-        params.append(f"%{args.collection}%")
-    if getattr(args, "visibility", None):
-        query += " AND visibility = ?"
-        params.append(args.visibility)
-        
-    query += " ORDER BY created_at DESC LIMIT ?"
-    params.append(args.limit)
+    rows = query_atoms_fts(
+        conn,
+        args.query,
+        kind=args.kind,
+        tag=args.tag,
+        collection=args.collection,
+        visibility=getattr(args, "visibility", None),
+        limit=args.limit
+    )
 
-    rows = conn.execute(query, params).fetchall()
+    if not rows:
+        print(f"No atoms found matching '{args.query}'.")
+        return
+
+    kind_icons = {
+        "article": "📖",
+        "bookmark": "🔖",
+        "link": "🔖",
+        "video": "🎬",
+        "quote": "✍️",
+        "note": "📝",
+        "image": "🖼️",
+        "file": "📄"
+    }
+
+    print(f"\n🔍 Search Results for '{args.query}' ({len(rows)} matches):")
+    print("─" * 80)
+    for r in rows:
+        icon = kind_icons.get(r["kind"], "📦")
+        tags_list = json.loads(r["tags"]) if r["tags"] else []
+        tag_str = " ".join([f"#{t}" for t in tags_list])
+
+        print(f"{icon} [{r['kind'].upper()}] [{r['id']}]  {r['atom_title']}")
+        if r["destination_url"] or r["source_url"]:
+            print(f"    URL:     {r['source_url'] or r['destination_url']}")
+        if "snippet" in r.keys() and r["snippet"]:
+            clean_snip = r["snippet"].replace("\n", " ").strip()
+            print(f"    Match:   …{clean_snip}…")
+        elif r["notes"]:
+            clean_note = r["notes"].replace("\n", " ").strip()
+            print(f"    Note:    {clean_note[:120]}...")
+        if tag_str:
+            print(f"    Tags:    {tag_str}")
+        print(f"    Date:    {r['created_at'][:10]}")
+        print("─" * 80)
+
+
+def cmd_list(args):
+    """List recent atoms in the vault, with optional filtering by kind, tag, collection, or keyword query."""
+    vault_dir = Path(args.vault).resolve()
+    conn = get_db(vault_dir)
+    query_param = getattr(args, "query", None)
+    if query_param:
+        rows = query_atoms_fts(
+            conn,
+            query_param,
+            kind=args.kind,
+            tag=args.tag,
+            collection=args.collection,
+            visibility=getattr(args, "visibility", None),
+            limit=args.limit
+        )
+    else:
+        query = "SELECT id, kind, created_at, atom_title, tags, cover_file_path, text_content, destination_url, metadata FROM atoms WHERE 1=1"
+        params = []
+        if args.kind:
+            query += " AND kind = ?"
+            params.append(args.kind)
+        if args.tag:
+            query += " AND tags LIKE ?"
+            params.append(f"%{args.tag}%")
+        if args.collection:
+            query += " AND collections LIKE ?"
+            params.append(f"%{args.collection}%")
+        if getattr(args, "visibility", None):
+            query += " AND visibility = ?"
+            params.append(args.visibility)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(args.limit)
+        rows = conn.execute(query, params).fetchall()
+
     if not rows:
         print("No matching atoms found in vault.")
         return
@@ -2761,106 +2940,108 @@ def cmd_reindex(args):
     count = 0
 
     print(f"🔍 Scanning {atoms_root} for atom.json sidecars...")
-    for root, dirs, files in os.walk(atoms_root):
-        if "atom.json" in files:
-            atom_file = Path(root) / "atom.json"
-            try:
-                with open(atom_file, "r", encoding="utf-8") as f:
-                    doc = json.load(f)
+    conn.execute("PRAGMA cache_size = -64000;")  # 64MB memory cache for fast indexing
+    conn.execute("BEGIN TRANSACTION;")
+    try:
+        for root, dirs, files in os.walk(atoms_root):
+            if "atom.json" in files:
+                atom_file = Path(root) / "atom.json"
+                try:
+                    with open(atom_file, "r", encoding="utf-8") as f:
+                        doc = json.load(f)
 
-                atom_id = doc["id"]
-                now_iso = doc.get("created_at", datetime.now(timezone.utc).isoformat())
-                prov = doc.get("source") or doc.get("provenance") or {}
-                cur = doc.get("curation", {})
-                content = doc.get("content") or doc.get("payload") or {}
-                
-                # Backwards compatibility: Read kind from root envelope (v2+), curation (v2-beta), or display_hint (v1)
-                kind = doc.get("kind") or cur.get("kind")
-                if not kind or kind == "link":
-                    if (Path(root) / "article.md").exists() or (content.get("article") and content["article"].get("file")):
-                        kind = "article"
-                    elif cur.get("display_hint") == "text":
-                        kind = "quote"
-                    elif cur.get("display_hint") == "image":
-                        kind = "image"
+                    atom_id = doc["id"]
+                    now_iso = doc.get("created_at", datetime.now(timezone.utc).isoformat())
+                    prov = doc.get("source") or doc.get("provenance") or {}
+                    cur = doc.get("curation", {})
+                    content = doc.get("content") or doc.get("payload") or {}
+                    
+                    # Backwards compatibility: Read kind from root envelope (v2+), curation (v2-beta), or display_hint (v1)
+                    kind = doc.get("kind") or cur.get("kind")
+                    if not kind or kind == "link":
+                        if (Path(root) / "article.md").exists() or (content.get("article") and content["article"].get("file")):
+                            kind = "article"
+                        elif cur.get("display_hint") == "text":
+                            kind = "quote"
+                        elif cur.get("display_hint") == "image":
+                            kind = "image"
+                        else:
+                            kind = "bookmark"
+
+                    # Cover image mapping (handles v1 asset, v2 payload, v3 content)
+                    cover = content.get("cover_image") or content.get("asset") or {}
+                    if isinstance(cover, str):
+                        cover = {"relative_path": cover}
+                    cover_rel_path = cover.get("relative_path")
+
+                    text = content.get("text") or {}
+                    if isinstance(text, str):
+                        text_content = text
+                        text = {"excerpt": text}
                     else:
-                        kind = "bookmark"
+                        text_content = text.get("excerpt")
 
-                # Cover image mapping (handles v1 asset, v2 payload, v3 content)
-                cover = content.get("cover_image") or content.get("asset") or {}
-                if isinstance(cover, str):
-                    cover = {"relative_path": cover}
-                cover_rel_path = cover.get("relative_path")
+                    article = content.get("article") or {}
+                    if not isinstance(article, dict):
+                        article = {}
+                    if not text_content:
+                        atom_dir = Path(root)
+                        if (atom_dir / "transcript.txt").exists():
+                            try:
+                                with open(atom_dir / "transcript.txt", "r", encoding="utf-8") as tf:
+                                    text_content = tf.read()
+                            except Exception:
+                                pass
+                        elif (atom_dir / "quote.md").exists():
+                            try:
+                                with open(atom_dir / "quote.md", "r", encoding="utf-8") as qf:
+                                    text_content = qf.read()
+                            except Exception:
+                                pass
+                        elif (atom_dir / "quote.txt").exists():
+                            try:
+                                with open(atom_dir / "quote.txt", "r", encoding="utf-8") as qf:
+                                    text_content = qf.read()
+                            except Exception:
+                                pass
+                        elif (atom_dir / "note.md").exists():
+                            try:
+                                with open(atom_dir / "note.md", "r", encoding="utf-8") as nf:
+                                    text_content = nf.read()
+                            except Exception:
+                                pass
+                        elif (atom_dir / "note.txt").exists():
+                            try:
+                                with open(atom_dir / "note.txt", "r", encoding="utf-8") as nf:
+                                    text_content = nf.read()
+                            except Exception:
+                                pass
 
-                text = content.get("text") or {}
-                if isinstance(text, str):
-                    text_content = text
-                    text = {"excerpt": text}
-                else:
-                    text_content = text.get("excerpt")
+                    meta_bag = doc.get("metadata_json") or {}
+                    if "word_count" not in meta_bag:
+                        meta_bag["word_count"] = text.get("word_count") or article.get("word_count")
+                    if "aspect_ratio" not in meta_bag and cover.get("aspect_ratio"):
+                        meta_bag["aspect_ratio"] = cover.get("aspect_ratio")
+                    if "blurhash" not in meta_bag and cover.get("blurhash"):
+                        meta_bag["blurhash"] = cover.get("blurhash")
+                    file_info = content.get("file") or {}
+                    if isinstance(file_info, dict):
+                        if "file_size_bytes" not in meta_bag and file_info.get("file_size_bytes"):
+                            meta_bag["file_size_bytes"] = file_info["file_size_bytes"]
+                        if "file_extension" not in meta_bag and file_info.get("file_extension"):
+                            meta_bag["file_extension"] = file_info["file_extension"]
+                        if "page_count" not in meta_bag and file_info.get("page_count"):
+                            meta_bag["page_count"] = file_info["page_count"]
 
-                article = content.get("article") or {}
-                if not isinstance(article, dict):
-                    article = {}
-                if not text_content:
-                    atom_dir = Path(root)
-                    if (atom_dir / "transcript.txt").exists():
-                        try:
-                            with open(atom_dir / "transcript.txt", "r", encoding="utf-8") as tf:
-                                text_content = tf.read()
-                        except Exception:
-                            pass
-                    elif (atom_dir / "quote.md").exists():
-                        try:
-                            with open(atom_dir / "quote.md", "r", encoding="utf-8") as qf:
-                                text_content = qf.read()
-                        except Exception:
-                            pass
-                    elif (atom_dir / "quote.txt").exists():
-                        try:
-                            with open(atom_dir / "quote.txt", "r", encoding="utf-8") as qf:
-                                text_content = qf.read()
-                        except Exception:
-                            pass
-                    elif (atom_dir / "note.md").exists():
-                        try:
-                            with open(atom_dir / "note.md", "r", encoding="utf-8") as nf:
-                                text_content = nf.read()
-                        except Exception:
-                            pass
-                    elif (atom_dir / "note.txt").exists():
-                        try:
-                            with open(atom_dir / "note.txt", "r", encoding="utf-8") as nf:
-                                text_content = nf.read()
-                        except Exception:
-                            pass
+                    atom_notes = cur.get("description") or cur.get("notes")
+                    if isinstance(atom_notes, dict):
+                        atom_notes = atom_notes.get("plain") or atom_notes.get("markdown") or str(atom_notes)
 
-                meta_bag = doc.get("metadata_json") or {}
-                if "word_count" not in meta_bag:
-                    meta_bag["word_count"] = text.get("word_count") or article.get("word_count")
-                if "aspect_ratio" not in meta_bag and cover.get("aspect_ratio"):
-                    meta_bag["aspect_ratio"] = cover.get("aspect_ratio")
-                if "blurhash" not in meta_bag and cover.get("blurhash"):
-                    meta_bag["blurhash"] = cover.get("blurhash")
-                file_info = content.get("file") or {}
-                if isinstance(file_info, dict):
-                    if "file_size_bytes" not in meta_bag and file_info.get("file_size_bytes"):
-                        meta_bag["file_size_bytes"] = file_info["file_size_bytes"]
-                    if "file_extension" not in meta_bag and file_info.get("file_extension"):
-                        meta_bag["file_extension"] = file_info["file_extension"]
-                    if "page_count" not in meta_bag and file_info.get("page_count"):
-                        meta_bag["page_count"] = file_info["page_count"]
+                    source_url_val = prov.get("source_url") or content.get("destination_url")
+                    alt_text_val = cover.get("alt_text")
+                    cap_method_val = prov.get("capture_method")
+                    cap_id_val = prov.get("capture_id")
 
-                atom_notes = cur.get("description") or cur.get("notes")
-                if isinstance(atom_notes, dict):
-                    atom_notes = atom_notes.get("plain") or atom_notes.get("markdown") or str(atom_notes)
-
-                source_url_val = prov.get("source_url") or content.get("destination_url")
-                alt_text_val = cover.get("alt_text")
-                cap_method_val = prov.get("capture_method")
-                cap_id_val = prov.get("capture_id")
-
-                with conn:
                     conn.execute("""
                         INSERT INTO atoms (
                             id, kind, created_at, updated_at, atom_title, notes, tags,
@@ -2876,9 +3057,21 @@ def cmd_reindex(args):
                         cover_rel_path, alt_text_val, text_content, source_url_val,
                         prov.get("author"), cap_method_val, cap_id_val, json.dumps(meta_bag), json.dumps(doc)
                     ))
-                count += 1
-            except Exception as e:
-                print(f"⚠️ Error parsing {atom_file}: {e}")
+                    count += 1
+                    if count % 1000 == 0:
+                        conn.commit()
+                        conn.execute("BEGIN TRANSACTION;")
+                        print(f"   Indexed {count:,} atoms...")
+                except Exception as e:
+                    print(f"⚠️ Error parsing {atom_file}: {e}")
+        conn.commit()
+        # Ensure FTS5 full-text index is fully synchronized and optimized
+        conn.execute("INSERT INTO atoms_fts(atoms_fts) VALUES('rebuild');")
+        conn.execute("INSERT INTO atoms_fts(atoms_fts) VALUES('optimize');")
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
 
     print(f"🎉 Disaster Recovery complete! Successfully indexed {count} atoms into vault.db.")
 
@@ -3846,12 +4039,23 @@ def main():
 
     # 7. List command
     p_list = subparsers.add_parser("list", help="List atoms in the vault")
+    p_list.add_argument("-q", "--query", help="Filter by search query or keyword")
     p_list.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file"], help="Filter by kind")
     p_list.add_argument("--tag", help="Filter by tag")
     p_list.add_argument("--collection", help="Filter by collection")
     p_list.add_argument("--visibility", choices=["public", "shared", "private"], help="Filter by visibility tier")
     p_list.add_argument("--limit", type=int, default=20, help="Number of items to show")
     p_list.set_defaults(func=cmd_list)
+
+    # 7b. Search command (SQLite FTS5 full-text search)
+    p_search = subparsers.add_parser("search", help="Instant full-text search across all atoms, articles, transcripts, and notes (FTS5)")
+    p_search.add_argument("query", help="Search keyword, phrase, or topic")
+    p_search.add_argument("--kind", choices=["article", "bookmark", "video", "quote", "note", "image", "file"], help="Filter by kind")
+    p_search.add_argument("--tag", help="Filter by tag")
+    p_search.add_argument("--collection", help="Filter by collection")
+    p_search.add_argument("--visibility", choices=["public", "shared", "private"], help="Filter by visibility tier")
+    p_search.add_argument("--limit", type=int, default=20, help="Number of items to show (default: 20)")
+    p_search.set_defaults(func=cmd_search)
 
     # 8. Export command
     p_export = subparsers.add_parser("export", help="Export atoms to platform formats")

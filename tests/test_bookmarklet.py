@@ -177,6 +177,56 @@ class TestBookmarkletAndServer(unittest.TestCase):
         except urllib.error.HTTPError as err:
             self.assertEqual(err.code, 403)
 
+    def test_media_cache_control_headers(self):
+        # Create a dummy image in the test vault directory
+        dummy_img = self.vault_dir / "cover.jpg"
+        dummy_img.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")
+
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}/cover.jpg")
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            cache_ctrl = resp.headers.get("Cache-Control", "")
+            self.assertIn("immutable", cache_ctrl)
+            self.assertIn("max-age=31536000", cache_ctrl)
+
+        # Dynamic / capture routes should NOT have immutable caching
+        req_cap = urllib.request.Request(f"http://127.0.0.1:{self.port}/capture")
+        with urllib.request.urlopen(req_cap) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertNotIn("immutable", resp.headers.get("Cache-Control", ""))
+
+    def test_api_search_fts5(self):
+        # Insert a specimen atom directly into test db
+        conn = curate.get_db(self.vault_dir)
+        with conn:
+            conn.execute("""
+                INSERT INTO atoms (
+                    id, kind, created_at, updated_at, atom_title, notes, tags,
+                    collections, visibility, favorite, destination_url, cover_file_path, alt_text,
+                    text_content, source_url, author, capture_method, capture_id, metadata, raw_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                "atm_fts_test_01", "article", "2026-11-10T12:00:00Z", "2026-11-10T12:00:00Z",
+                "Byzantine Fault Tolerance and Consensus", "Deep dive into state machine replication and PBFT.",
+                json.dumps(["consensus", "systems"]), json.dumps([]), "public", 0, "https://example.com/pbft",
+                None, None, "The PBFT algorithm guarantees safety and liveness under asynchronous networks.",
+                "https://example.com/pbft", "Castro & Liskov", "test", "pbft-1", json.dumps({}), json.dumps({"id": "atm_fts_test_01"})
+            ))
+
+        # Query /api/search?q=byzantine
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/search?q=byzantine")
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertIn("application/json", resp.headers.get("Content-Type"))
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertGreaterEqual(data["count"], 1)
+            self.assertEqual(data["atoms"][0]["id"], "atm_fts_test_01")
+            self.assertIn("Byzantine", data["atoms"][0]["title"])
+
+        # Clean up test atom
+        with conn:
+            conn.execute("DELETE FROM atoms WHERE id = 'atm_fts_test_01'")
+
 
 if __name__ == "__main__":
     unittest.main()

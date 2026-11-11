@@ -252,17 +252,28 @@ python3 curate.py file "/path/to/whitepaper.pdf" \
 ```
 
 ### 6. List Saved Atoms (`curate.py list`)
-List recent atoms with optional filtering by `kind`, `tag`, or `collection`:
+List recent atoms with optional filtering by `kind`, `tag`, `collection`, or keyword query (`-q`):
 
 ```bash
 python3 curate.py list
+python3 curate.py list -q "architecture"
 python3 curate.py list --kind file
 python3 curate.py list --kind quote
 python3 curate.py list --kind bookmark
 python3 curate.py list --tag systems
 ```
 
-### 7. Visual Gallery & Live Capture Studio (`curate.py view`)
+### 7. Instant Full-Text Search (`curate.py search`)
+Powered by native SQLite FTS5 with BM25 relevance ranking. Searches across titles, authors, curator notes, tags, full article reader markdown, and spoken video transcript dialogue in sub-milliseconds:
+
+```bash
+# Search across your entire vault with highlighted snippet excerpts:
+python3 curate.py search "distributed systems"
+python3 curate.py search "paxos" --kind article
+python3 curate.py search "engelbart" --kind video
+```
+
+### 8. Visual Gallery & Live Capture Studio (`curate.py view`)
 Browse your vault with high-aesthetic typography, 4-tier schema inspection, responsive video player, and distraction-free reader mode:
 
 ```bash

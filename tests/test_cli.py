@@ -209,6 +209,53 @@ startxref
         val_res = self._run_cli(["validate"])
         self.assertIn("zero errors", val_res.stdout)
 
+    def test_fts5_search_and_query_flag(self):
+        """Verify SQLite FTS5 search command, highlighted snippets, and list -q filter."""
+        # Save two distinct atoms
+        self._run_cli([
+            "quote",
+            "Associative memory structures anticipate human conceptual linkages.",
+            "--title", "Memex Association Quote",
+            "--author", "Vannevar Bush",
+            "--tags", "memex,hypertext"
+        ])
+        self._run_cli([
+            "note",
+            "Conflict-free replicated data types (CRDTs) enable multi-peer collaboration.",
+            "--title", "CRDT Collaboration Note",
+            "--tags", "crdt,distributed"
+        ])
+
+        # 1. Search for 'associative'
+        search_res = self._run_cli(["search", "associative"])
+        self.assertIn("Search Results for 'associative'", search_res.stdout)
+        self.assertIn("Memex Association Quote", search_res.stdout)
+        self.assertNotIn("CRDT Collaboration Note", search_res.stdout)
+
+        # 2. Search for 'crdt'
+        search_res2 = self._run_cli(["search", "crdt"])
+        self.assertIn("CRDT Collaboration Note", search_res2.stdout)
+        self.assertNotIn("Memex Association Quote", search_res2.stdout)
+
+        # 3. List with -q filter
+        list_res = self._run_cli(["list", "-q", "associative"])
+        self.assertIn("Memex Association Quote", list_res.stdout)
+        self.assertNotIn("CRDT Collaboration Note", list_res.stdout)
+
+        # 4. MCP tool search verification
+        import webtack_mcp
+        old_env = os.environ.get("WEBTACK_VAULT")
+        try:
+            os.environ["WEBTACK_VAULT"] = str(self.vault_dir)
+            mcp_results = webtack_mcp.search_vault("associative")
+            self.assertEqual(len(mcp_results), 1)
+            self.assertEqual(mcp_results[0]["title"], "Memex Association Quote")
+        finally:
+            if old_env:
+                os.environ["WEBTACK_VAULT"] = old_env
+            else:
+                os.environ.pop("WEBTACK_VAULT", None)
+
 
 if __name__ == "__main__":
     unittest.main()

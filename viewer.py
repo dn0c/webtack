@@ -15,12 +15,12 @@ import types
 import urllib.parse
 import webbrowser
 from datetime import datetime, timezone
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 
 def get_atoms_data(vault_dir: Path):
-    """Load all atoms and compute kind counts from vault.db."""
+    """Load lightweight atom metadata and kind counts from vault.db for instant rendering."""
     db_path = vault_dir / "vault.db"
     if not db_path.exists():
         print(f"📦 vault.db not found at {db_path}. Auto-reindexing from atom sidecars...")
@@ -36,27 +36,30 @@ def get_atoms_data(vault_dir: Path):
     kind_counts = {"all": len(rows), "article": 0, "bookmark": 0, "video": 0, "quote": 0, "note": 0, "image": 0, "file": 0}
 
     for r in rows:
-        raw = json.loads(r["raw_json"])
         created_at = r["created_at"]
-        folder = vault_dir / "atoms" / created_at[:4] / created_at[5:7] / r["id"]
-
-        article_text = r["text_content"] if (r["kind"] == "article" or raw.get("kind") == "article") else None
-        if not article_text and (folder / "article.md").exists():
-            try:
-                with open(folder / "article.md", "r", encoding="utf-8") as af:
-                    article_text = af.read()
-            except Exception:
-                pass
-
         meta = json.loads(r["metadata"]) if r["metadata"] else {}
         tags = json.loads(r["tags"]) if r["tags"] else []
-        kind = raw.get("kind") or r["kind"] or raw.get("curation", {}).get("kind")
+        kind = r["kind"]
         if kind in kind_counts:
             kind_counts[kind] += 1
 
-        visibility = r["visibility"] if "visibility" in r.keys() and r["visibility"] else raw.get("curation", {}).get("visibility", "public")
+        visibility = r["visibility"] if "visibility" in r.keys() and r["visibility"] else "public"
+        alt_text = r["alt_text"] if "alt_text" in r.keys() and r["alt_text"] else None
 
-        alt_text = r["alt_text"] if "alt_text" in r.keys() and r["alt_text"] else ((raw.get("content") or raw.get("payload") or {}).get("cover_image") or {}).get("alt_text")
+        # Compact excerpt for cards: quotes and notes keep full text; articles truncate to 300 chars
+        excerpt = r["text_content"]
+        if kind == "article" and excerpt and len(excerpt) > 300:
+            excerpt = excerpt[:300] + "..."
+
+        embed_url = meta.get("embed_url")
+        if not embed_url and r["source_url"]:
+            src = r["source_url"]
+            if "watch?v=" in src:
+                embed_url = src.replace("watch?v=", "embed/")
+            elif "youtu.be/" in src:
+                embed_url = src.replace("youtu.be/", "www.youtube.com/embed/")
+
+        file_path = meta.get("file_path") or meta.get("relative_path")
 
         atoms_data.append({
             "id": r["id"],
@@ -66,16 +69,17 @@ def get_atoms_data(vault_dir: Path):
             "notes": r["notes"],
             "tags": tags,
             "alt_text": alt_text,
-            "date": r["created_at"][:10],
-            "created_at": r["created_at"],
+            "date": created_at[:10],
+            "created_at": created_at,
             "source_url": r["source_url"] or r["destination_url"],
             "author": r["author"],
             "cover_path": r["cover_file_path"],
             "metadata": meta,
-            "article_markdown": article_text,
-            "excerpt": r["text_content"],
-            "folder_path": f"atoms/{created_at[:4]}/{created_at[5:7]}/{r['id']}",
-            "raw": raw
+            "has_article": (kind == "article"),
+            "excerpt": excerpt,
+            "embed_url": embed_url,
+            "file_path": file_path,
+            "folder_path": f"atoms/{created_at[:4]}/{created_at[5:7]}/{r['id']}"
         })
     return atoms_data, kind_counts
 
@@ -2183,16 +2187,14 @@ def generate_viewer(vault_dir: Path) -> Path:
 
         let tagsHtml = (atom.tags || []).map(t => `<span class="tag">#${{t}}</span>`).join('');
         let extrasHtml = '';
-        const rawContent = (atom.raw && (atom.raw.content || atom.raw.payload)) || {{}};
-        if (atom.kind === 'video' || (rawContent.video && rawContent.video.embed_url)) {{
+        if (atom.kind === 'video' || atom.embed_url) {{
           extrasHtml = `<button class="read-btn" style="background:#6B46C1;" onclick="openVideoPlayer('${{atom.id}}')">▶ Play</button>`;
-        }} else if (atom.kind === 'article' || atom.article_markdown) {{
+        }} else if (atom.kind === 'article' || atom.has_article || atom.article_markdown) {{
           extrasHtml = `<button class="read-btn" onclick="openReader('${{atom.id}}')">📖 Read</button>`;
         }} else if (atom.kind === 'note') {{
           extrasHtml = `<button class="read-btn" style="background:#4A5568;" onclick="openReader('${{atom.id}}')">📝 Open</button>`;
         }} else if (atom.kind === 'file') {{
-          const fileObj = rawContent.file || {{}};
-          const fileHref = fileObj.relative_path || (fileObj.filename ? `${{atom.folder_path}}/${{fileObj.filename}}` : '');
+          const fileHref = atom.file_path || (atom.folder_path ? `${{atom.folder_path}}/file` : '');
           if (fileHref) {{
             extrasHtml = `<a class="read-btn" style="background:#4A5568; text-decoration:none;" href="${{fileHref}}" target="_blank" download>📄 File</a>`;
           }}
@@ -2432,9 +2434,18 @@ def generate_viewer(vault_dir: Path) -> Path:
       }});
     }}
 
-    function copyAtomJson(atomId) {{
+    async function copyAtomJson(atomId) {{
       const atom = ATOMS.find(a => a.id === atomId);
-      if (!atom || !atom.raw) return;
+      if (!atom) return;
+      if (!atom.raw) {{
+        try {{
+          const resp = await fetch(`${{atom.folder_path}}/atom.json`);
+          if (resp.ok) atom.raw = await resp.json();
+        }} catch (e) {{
+          console.warn('Failed to fetch atom.json', e);
+        }}
+      }}
+      if (!atom.raw) return;
       navigator.clipboard.writeText(JSON.stringify(atom.raw, null, 2)).then(() => {{
         const btn = document.getElementById('metaCopyJsonBtn');
         if (btn) {{
@@ -2639,10 +2650,23 @@ def generate_viewer(vault_dir: Path) -> Path:
       return `<pre style="white-space:pre-wrap;">${{escapeHtml(md)}}</pre>`;
     }}
 
-    function openReader(atomId) {{
+    async function openReader(atomId) {{
       const atom = ATOMS.find(a => a.id === atomId);
-      const content = atom ? (atom.article_markdown || (atom.kind === 'note' ? atom.excerpt : null)) : null;
-      if (!atom || !content) return;
+      if (!atom) return;
+
+      if (!atom.article_markdown && (atom.kind === 'article' || atom.has_article)) {{
+        try {{
+          const resp = await fetch(`${{atom.folder_path}}/article.md`);
+          if (resp.ok) {{
+            atom.article_markdown = await resp.text();
+          }}
+        }} catch (e) {{
+          console.warn('Could not fetch article.md', e);
+        }}
+      }}
+
+      const content = atom.article_markdown || (atom.kind === 'note' ? atom.excerpt : null);
+      if (!content) return;
 
       window.currentReaderAtomId = atomId;
 
@@ -2830,9 +2854,20 @@ def generate_viewer(vault_dir: Path) -> Path:
       `).join('');
     }}
 
-    function openMetadataModal(atomId) {{
+    async function openMetadataModal(atomId) {{
       const atom = ATOMS.find(a => a.id === atomId);
       if (!atom) return;
+
+      if (!atom.raw) {{
+        try {{
+          const resp = await fetch(`${{atom.folder_path}}/atom.json`);
+          if (resp.ok) {{
+            atom.raw = await resp.json();
+          }}
+        }} catch (e) {{
+          console.warn('Could not fetch atom.json', e);
+        }}
+      }}
 
       window.currentMetaAtomId = atom.id;
 
@@ -3036,7 +3071,7 @@ def generate_viewer(vault_dir: Path) -> Path:
         `;
       }}
 
-      if (payload.article || atom.article_markdown) {{
+      if (payload.article || atom.article_markdown || atom.has_article) {{
         const artFile = payload.article && payload.article.file ? payload.article.file : 'article.md';
         const artWordCount = payload.article && payload.article.word_count ? payload.article.word_count : (wordCount || 0);
         payloadContentHtml += `
@@ -3047,7 +3082,7 @@ def generate_viewer(vault_dir: Path) -> Path:
                 Stored in <code class="spec-mono">${{artFile}}</code> • ${{artWordCount.toLocaleString()}} words ${{readTime ? `(${{readTime}})` : ''}}
               </div>
             </div>
-            ${{atom.article_markdown ? `<button class="meta-btn primary" onclick="openReaderFromMeta('${{atom.id}}')">📖 Read Article</button>` : ''}}
+            ${{(atom.article_markdown || atom.has_article) ? `<button class="meta-btn primary" onclick="openReaderFromMeta('${{atom.id}}')">📖 Read Article</button>` : ''}}
           </div>
         `;
       }}
@@ -3109,7 +3144,7 @@ def generate_viewer(vault_dir: Path) -> Path:
 
       // Universal 5-Slot Modular Showcase
       const slotCoverActive = Boolean(hasCover);
-      const slotArticleActive = Boolean(payload.article || atom.article_markdown);
+      const slotArticleActive = Boolean(payload.article || atom.article_markdown || atom.has_article);
       const slotTextActive = Boolean(payload.text || atom.kind === 'quote' || atom.kind === 'note');
       const slotVideoActive = Boolean(payload.video || atom.kind === 'video');
       const slotFileActive = Boolean(payload.file);
@@ -4155,6 +4190,13 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
         directory = str(self.vault_dir) if self.vault_dir else None
         super().__init__(*args, directory=directory, **kwargs)
 
+    def end_headers(self):
+        # Add aggressive cache header for static immutable media assets (covers, PDFs, audio/video)
+        clean_path = self.path.split("?")[0].lower()
+        if any(clean_path.endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".pdf", ".mp4", ".mp3", ".webm")):
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        super().end_headers()
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/api/export":
@@ -4368,6 +4410,57 @@ class WebTackCaptureHandler(SimpleHTTPRequestHandler):
                 }
             else:
                 data = {"exists": False}
+
+            response_bytes = json.dumps(data).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(response_bytes)))
+            self.end_headers()
+            self.wfile.write(response_bytes)
+        elif parsed.path == "/api/search":
+            query = urllib.parse.parse_qs(parsed.query)
+            q_str = query.get("q", [""])[0]
+            k_str = query.get("kind", [None])[0]
+            t_str = query.get("tag", [None])[0]
+            v_str = query.get("visibility", [None])[0]
+            try:
+                limit_val = int(query.get("limit", [30])[0])
+            except ValueError:
+                limit_val = 30
+
+            script_dir = str(Path(__file__).resolve().parent)
+            if script_dir not in sys.path:
+                sys.path.insert(0, script_dir)
+            import curate
+            conn = curate.get_db(self.vault_dir)
+            try:
+                rows = curate.query_atoms_fts(
+                    conn,
+                    query=q_str,
+                    kind=k_str,
+                    tag=t_str,
+                    visibility=v_str,
+                    limit=limit_val
+                )
+                items = []
+                for r in rows:
+                    items.append({
+                        "id": r["id"],
+                        "kind": r["kind"],
+                        "title": r["atom_title"],
+                        "author": r["author"],
+                        "url": r["source_url"] or r["destination_url"],
+                        "date": r["created_at"][:10],
+                        "visibility": r["visibility"] if "visibility" in r.keys() else "public",
+                        "tags": json.loads(r["tags"]) if r["tags"] else [],
+                        "notes": r["notes"],
+                        "cover_path": r["cover_file_path"],
+                        "snippet": r["snippet"] if "snippet" in r.keys() and r["snippet"] else None
+                    })
+                data = {"count": len(items), "query": q_str, "atoms": items}
+            finally:
+                conn.close()
 
             response_bytes = json.dumps(data).encode("utf-8")
             self.send_response(200)
@@ -4820,7 +4913,7 @@ def run_viewer_server(vault_dir: Path, port: int = 8080, open_browser: bool = Tr
     generate_viewer(vault_dir)
     os.chdir(vault_dir)
     WebTackCaptureHandler.vault_dir = vault_dir
-    server = HTTPServer(("127.0.0.1", port), WebTackCaptureHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", port), WebTackCaptureHandler)
     url = f"http://127.0.0.1:{port}/index.html"
     print(f"\n🚀 WebTack Live Vault & Capture running at: {url}")
     print(f"   • Press 'c' in the browser to quick-capture links, quotes, or notes")
